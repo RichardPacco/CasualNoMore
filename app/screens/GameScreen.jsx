@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
-import { View, ScrollView, ActivityIndicator } from "react-native";
-import { getOwnedGames } from "../../src/api/steam";
+import { useState, useEffect } from "react";
+import { View, FlatList } from "react-native";
 import GameCard from "../../src/components/GameCard";
+import { getOwnedGames } from "../../src/api/steam"; // make sure this calls Steam API correctly
 
-export default function GamesScreen() {
+export default function GameScreen({ navigation }) {
     const [games, setGames] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -14,11 +14,15 @@ export default function GamesScreen() {
         });
     }, []);
 
-    if (loading) return <ActivityIndicator size="large" className="mt-10" />;
-
     return (
-        <ScrollView className="flex-1 bg-gray-900 p-4">
-            {games.map(game => <GameCard key={game.appid} game={game} />)}
-        </ScrollView>
+        <View className="flex-1 bg-gray-900 p-4">
+            <FlatList
+                data={games}
+                keyExtractor={(item) => item.appid.toString()}
+                renderItem={({ item }) => (
+                    <GameCard game={item} navigation={navigation} />
+                )}
+            />
+        </View>
     );
 }

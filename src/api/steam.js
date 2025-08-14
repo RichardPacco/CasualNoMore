@@ -9,13 +9,15 @@ export const getPlayerSummary = async () => {
 };
 
 export const getOwnedGames = async () => {
-    const res = await fetch(`${BASE_URL}/IPlayerService/GetOwnedGames/v0001/?key=${API_KEY}&steamid=${STEAM_ID}&include_appinfo=true&format=json`);
+    const res = await fetch(`${BASE_URL}/IPlayerService/GetOwnedGames/v0001/?key=${API_KEY}&steamid=${STEAM_ID}&include_appinfo=true&include_played_free_games=1&format=json`);
     const json = await res.json();
     return json.response.games;
 };
 
 export const getAchievements = async (appId) => {
-    const res = await fetch(`${BASE_URL}/ISteamUserStats/GetPlayerAchievements/v0001/?appid=${appId}&key=${API_KEY}&steamid=${STEAM_ID}`);
+    const res = await fetch(
+        `${BASE_URL}/ISteamUserStats/GetPlayerAchievements/v0001/?appid=${appId}&key=${API_KEY}&steamid=${STEAM_ID}&l=portuguese`
+    );
     const json = await res.json();
     return json.playerstats.achievements;
 };

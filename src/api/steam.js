@@ -1,4 +1,4 @@
-import { API_KEY, STEAM_ID } from "../config/constants";
+import { API_KEY, STEAM_ID } from "../config/constantsEAS";
 
 const BASE_URL = "https://api.steampowered.com";
 

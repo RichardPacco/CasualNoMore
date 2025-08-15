@@ -6,6 +6,20 @@ import { Animated, TouchableOpacity, useColorScheme } from "react-native";
 import GameStack from "./screens/GameStack";
 import HomeScreen from "./screens/HomeScreen";
 
+import { NavigationContainer } from '@react-navigation/native';
+import * as Linking from 'expo-linking';
+
+// Configuração de linking
+const linking = {
+    prefixes: [Linking.createURL('/')], // Gera casualnomore:///
+    config: {
+        screens: {
+            Perfil: 'perfil',
+            Jogos: 'jogos',
+        },
+    },
+};
+
 const Tab = createBottomTabNavigator();
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
@@ -50,36 +64,38 @@ export default function App() {
     const scheme = useColorScheme();
 
     return (
-        <Tab.Navigator
-            screenOptions={({ route }) => ({
-                headerShown: false,
-                tabBarShowLabel: false,
-                tabBarStyle: {
-                    position: "absolute",
-                    bottom: 10,
-                    left: 20,
-                    right: 20,
-                    height: 60,
-                    borderRadius: 25,
-                    backgroundColor: "transparent",
-                    elevation: 0,
-                    shadowOpacity: 0,
-                    borderTopWidth: 0,
-                },
-                tabBarButton: (props) => (
-                    <FloatingTabButton {...props} focused={props.accessibilityState?.selected} />
-                ),
-                tabBarIcon: ({ focused }) => {
-                    let iconName;
-                    if (route.name === "Perfil") iconName = focused ? "person" : "person-outline";
-                    else if (route.name === "Jogos") iconName = focused ? "game-controller" : "game-controller-outline";
+        <NavigationContainer linking={linking}>
+            <Tab.Navigator
+                screenOptions={({ route }) => ({
+                    headerShown: false,
+                    tabBarShowLabel: false,
+                    tabBarStyle: {
+                        position: "absolute",
+                        bottom: 10,
+                        left: 20,
+                        right: 20,
+                        height: 60,
+                        borderRadius: 25,
+                        backgroundColor: "transparent",
+                        elevation: 0,
+                        shadowOpacity: 0,
+                        borderTopWidth: 0,
+                    },
+                    tabBarButton: (props) => (
+                        <FloatingTabButton {...props} focused={props.accessibilityState?.selected} />
+                    ),
+                    tabBarIcon: ({ focused }) => {
+                        let iconName;
+                        if (route.name === "Perfil") iconName = focused ? "person" : "person-outline";
+                        else if (route.name === "Jogos") iconName = focused ? "game-controller" : "game-controller-outline";
 
-                    return <Ionicons name={iconName} size={26} color="white" />;
-                },
-            })}
-        >
-            <Tab.Screen name="Perfil" component={HomeScreen} />
-            <Tab.Screen name="Jogos" component={GameStack} />
-        </Tab.Navigator>
+                        return <Ionicons name={iconName} size={26} color="white" />;
+                    },
+                })}
+            >
+                <Tab.Screen name="Perfil" component={HomeScreen} />
+                <Tab.Screen name="Jogos" component={GameStack} />
+            </Tab.Navigator>
+        </NavigationContainer>
     );
 }

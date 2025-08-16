@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
-import { FlatList, View } from "react-native";
-import { getOwnedGames } from "../../src/api/steam";
+import { useState, useEffect } from "react";
+import { View, FlatList } from "react-native";
 import GameCard from "../../src/components/GameCard";
+import { getOwnedGames } from "../../src/api/steam"; // make sure this calls Steam API correctly
 
 export default function GameScreen({ navigation }) {
     const [games, setGames] = useState([]);
@@ -22,9 +22,7 @@ export default function GameScreen({ navigation }) {
                 renderItem={({ item }) => (
                     <GameCard game={item} navigation={navigation} />
                 )}
-                contentContainerStyle={{ paddingBottom: 80 }}
             />
         </View>
     );
-
 }

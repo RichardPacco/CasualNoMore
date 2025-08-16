@@ -78,8 +78,8 @@ export default function App() {
                 },
             })}
         >
-            <Tab.Screen name="Perfil" component={HomeScreen} />
             <Tab.Screen name="Jogos" component={GameStack} />
+            <Tab.Screen name="Perfil" component={HomeScreen} />
         </Tab.Navigator>
     );
 }

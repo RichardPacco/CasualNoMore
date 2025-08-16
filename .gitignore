@@ -38,4 +38,4 @@ yarn-error.*
 
 app-example
 
-/src/config/constants.js
+.env

@@ -17,7 +17,7 @@ export default function _Layout() {
             <Tabs>
                 <Tabs.Screen name="GameStack" options={{ title: "Games", headerShown: false }}
                 />
-                <Tabs.Screen name="HomeScreen" options={{ title: "Profile", headerShown: false }}
+                <Tabs.Screen name="profile" options={{ title: "Profile", headerShown: false }}
                 />
             </Tabs>
         </SafeAreaView>

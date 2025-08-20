@@ -1,16 +1,18 @@
 import { getAchievements } from "@/src/api/steam";
 import { View, Text, FlatList } from "react-native";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
+import { AuthContext } from "@/src/context/AuthContext";
 
 export default function AchievementScreen({ route }) {
+    const { steamId } = useContext(AuthContext)
     const { game } = route.params || {};
 
     const [cheevos, setCheevos] = useState([]);
 
     useEffect(() => {
         if (!game?.appid) return;
-        getAchievements(game.appid).then(data => {
-            setCheevos(data);
+        getAchievements(game.appid, steamId).then(data => {
+            setCheevos(data.achievements);
         });
     }, []);
 

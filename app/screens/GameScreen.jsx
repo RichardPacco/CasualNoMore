@@ -22,7 +22,6 @@ export default function GameScreen({ navigation }) {
                 renderItem={({ item }) => (
                     <GameCard game={item} navigation={navigation} />
                 )}
-                contentContainerStyle={{ paddingBottom: 80 }}
             />
         </View>
     );

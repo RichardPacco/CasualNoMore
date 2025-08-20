@@ -1,6 +1,6 @@
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import GameScreen from "./GameScreen";
-import AchievementScreen from "./AchievementScreen";
+import GameScreen from "../screens/GameScreen";
+import AchievementScreen from "../screens/AchievementScreen";
 
 const Stack = createNativeStackNavigator();
 

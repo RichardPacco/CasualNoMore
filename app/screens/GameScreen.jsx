@@ -1,33 +1,107 @@
-import { useContext, useEffect, useState } from "react";
-import { FlatList, View } from "react-native";
+import { useContext, useEffect, useState, useCallback, useMemo } from "react";
+import { FlatList, View, Text, TouchableOpacity, ActivityIndicator } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getOwnedGames } from "../../src/api/steam";
 import GameCard from "../../src/components/GameCard";
 import { AuthContext } from "../../src/context/AuthContext";
 
-
 export default function GameScreen({ navigation }) {
-    const { steamId } = useContext(AuthContext)
+    const { steamId } = useContext(AuthContext);
     const [games, setGames] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [filter, setFilter] = useState("all");
+
+    const renderGameCard = useCallback(
+        ({ item }) => <GameCard game={item} navigation={navigation} />,
+        [navigation] // only re-create if navigation changes
+    );
 
     useEffect(() => {
-        getOwnedGames(steamId).then(data => {
-            console.log(data.games.filter(game => game.playtime_forever = 0));
-            setGames(data.games.filter(game => game.playtime_forever = 0));
-            setLoading(false);
+        async function loadGames() {
+            const cacheKey = `games_${steamId}`;
+
+            try {
+                // 1. carrega do cache primeiro (para exibir rápido)
+                const cached = await AsyncStorage.getItem(cacheKey);
+                if (cached) {
+                    setGames(JSON.parse(cached));
+                    setLoading(false);
+                }
+
+                // 2. busca dados frescos da API
+                const fresh = await getOwnedGames(steamId);
+
+                if (fresh?.games) {
+                    const freshGames = fresh.games;
+
+                    // se for diferente do cache, atualiza
+                    if (JSON.stringify(freshGames) !== cached) {
+                        setGames(freshGames);
+                        await AsyncStorage.setItem(cacheKey, JSON.stringify(freshGames));
+                    }
+                }
+            } catch (err) {
+                console.error("[GameScreen] erro carregando jogos:", err);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        loadGames();
+    }, [steamId]);
+
+    const filteredGames = useMemo(() => {
+        return games.filter(game => {
+            if (filter === "played") return game.playtime_forever > 0;
+            if (filter === "neverPlayed") return game.playtime_forever === 0;
+            if (filter === "recent") return game.playtime_2weeks > 0;
+            return true;
         });
-    }, []);
+    }, [games, filter]);
+
+    if (loading && games.length === 0) {
+        return (
+            <View className="flex-1 justify-center items-center bg-gray-900">
+                <ActivityIndicator size="large" color="#4ade80" />
+                <Text className="text-gray-400 mt-2">Carregando seus jogos...</Text>
+            </View>
+        );
+    }
 
     return (
         <View className="flex-1 bg-gray-900 p-4">
+            {/* filtros */}
+            <View className="flex-row justify-around mb-4">
+                <TouchableOpacity onPress={() => setFilter("all")}>
+                    <Text className={filter === "all" ? "text-green-400 font-bold" : "text-gray-400"}>
+                        Todos
+                    </Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setFilter("neverPlayed")}>
+                    <Text className={filter === "neverPlayed" ? "text-green-400 font-bold" : "text-gray-400"}>
+                        Nunca Jogados
+                    </Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setFilter("played")}>
+                    <Text className={filter === "played" ? "text-green-400 font-bold" : "text-gray-400"}>
+                        Jogados
+                    </Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setFilter("recent")}>
+                    <Text className={filter === "recent" ? "text-green-400 font-bold" : "text-gray-400"}>
+                        Recentes
+                    </Text>
+                </TouchableOpacity>
+            </View>
+
             <FlatList
-                data={games}
+                data={filteredGames}
                 keyExtractor={(item) => item.appid.toString()}
-                renderItem={({ item }) => (
-                    <GameCard game={item} navigation={navigation} />
-                )}
+                renderItem={renderGameCard}
+                initialNumToRender={10}
+                windowSize={5}
+                removeClippedSubviews={true}
             />
         </View>
     );
-
 }

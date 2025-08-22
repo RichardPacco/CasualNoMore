@@ -1,11 +1,12 @@
-import { View, Text, Image, TouchableOpacity, Linking } from "react-native";
+import React, { memo } from "react";
+import { View, Text, TouchableOpacity, Image } from "react-native";
 
-export default function GameCard({ game, navigation }) {
+function GameCardComponent({ game, navigation }) {
     return (
         <TouchableOpacity
             className="bg-gray-800 p-3 rounded-lg flex-row mb-3"
             onPress={() =>
-                navigation.navigate("Achievements", { game }) // send game as param
+                navigation.navigate("Achievements", { game })
             }
         >
             <Image
@@ -23,3 +24,8 @@ export default function GameCard({ game, navigation }) {
         </TouchableOpacity>
     );
 }
+
+// Wrap with memo
+export default memo(GameCardComponent, (prevProps, nextProps) => {
+    return prevProps.game === nextProps.game && prevProps.navigation === nextProps.navigation;
+});

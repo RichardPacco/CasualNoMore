@@ -1,5 +1,5 @@
-import React, { memo } from "react";
-import { View, Text, TouchableOpacity, Image } from "react-native";
+import { memo } from "react";
+import { Image, Text, TouchableOpacity, View } from "react-native";
 
 function GameCardComponent({ game, navigation }) {
     return (
@@ -18,7 +18,7 @@ function GameCardComponent({ game, navigation }) {
             <View className="ml-3">
                 <Text className="text-white font-semibold">{game.name}</Text>
                 <Text className="text-gray-400 text-xs">
-                    {Math.round(game.playtime_forever / 60)} horas
+                    {Math.round(game.playtime_forever / 60)} horas {Math.round(game.playtime_forever % 60)} minutos
                 </Text>
             </View>
         </TouchableOpacity>

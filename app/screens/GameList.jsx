@@ -52,13 +52,31 @@ export default function GameList({ navigation }) {
     }, [steamId]);
 
     const filteredGames = useMemo(() => {
-        return games.filter(game => {
-            if (filter === "played") return game.playtime_forever > 0;
-            if (filter === "neverPlayed") return game.playtime_forever === 0;
-            if (filter === "recent") return game.playtime_2weeks > 0;
-            return true;
-        });
+        let result = games;
+
+        if (filter === "played") {
+            result = result.filter(game => game.playtime_forever > 0);
+        } else if (filter === "neverPlayed") {
+            result = result.filter(game => game.playtime_forever === 0);
+        } else if (filter === "mostRecent") {
+            result = [...result].sort((a, b) => {
+                const playA = a.playtime_2weeks || 0;
+                const playB = b.playtime_2weeks || 0;
+
+                if (playB !== playA) {
+                    // primeiro ordena pelo tempo jogado nas últimas 2 semanas (desc)
+                    return playB - playA;
+                }
+                // se forem iguais, ordena pelo total jogado (desc)
+                const totalA = a.playtime_forever || 0;
+                const totalB = b.playtime_forever || 0;
+                return totalB - totalA;
+            });
+        }
+
+        return result;
     }, [games, filter]);
+
 
     if (loading && games.length === 0) {
         return (
@@ -88,7 +106,7 @@ export default function GameList({ navigation }) {
                         Jogados
                     </Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => setFilter("recent")}>
+                <TouchableOpacity onPress={() => setFilter("mostRecent")}>
                     <Text className={filter === "recent" ? "text-green-400 font-bold" : "text-gray-400"}>
                         Recentes
                     </Text>

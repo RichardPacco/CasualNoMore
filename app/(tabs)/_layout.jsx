@@ -1,8 +1,8 @@
-import { Stack, Tabs } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { StatusBar, useColorScheme } from "react-native";
-import * as NavigationBar from "expo-navigation-bar";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import * as NavigationBar from "expo-navigation-bar";
+import { Tabs } from "expo-router";
+import { StatusBar, useColorScheme } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import '../globals.css';
 
 export default function _Layout() {
@@ -50,7 +50,7 @@ export default function _Layout() {
                     }}
                 />
                 <Tabs.Screen
-                    name="profile"
+                    name="Profile"
                     options={{
                         title: "Profile",
                         tabBarIcon: ({ color, size }) => (

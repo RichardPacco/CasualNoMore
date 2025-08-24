@@ -1,11 +1,11 @@
-import { useContext, useEffect, useState, useCallback, useMemo } from "react";
-import { FlatList, View, Text, TouchableOpacity, ActivityIndicator } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, FlatList, Text, TouchableOpacity, View } from "react-native";
 import { getOwnedGames } from "../../src/api/steam";
 import GameCard from "../../src/components/GameCard";
 import { AuthContext } from "../../src/context/AuthContext";
 
-export default function GameScreen({ navigation }) {
+export default function GameList({ navigation }) {
     const { steamId } = useContext(AuthContext);
     const [games, setGames] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -17,31 +17,32 @@ export default function GameScreen({ navigation }) {
     );
 
     useEffect(() => {
+        if (!steamId) return; // ✅ exit early if no steamId
+
         async function loadGames() {
             const cacheKey = `games_${steamId}`;
 
             try {
-                // 1. carrega do cache primeiro (para exibir rápido)
+                // load from cache
                 const cached = await AsyncStorage.getItem(cacheKey);
                 if (cached) {
                     setGames(JSON.parse(cached));
                     setLoading(false);
                 }
 
-                // 2. busca dados frescos da API
+                // fetch fresh data
                 const fresh = await getOwnedGames(steamId);
 
                 if (fresh?.games) {
                     const freshGames = fresh.games;
 
-                    // se for diferente do cache, atualiza
                     if (JSON.stringify(freshGames) !== cached) {
                         setGames(freshGames);
                         await AsyncStorage.setItem(cacheKey, JSON.stringify(freshGames));
                     }
                 }
             } catch (err) {
-                console.error("[GameScreen] erro carregando jogos:", err);
+                console.error("[GameList] erro carregando jogos:", err);
             } finally {
                 setLoading(false);
             }

@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useContext } from "react";
-import { View, ScrollView, ActivityIndicator, TouchableOpacity, Text } from "react-native";
 import { useRouter } from "expo-router";
+import { useContext, useEffect, useState } from "react";
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { getPlayerSummary } from "../../src/api/steam";
 import ProfileCard from "../../src/components/ProfileCard";
 import { AuthContext } from "../../src/context/AuthContext";
@@ -38,7 +38,7 @@ function LogoutButton() {
 /**
  * Tela principal de perfil — export default
  */
-export default function HomeScreen() {
+export default function Profile() {
     const router = useRouter();
     const { steamId } = useContext(AuthContext);
     const [profile, setProfile] = useState(null);

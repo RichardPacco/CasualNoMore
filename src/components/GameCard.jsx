@@ -18,7 +18,9 @@ function GameCardComponent({ game, navigation }) {
             <View className="ml-3">
                 <Text className="text-white font-semibold">{game.name}</Text>
                 <Text className="text-gray-400 text-xs">
-                    {Math.round(game.playtime_forever / 60)} horas {Math.round(game.playtime_forever % 60)} minutos
+                    {game.playtime_forever < 60
+                        ? `${game.playtime_forever} minutos`
+                        : `${Math.floor(game.playtime_forever / 60)} horas ${game.playtime_forever % 60} minutos`}
                 </Text>
             </View>
         </TouchableOpacity>

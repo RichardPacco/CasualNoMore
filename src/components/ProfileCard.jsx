@@ -1,4 +1,7 @@
-import { View, Text, Image, TouchableOpacity, Linking } from "react-native";
+import { useRouter } from "expo-router";
+import { useContext } from "react";
+import { Image, Linking, Text, TouchableOpacity, View } from "react-native";
+import { AuthContext } from "../context/AuthContext";
 import { formatDate } from "../utils/formatDate";
 
 function getStatus(statusCode) {
@@ -17,10 +20,37 @@ function getStatus(statusCode) {
 export default function ProfileCard({ data }) {
     const status = getStatus(data.personastate);
 
+
+    function LogoutButton() {
+        const { clearSteamId } = useContext(AuthContext);
+        const router = useRouter();
+
+        const handleLogout = async () => {
+            try {
+                // Limpa steamId do contexto/storage
+                await clearSteamId?.();
+            } catch (e) {
+                console.warn("Erro ao limpar steamId:", e);
+            } finally {
+                // garante navegação para a tela de login (efeito pós-logout)
+                router.replace("/(auth)/login");
+            }
+        };
+
+        return (
+            <TouchableOpacity
+                onPress={handleLogout}
+                className="bg-red-600 p-3 rounded-lg flex-1 mr-2 items-center"
+            >
+                <Text className="text-white font-semibold">Sair</Text>
+            </TouchableOpacity>
+        );
+    }
+
     return (
         <View className="bg-gray-800 rounded-xl overflow-hidden mb-4">
             {/* Capa */}
-            <View className="bg-gray-700 h-24 w-full" />
+            <View className="bg-gray-700 h-16 w-full" />
 
             {/* Foto e nome */}
             <View className="p-4 -mt-12 flex-row items-center">
@@ -37,7 +67,7 @@ export default function ProfileCard({ data }) {
             {/* Infos adicionais */}
             <View className="px-4 pb-4">
                 {data.realname && (
-                    <Text className="text-gray-300 text-sm">Nome real: {data.realname}</Text>
+                    <Text className="text-gray-300 text-sm">Nome: {data.realname}</Text>
                 )}
                 {data.loccountrycode && (
                     <Text className="text-gray-300 text-sm">País: {data.loccountrycode}</Text>
@@ -48,12 +78,16 @@ export default function ProfileCard({ data }) {
             </View>
 
             {/* Botão para abrir na Steam */}
-            <TouchableOpacity
-                className="bg-blue-600 p-3 m-4 rounded-lg items-center"
-                onPress={() => Linking.openURL(data.profileurl)}
-            >
-                <Text className="text-white font-semibold">Ver Perfil na Steam</Text>
-            </TouchableOpacity>
+            <View className="flex-row justify-between px-4 mb-4">
+                <TouchableOpacity
+                    className="bg-blue-600 p-3 rounded-lg flex-1 mr-2 items-center"
+                    onPress={() => Linking.openURL(data.profileurl)}
+                >
+                    <Text className="text-white font-semibold">Ver Perfil</Text>
+                </TouchableOpacity>
+
+                <LogoutButton />
+            </View>
         </View>
     );
 }

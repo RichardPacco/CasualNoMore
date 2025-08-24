@@ -1,39 +1,10 @@
 import { useRouter } from "expo-router";
 import { useContext, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Text, View } from "react-native";
 import { getPlayerSummary } from "../../src/api/steam";
 import ProfileCard from "../../src/components/ProfileCard";
 import { AuthContext } from "../../src/context/AuthContext";
 
-/**
- * Componente de botão de logout (interno ao arquivo)
- */
-function LogoutButton() {
-    const { clearSteamId } = useContext(AuthContext);
-    const router = useRouter();
-
-    const handleLogout = async () => {
-        try {
-            // Limpa steamId do contexto/storage
-            await clearSteamId?.();
-        } catch (e) {
-            console.warn("Erro ao limpar steamId:", e);
-        } finally {
-            // garante navegação para a tela de login (efeito pós-logout)
-            router.replace("/(auth)/login");
-        }
-    };
-
-    return (
-        <TouchableOpacity
-            onPress={handleLogout}
-            className="p-2 bg-red-600 rounded"
-            style={{ alignSelf: "flex-end" }}
-        >
-            <Text className="text-white">Sair</Text>
-        </TouchableOpacity>
-    );
-}
 
 /**
  * Tela principal de perfil — export default
@@ -89,17 +60,7 @@ export default function Profile() {
     }
 
     return (
-        <ScrollView className="flex-1 bg-gray-900 p-4">
-            {/* linha superior com steamId e botão Sair */}
-            <View className="flex-row justify-between items-center mb-4">
-                <View>
-                    <Text className="text-gray-300 text-sm">Logged as</Text>
-                    <Text className="text-white font-medium">{steamId ?? "—"}</Text>
-                </View>
-
-                <LogoutButton />
-            </View>
-
+        <View className="flex-1 bg-gray-900 p-4">
             {/* Profile: renderiza um placeholder caso profile seja null */}
             {profile ? (
                 <ProfileCard data={profile} />
@@ -108,6 +69,6 @@ export default function Profile() {
                     <Text className="text-gray-300">Perfil não disponível</Text>
                 </View>
             )}
-        </ScrollView>
+        </View>
     );
 }

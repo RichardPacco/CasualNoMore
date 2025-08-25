@@ -1,6 +1,7 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from "expo-router";
 import { useContext, useEffect, useState } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Button, Text, View } from "react-native";
 import { getPlayerSummary } from "../../src/api/steam";
 import ProfileCard from "../../src/components/ProfileCard";
 import { AuthContext } from "../../src/context/AuthContext";
@@ -59,8 +60,19 @@ export default function Profile() {
         );
     }
 
+    const clearCache = async () => {
+        try {
+            await AsyncStorage.clear();
+            Alert.alert('Success', 'All cached data has been cleared!');
+        } catch (e) {
+            Alert.alert('Error', 'Failed to clear cache.');
+            console.error(e);
+        }
+    };
+
     return (
         <View className="flex-1 bg-gray-900 p-4">
+            <Button title="Clear Cache" onPress={clearCache} color="#f87171" />
             {/* Profile: renderiza um placeholder caso profile seja null */}
             {profile ? (
                 <ProfileCard data={profile} />

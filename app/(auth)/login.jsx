@@ -2,33 +2,13 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useContext, useState } from "react";
-import { Alert, Button, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { resolveVanityURL } from "../../src/api/steam"; // opcional, mantenha ou remova
+import { Alert, SafeAreaView, StatusBar, Text, TouchableOpacity, View } from "react-native";
+import { TextInput } from "react-native-paper";
+import { resolveVanityURL } from "../../src/api/steam";
 import { AuthContext } from "../../src/context/AuthContext";
 import { clearDB } from "../../src/database/db";
 
-const handleClearDB = async () => {
-    Alert.alert(
-        "Confirmação",
-        "Tem certeza que quer limpar todo o banco de dados?",
-        [
-            { text: "Cancelar", style: "cancel" },
-            {
-                text: "Sim",
-                style: "destructive",
-                onPress: async () => {
-                    try {
-                        await clearDB();
-                        Alert.alert("Banco limpo!", "O banco de dados foi zerado.");
-                    } catch (err) {
-                        console.error(err);
-                        Alert.alert("Erro", "Falha ao limpar o banco de dados.");
-                    }
-                },
-            },
-        ]
-    );
-};
+
 
 export default function Login() {
     const { setSteamId } = useContext(AuthContext);
@@ -37,7 +17,7 @@ export default function Login() {
     const [input, setInput] = useState("");
     const [loading, setLoading] = useState(false);
 
-    const clearCache = async () => {
+    const handleClearCache = async () => {
         try {
             await AsyncStorage.clear();
             Alert.alert('Success', 'All cached data has been cleared!');
@@ -45,6 +25,29 @@ export default function Login() {
             Alert.alert('Error', 'Failed to clear cache.');
             console.error(e);
         }
+    };
+
+    const handleClearDB = async () => {
+        Alert.alert(
+            "Confirmação",
+            "Tem certeza que quer limpar todo o banco de dados?",
+            [
+                { text: "Cancelar", style: "cancel" },
+                {
+                    text: "Sim",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            await clearDB();
+                            Alert.alert("Banco limpo!", "O banco de dados foi zerado.");
+                        } catch (err) {
+                            console.error(err);
+                            Alert.alert("Erro", "Falha ao limpar o banco de dados.");
+                        }
+                    },
+                },
+            ]
+        );
     };
 
     const handleSubmit = async () => {
@@ -86,31 +89,73 @@ export default function Login() {
     };
 
     return (
-        <View style={{ flex: 1, backgroundColor: "#111", padding: 20, justifyContent: "center" }}>
-            <Button title="Clear Cache" onPress={clearCache} color="#f87171" />
-            <Button
-                title="Limpar banco de dados (debug)"
-                color="red"
-                onPress={handleClearDB}
-            />
-            <Text style={{ color: "#fff", fontSize: 22, marginBottom: 12 }}>Entrar com Steam</Text>
+        <SafeAreaView className="flex-1 bg-[#111]">
+            <StatusBar barStyle="dark-content" backgroundColor="#111" />
 
-            <TextInput
-                value={input}
-                onChangeText={setInput}
-                placeholder="SteamID64 (ex: 7656119...) ou vanity"
-                placeholderTextColor="#888"
-                autoCapitalize="none"
-                style={{ backgroundColor: "#222", color: "#fff", padding: 12, borderRadius: 8, marginBottom: 12 }}
-            />
+            <View className="flex-1 p-5 justify-between">
+                {/* Top section */}
+                <View>
+                    <Text className="text-[#4ade80] text-2xl font-bold text-center mb-3 shadow-[2px_2px_4px_#b4a6a6ff]">
+                        CasualNoMore
+                    </Text>
+                </View>
 
-            <TouchableOpacity
-                onPress={handleSubmit}
-                disabled={loading}
-                style={{ backgroundColor: "#7B6EF6", padding: 12, borderRadius: 8, alignItems: "center" }}
-            >
-                <Text style={{ color: "#fff" }}>{loading ? "Carregando..." : "Continuar"}</Text>
-            </TouchableOpacity>
-        </View>
+                {/* Bottom section */}
+                <View>
+                    {/* Buttons */}
+                    <View className="flex-row justify-between mb-4">
+                        <TouchableOpacity
+                            onPress={handleClearCache}
+                            className="px-3 py-2 rounded-md border border-[#F87171] items-center bg-transparent"
+                        >
+                            <Text className="text-[#F87171] font-medium">Limpar Cache</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            onPress={handleClearDB}
+                            className="px-3 py-2 rounded-md border border-[#F87171] items-center bg-transparent"
+                        >
+                            <Text className="text-[#F87171] font-medium">Limpar DB</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Tip box */}
+                    <View className="bg-[#1e1e1e] p-2.5 rounded-md mb-4 border-l-4 border-[#4ade80]">
+                        <Text className="text-[#aaa] text-xs">
+                            O perfil Steam deve estar público para o aplicativo funcionar
+                        </Text>
+                    </View>
+
+                    {/* Input */}
+                    <View className="mb-3">
+                        <TextInput
+                            label="Steam URL ou SteamID"
+                            value={input}
+                            onChangeText={setInput}
+                            mode="outlined"
+                            style={{ backgroundColor: "#222" }}
+                            theme={{
+                                colors: {
+                                    primary: "#4ade80",  // label / focus color
+                                },
+                            }}
+                            textColor="#fff"
+                        />
+                    </View>
+
+                    {/* Continuar button */}
+                    <TouchableOpacity
+                        onPress={handleSubmit}
+                        disabled={loading}
+                        className="bg-[#4ade80] py-3 rounded-md items-center"
+                    >
+                        <Text className="text-white">{loading ? "Carregando..." : "Continuar"}</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </SafeAreaView>
     );
+
+
+
 }

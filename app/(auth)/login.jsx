@@ -1,9 +1,10 @@
 // app/(auth)/login.js
-import React, { useState, useContext } from "react";
-import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import { AuthContext } from "../../src/context/AuthContext";
+import { useContext, useState } from "react";
+import { Alert, Button, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { resolveVanityURL } from "../../src/api/steam"; // opcional, mantenha ou remova
+import { AuthContext } from "../../src/context/AuthContext";
 
 export default function Login() {
     const { setSteamId } = useContext(AuthContext);
@@ -11,6 +12,16 @@ export default function Login() {
 
     const [input, setInput] = useState("");
     const [loading, setLoading] = useState(false);
+
+    const clearCache = async () => {
+        try {
+            await AsyncStorage.clear();
+            Alert.alert('Success', 'All cached data has been cleared!');
+        } catch (e) {
+            Alert.alert('Error', 'Failed to clear cache.');
+            console.error(e);
+        }
+    };
 
     const handleSubmit = async () => {
         if (!input.trim()) {
@@ -52,6 +63,7 @@ export default function Login() {
 
     return (
         <View style={{ flex: 1, backgroundColor: "#111", padding: 20, justifyContent: "center" }}>
+            <Button title="Clear Cache" onPress={clearCache} color="#f87171" />
             <Text style={{ color: "#fff", fontSize: 22, marginBottom: 12 }}>Entrar com Steam</Text>
 
             <TextInput

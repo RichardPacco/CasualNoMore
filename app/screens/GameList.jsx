@@ -1,9 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { remapProps } from "nativewind";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Easing, FlatList, PanResponder, Text, View, useColorScheme, } from "react-native";
+import { ActivityIndicator, Animated, Easing, FlatList, PanResponder, Text, useColorScheme, View, } from "react-native";
 import { Dropdown } from "react-native-element-dropdown";
-import { getOwnedGames } from "../../src/api/steam";
+import { getOwnedGames, GetSchemaForGame } from "../../src/api/steam";
 import GameCard from "../../src/components/GameCard";
 import { AuthContext } from "../../src/context/AuthContext";
 
@@ -15,12 +15,17 @@ const StyledDropdown = remapProps(Dropdown, {
     itemTextClassName: "itemTextStyle",
 });
 
+async function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export default function GameList({ navigation }) {
     const { steamId } = useContext(AuthContext);
 
-    // ---------- hooks / estado (sempre no topo) ----------
+    // ---------- hooks / state ----------
     const [games, setGames] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [progress, setProgress] = useState({ current: 0, total: 0 });
     const [filter, setFilter] = useState("all");
 
     const colorScheme = useColorScheme();
@@ -72,42 +77,113 @@ export default function GameList({ navigation }) {
     // ---------- load jogos ----------
     useEffect(() => {
         if (!steamId) return;
+        let cancelled = false;
+
         async function loadGames() {
-            const cacheKey = `games_${steamId}`;
+            const cacheKey = `games_with_schema_${steamId}`;
+
+            // 1. Lê cache
+            let cached = [];
             try {
-                const cached = await AsyncStorage.getItem(cacheKey);
-                if (cached) {
-                    setGames(JSON.parse(cached));
-                    setLoading(false);
-                }
-                const fresh = await getOwnedGames(steamId);
-                if (fresh?.games) {
-                    const freshGames = fresh.games;
-                    if (JSON.stringify(freshGames) !== cached) {
-                        setGames(freshGames);
-                        await AsyncStorage.setItem(cacheKey, JSON.stringify(freshGames));
+                const raw = await AsyncStorage.getItem(cacheKey);
+                if (raw) cached = JSON.parse(raw) || [];
+            } catch (err) {
+                console.warn("[GameList] erro parse cache", err);
+                cached = [];
+            }
+
+            if (cached.length > 0) {
+                setGames(cached);
+                setLoading(false);
+                setProgress({ current: cached.length, total: cached.length }); // corrige spinner
+            }
+
+            // 2. Busca lista fresh do Steam
+            const fresh = await getOwnedGames(steamId);
+            if (!fresh?.games) return;
+
+            const total = fresh.games.length;
+            setProgress({ current: cached.length, total }); // começa de onde o cache parou
+
+            // cria mapa do cache por appid
+            const cacheMap = new Map(cached.map(g => [g.appid, g]));
+
+            // começa com cache para não duplicar
+            const enrichedGames = [...cached];
+
+            for (let i = 0; i < fresh.games.length; i++) {
+                if (cancelled) break;
+
+                const baseGame = fresh.games[i];
+                const cachedEntry = cacheMap.get(baseGame.appid);
+
+                // reutiliza schema do cache se existir
+                let enriched;
+                if (cachedEntry && cachedEntry.schema) {
+                    enriched = { ...baseGame, schema: cachedEntry.schema };
+                } else {
+                    try {
+                        const schema = await GetSchemaForGame(baseGame.appid, steamId);
+                        enriched = { ...baseGame, schema };
+                    } catch (err) {
+                        console.error("Erro schema", baseGame.appid, err);
+                        enriched = { ...baseGame };
                     }
                 }
-            } catch (err) {
-                console.error("[GameList] erro carregando jogos:", err);
-            } finally {
-                setLoading(false);
+
+                // verifica se precisa atualizar
+                const idx = enrichedGames.findIndex(g => g.appid === baseGame.appid);
+                let updated = false;
+
+                if (idx >= 0) {
+                    const prev = enrichedGames[idx];
+                    // só atualiza se playtime_forever mudou
+                    if ((prev.playtime_forever || 0) !== (enriched.playtime_forever || 0)) {
+                        enrichedGames[idx] = enriched;
+                        updated = true;
+                    }
+                } else {
+                    // jogo novo
+                    enrichedGames.push(enriched);
+                    updated = true;
+                }
+
+                if (updated) {
+                    console.log("Game atualizado (playtime mudou):", enriched.name || enriched.appid);
+                    setGames([...enrichedGames]);
+                    setProgress({ current: enrichedGames.length, total });
+                    if (i < total - 1) await sleep(500); // pausa apenas quando há atualização
+                }
+            }
+
+            if (!cancelled) {
+                try {
+                    await AsyncStorage.setItem(cacheKey, JSON.stringify(enrichedGames));
+                } catch (err) {
+                    console.warn("[GameList] erro ao salvar cache", err);
+                }
             }
         }
+
         loadGames();
+
+        return () => {
+            cancelled = true;
+        };
     }, [steamId]);
 
-    // ---------- swipe (estado e gestos) ----------
+
+
+
+    // ---------- swipe stuff ----------
     const [isSwiping, setIsSwiping] = useState(false);
     const panRef = useRef(null);
-    const SWIPE_THRESHOLD = 80; // px sensibilidade
+    const SWIPE_THRESHOLD = 80;
 
-    // Animated values
-    const translateX = useRef(new Animated.Value(0)).current; // acompanha o dx durante drag
-    const labelScale = useRef(new Animated.Value(1)).current; // anima pulso quando troca
-    const labelOpacity = useRef(new Animated.Value(1)).current; // leve fade
+    const translateX = useRef(new Animated.Value(0)).current;
+    const labelScale = useRef(new Animated.Value(1)).current;
+    const labelOpacity = useRef(new Animated.Value(1)).current;
 
-    // atualiza índice por delta (usa setter funcional para evitar stale closures)
     const changeIndexBy = (delta) => {
         setFilterIndex(prevIndex => {
             const next = Math.max(0, Math.min(filterOptions.length - 1, prevIndex + delta));
@@ -119,7 +195,6 @@ export default function GameList({ navigation }) {
         });
     };
 
-    // PanResponder: atualiza translateX durante o movimento e chama changeIndexBy no release
     const panResponder = useRef(
         PanResponder.create({
             onStartShouldSetPanResponder: () => false,
@@ -129,53 +204,32 @@ export default function GameList({ navigation }) {
             },
             onPanResponderGrant: () => {
                 setIsSwiping(true);
-                // parar quaisquer animações pendentes
                 translateX.stopAnimation();
             },
             onPanResponderMove: (_evt, gs) => {
-                // atualiza o Animated.Value diretamente com dx (não usa timing para acompanhar o dedo)
                 translateX.setValue(gs.dx);
-                // opcional: também mapear opacidade baseada no dx
                 const abs = Math.min(Math.abs(gs.dx), 200);
-                const newOpacity = 1 - abs / 350; // leve redução
+                const newOpacity = 1 - abs / 350;
                 labelOpacity.setValue(newOpacity);
             },
             onPanResponderRelease: (_evt, gs) => {
                 const { dx, vx } = gs;
-
-                // decidir se é swipe válido
                 if (dx > SWIPE_THRESHOLD || (dx > 30 && vx > 0.8)) {
-                    // swipe para direita -> voltar
                     changeIndexBy(-1);
-                    // feedback de troca: pulse
-                    Animated.sequence([
-                        Animated.timing(labelScale, { toValue: 1.08, duration: 120, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-                        Animated.timing(labelScale, { toValue: 1.0, duration: 150, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-                    ]).start();
                 } else if (dx < -SWIPE_THRESHOLD || (dx < -30 && vx < -0.8)) {
-                    // swipe para esquerda -> próximo
                     changeIndexBy(1);
-                    Animated.sequence([
-                        Animated.timing(labelScale, { toValue: 1.08, duration: 120, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-                        Animated.timing(labelScale, { toValue: 1.0, duration: 150, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-                    ]).start();
                 }
-
-                // animar o translateX de volta a zero suavemente
                 Animated.timing(translateX, {
                     toValue: 0,
                     duration: 180,
                     easing: Easing.out(Easing.quad),
                     useNativeDriver: true,
                 }).start(() => {
-                    // restaurar opacidade
                     Animated.timing(labelOpacity, { toValue: 1, duration: 120, useNativeDriver: true }).start();
                 });
-
                 setIsSwiping(false);
             },
             onPanResponderTerminate: () => {
-                // cancelar
                 Animated.timing(translateX, { toValue: 0, duration: 150, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
                 Animated.timing(labelOpacity, { toValue: 1, duration: 120, useNativeDriver: true }).start();
                 setIsSwiping(false);
@@ -184,21 +238,23 @@ export default function GameList({ navigation }) {
         })
     ).current;
 
-    // quando o filtro muda (por dropdown ou swipe), fazemos um pequeno pulse (caso não tenha sido tocado via swipe)
     useEffect(() => {
-        // dispara um pulse suave sempre que filterIndex mudar (já temos outro pulse no swipe, mas esse garante feedback ao selecionar no dropdown)
         Animated.sequence([
             Animated.timing(labelScale, { toValue: 1.06, duration: 120, useNativeDriver: true, easing: Easing.out(Easing.quad) }),
             Animated.timing(labelScale, { toValue: 1.0, duration: 120, useNativeDriver: true, easing: Easing.out(Easing.quad) }),
         ]).start();
     }, [filterIndex, labelScale]);
 
-    // ---------- UI / styles ----------
+    // ---------- UI ----------
     if (loading && games.length === 0) {
         return (
             <View className="flex-1 justify-center items-center bg-gray-900">
                 <ActivityIndicator size="large" color="#4ade80" />
-                <Text className="text-gray-400 mt-2">Carregando seus jogos...</Text>
+                {progress.total > 0 && (
+                    <Text className="text-gray-400 mt-2">
+                        Buscando {progress.current}/{progress.total} jogos…
+                    </Text>
+                )}
             </View>
         );
     }
@@ -241,28 +297,6 @@ export default function GameList({ navigation }) {
             className={`flex-1 p-4 ${isDark ? "bg-gray-900" : "bg-white"}`}
             ref={panRef}
         >
-            {/* Animated label: move com o dedo e faz pulse quando o filtro muda */}
-            <Animated.View
-                style={{
-                    transform: [
-                        {
-                            translateX: translateX.interpolate({
-                                // mover mais suavemente (clamp)
-                                inputRange: [-300, -120, 0, 120, 300],
-                                outputRange: [-50, -20, 0, 20, 50],
-                                extrapolate: "clamp",
-                            }),
-                        },
-                        { scale: labelScale },
-                    ],
-                    opacity: labelOpacity,
-                }}
-            >
-                {/* <Text className={`mb-2 ${isDark ? "text-gray-400" : "text-gray-600"} text-sm`}>
-                    {`Filtro: ${filterOptions[filterIndex].label}`}
-                </Text> */}
-            </Animated.View>
-
             <StyledDropdown
                 className={dropdownClass}
                 containerClassName={dropdownContainerClass}
@@ -296,6 +330,16 @@ export default function GameList({ navigation }) {
                 removeClippedSubviews={true}
                 contentContainerStyle={{ paddingBottom: 12 }}
                 scrollEnabled={!isSwiping}
+                ListHeaderComponent={
+                    progress.current < progress.total ? (
+                        <View className="py-4 items-center">
+                            <ActivityIndicator size="small" color="#4ade80" />
+                            <Text className="text-gray-400 mt-2">
+                                Carregando {progress.current}/{progress.total}
+                            </Text>
+                        </View>
+                    ) : null
+                }
             />
         </View>
     );

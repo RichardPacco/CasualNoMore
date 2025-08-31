@@ -29,6 +29,7 @@ export default function ProfileCard({ data }) {
             try {
                 // Limpa steamId do contexto/storage
                 await clearSteamId?.();
+                // await AsyncStorage.removeItem(`games_with_schema_${steamId}`);
             } catch (e) {
                 console.warn("Erro ao limpar steamId:", e);
             } finally {

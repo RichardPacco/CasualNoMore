@@ -31,6 +31,19 @@ export async function GetSchemaForGame(appId, steamId, lang = "portuguese") {
     return json?.game?.availableGameStats?.achievements ?? null;
 }
 
+export async function GetUserStatsForGame(appId, steamId) {
+    if (!appId) throw new Error("getAchievements: appId é obrigatório");
+    if (!steamId) throw new Error("getAchievements: steamId é obrigatório");
+
+    const url = `${BASE_URL}/ISteamUserStats/GetUserStatsForGame/v2/?key=${encodeURIComponent(
+        config.apiKey
+    )}&appid=${encodeURIComponent(
+        appId
+    )}&steamid=${encodeURIComponent(steamId)}`
+    const json = await fetchJson(url)
+    return json.playerstats ?? null;
+}
+
 export async function resolveVanityURL(vanity) {
     if (!vanity) return null;
     const url = `${BASE_URL}/ISteamUser/ResolveVanityURL/v1/?key=${encodeURIComponent(

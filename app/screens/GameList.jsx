@@ -1,4 +1,3 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { remapProps } from "nativewind";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Easing, FlatList, PanResponder, Text, useColorScheme, View, } from "react-native";
@@ -6,6 +5,7 @@ import { Dropdown } from "react-native-element-dropdown";
 import { getOwnedGames, GetSchemaForGame } from "../../src/api/steam";
 import GameCard from "../../src/components/GameCard";
 import { AuthContext } from "../../src/context/AuthContext";
+import { getAllGames, saveGame } from "../../src/database/db";
 
 const StyledDropdown = remapProps(Dropdown, {
     className: "style",
@@ -75,93 +75,81 @@ export default function GameList({ navigation }) {
     }, [games, filter]);
 
     // ---------- load jogos ----------
+
     useEffect(() => {
         if (!steamId) return;
         let cancelled = false;
 
         async function loadGames() {
-            const cacheKey = `games_with_schema_${steamId}`;
-
-            // 1. Lê cache
-            let cached = [];
             try {
-                const raw = await AsyncStorage.getItem(cacheKey);
-                if (raw) cached = JSON.parse(raw) || [];
-            } catch (err) {
-                console.warn("[GameList] erro parse cache", err);
-                cached = [];
-            }
-
-            if (cached.length > 0) {
-                setGames(cached);
-                setLoading(false);
-                setProgress({ current: cached.length, total: cached.length }); // corrige spinner
-            }
-
-            // 2. Busca lista fresh do Steam
-            const fresh = await getOwnedGames(steamId);
-            if (!fresh?.games) return;
-
-            const total = fresh.games.length;
-            setProgress({ current: cached.length, total }); // começa de onde o cache parou
-
-            // cria mapa do cache por appid
-            const cacheMap = new Map(cached.map(g => [g.appid, g]));
-
-            // começa com cache para não duplicar
-            const enrichedGames = [...cached];
-
-            for (let i = 0; i < fresh.games.length; i++) {
-                if (cancelled) break;
-
-                const baseGame = fresh.games[i];
-                const cachedEntry = cacheMap.get(baseGame.appid);
-
-                // reutiliza schema do cache se existir
-                let enriched;
-                if (cachedEntry && cachedEntry.schema) {
-                    enriched = { ...baseGame, schema: cachedEntry.schema };
-                } else {
-                    try {
-                        const schema = await GetSchemaForGame(baseGame.appid, steamId);
-                        enriched = { ...baseGame, schema };
-                    } catch (err) {
-                        console.error("Erro schema", baseGame.appid, err);
-                        enriched = { ...baseGame };
-                    }
+                // 1️⃣ Carregar jogos do DB
+                const cachedGames = await getAllGames(steamId);
+                if (cachedGames.length > 0) {
+                    console.log("[GameList] Carregados do DB:", cachedGames.length);
+                    setGames(cachedGames);
+                    setProgress({ current: cachedGames.length, total: cachedGames.length });
+                    setLoading(false);
                 }
 
-                // verifica se precisa atualizar
-                const idx = enrichedGames.findIndex(g => g.appid === baseGame.appid);
-                let updated = false;
+                // 2️⃣ Buscar jogos fresh da Steam
+                const fresh = await getOwnedGames(steamId);
+                if (!fresh?.games) return;
 
-                if (idx >= 0) {
-                    const prev = enrichedGames[idx];
-                    // só atualiza se playtime_forever mudou
-                    if ((prev.playtime_forever || 0) !== (enriched.playtime_forever || 0)) {
-                        enrichedGames[idx] = enriched;
+                const total = fresh.games.length;
+                setProgress({ current: cachedGames.length, total });
+
+                // Mapa para reutilizar schema
+                const cacheMap = new Map(cachedGames.map(g => [g.appid, g]));
+
+                let enrichedGames = [...cachedGames];
+
+                for (let i = 0; i < fresh.games.length; i++) {
+                    if (cancelled) break;
+
+                    const baseGame = fresh.games[i];
+                    const cachedEntry = cacheMap.get(baseGame.appid);
+
+                    let enriched;
+                    if (cachedEntry && cachedEntry.schema) {
+                        enriched = { ...baseGame, schema: cachedEntry.schema };
+                    } else {
+                        try {
+                            const schema = await GetSchemaForGame(baseGame.appid, steamId);
+                            enriched = { ...baseGame, schema };
+                        } catch (err) {
+                            console.error("[GameList] Erro schema", baseGame.appid, err);
+                            enriched = { ...baseGame };
+                        }
+                    }
+
+                    // Verifica se precisa atualizar
+                    const idx = enrichedGames.findIndex(g => g.appid === baseGame.appid);
+                    let updated = false;
+
+                    if (idx >= 0) {
+                        const prev = enrichedGames[idx];
+                        if ((prev.playtime_forever || 0) !== (enriched.playtime_forever || 0)) {
+                            enrichedGames[idx] = enriched;
+                            updated = true;
+                        }
+                    } else {
+                        enrichedGames.push(enriched);
                         updated = true;
                     }
-                } else {
-                    // jogo novo
-                    enrichedGames.push(enriched);
-                    updated = true;
+
+                    if (updated) {
+                        await saveGame(steamId, enriched); // salva jogo no DB
+                        setGames([...enrichedGames]);
+                        setProgress({ current: enrichedGames.length, total });
+                        if (i < total - 1) await sleep(500); // pausa apenas quando há atualização
+                    }
                 }
 
-                if (updated) {
-                    console.log("Game atualizado (playtime mudou):", enriched.name || enriched.appid);
-                    setGames([...enrichedGames]);
-                    setProgress({ current: enrichedGames.length, total });
-                    if (i < total - 1) await sleep(500); // pausa apenas quando há atualização
-                }
-            }
-
-            if (!cancelled) {
-                try {
-                    await AsyncStorage.setItem(cacheKey, JSON.stringify(enrichedGames));
-                } catch (err) {
-                    console.warn("[GameList] erro ao salvar cache", err);
-                }
+                setLoading(false);
+                console.log("[GameList] Todos os jogos carregados.");
+            } catch (err) {
+                console.error("[GameList] loadGames failed", err);
+                setLoading(false);
             }
         }
 
@@ -171,6 +159,7 @@ export default function GameList({ navigation }) {
             cancelled = true;
         };
     }, [steamId]);
+
 
 
 

@@ -5,6 +5,30 @@ import { useContext, useState } from "react";
 import { Alert, Button, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { resolveVanityURL } from "../../src/api/steam"; // opcional, mantenha ou remova
 import { AuthContext } from "../../src/context/AuthContext";
+import { clearDB } from "../../src/database/db";
+
+const handleClearDB = async () => {
+    Alert.alert(
+        "Confirmação",
+        "Tem certeza que quer limpar todo o banco de dados?",
+        [
+            { text: "Cancelar", style: "cancel" },
+            {
+                text: "Sim",
+                style: "destructive",
+                onPress: async () => {
+                    try {
+                        await clearDB();
+                        Alert.alert("Banco limpo!", "O banco de dados foi zerado.");
+                    } catch (err) {
+                        console.error(err);
+                        Alert.alert("Erro", "Falha ao limpar o banco de dados.");
+                    }
+                },
+            },
+        ]
+    );
+};
 
 export default function Login() {
     const { setSteamId } = useContext(AuthContext);
@@ -64,6 +88,11 @@ export default function Login() {
     return (
         <View style={{ flex: 1, backgroundColor: "#111", padding: 20, justifyContent: "center" }}>
             <Button title="Clear Cache" onPress={clearCache} color="#f87171" />
+            <Button
+                title="Limpar banco de dados (debug)"
+                color="red"
+                onPress={handleClearDB}
+            />
             <Text style={{ color: "#fff", fontSize: 22, marginBottom: 12 }}>Entrar com Steam</Text>
 
             <TextInput

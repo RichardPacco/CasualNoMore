@@ -15,7 +15,7 @@ export default function AchievementScreen({ route }) {
 
     useEffect(() => {
         if (!game?.appid) return;
-
+        // console.log('GAME', game)
         async function fetchAll() {
             try {
                 const schemaData = game.schema || [];

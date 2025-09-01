@@ -82,3 +82,17 @@ export async function getPlayerAchievements(appId, steamId, lang = "portuguese")
     const json = await fetchJson(url);
     return json?.playerstats ?? null; // { steamID, gameName, achievements: [...] }
 }
+
+export async function getGameStoreDetails(appId) {
+    if (!appId) throw new Error("getAchievements: appId é obrigatório");
+
+    const url = `https://store.steampowered.com/api/appdetails?appids=${encodeURIComponent(
+        appId
+    )}&cc=BR&l=portuguese`
+    const json = await fetchJson(url)
+    
+    if (!json || !json[appId] || !json[appId].success) return null;
+
+    return json[appId].data;
+}
+

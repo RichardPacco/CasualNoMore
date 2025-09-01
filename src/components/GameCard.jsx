@@ -6,7 +6,7 @@ function GameCardComponent({ game, navigation }) {
         <TouchableOpacity
             className="bg-gray-800 p-3 rounded-lg flex-row mb-3"
             onPress={() =>
-                navigation.navigate("Achievements", { game })
+                navigation.navigate("GameScreen", { game })
             }
         >
             <Image

@@ -95,7 +95,8 @@ export default function Login() {
 
         try {
             if (isSteam64) {
-                if (validateSteamProfile(numeric)) return;
+                const isValid = await validateSteamProfile(numeric); // ✅ await here
+                if (!isValid) return;
 
                 console.log("[Login] detectado SteamID64, salvando direto:", numeric);
                 await setSteamId(numeric);
@@ -113,7 +114,8 @@ export default function Login() {
                 return;
             }
 
-            if (validateSteamProfile(res.steamid)) return;
+            const isValid = await validateSteamProfile(res.steamid); // ✅ await here
+            if (!isValid) return;
 
             // se for público, segue normalmente
             await setSteamId(res.steamid);
@@ -126,6 +128,7 @@ export default function Login() {
             setLoading(false);
         }
     };
+
 
 
     return (

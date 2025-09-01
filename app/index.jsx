@@ -1,7 +1,6 @@
-// app/index.js
-import React, { useContext, useEffect } from "react";
-import { ActivityIndicator, View } from "react-native";
 import { useRouter } from "expo-router";
+import { useContext, useEffect } from "react";
+import { ActivityIndicator, View } from "react-native";
 import { AuthContext } from "../src/context/AuthContext";
 
 export default function Index() {

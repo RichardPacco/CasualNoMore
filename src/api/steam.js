@@ -1,5 +1,4 @@
-// src/api/steam.js
-import config from "../config/config"; // ajuste caminho
+import config from "../config/config";
 const BASE_URL = "https://api.steampowered.com";
 
 async function fetchJson(url) {
@@ -90,7 +89,7 @@ export async function getGameStoreDetails(appId) {
         appId
     )}&cc=BR&l=portuguese`
     const json = await fetchJson(url)
-    
+
     if (!json || !json[appId] || !json[appId].success) return null;
 
     return json[appId].data;

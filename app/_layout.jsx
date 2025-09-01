@@ -1,23 +1,23 @@
-import { Stack } from "expo-router";
-import React, { useContext } from "react";
-import { NavigationContainer } from "@react-navigation/native";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { ActivityIndicator, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { AuthProvider, AuthContext } from "../src/context/AuthContext";
+import { Slot, Stack } from "expo-router";
+import { RootSiblingParent } from "react-native-root-siblings";
+import { AuthProvider } from "../src/context/AuthContext";
 import './globals.css';
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <Stack>
-        <Stack.Screen name="index" options={{ headerShown: false }}
-        />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }}
-        />
-        <Stack.Screen name="(auth)/login" options={{ headerShown: false }}
-        />
-      </Stack>
-    </AuthProvider>
+    <RootSiblingParent>
+      <AuthProvider>
+        <Slot>
+          <Stack>
+            <Stack.Screen name="index" options={{ headerShown: false }}
+            />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }}
+            />
+            <Stack.Screen name="(auth)/login" options={{ headerShown: false }}
+            />
+          </Stack>
+        </Slot>
+      </AuthProvider>
+    </RootSiblingParent>
   );
 }

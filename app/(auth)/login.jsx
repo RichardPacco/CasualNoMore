@@ -1,13 +1,12 @@
-// app/(auth)/login.js
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useContext, useState } from "react";
 import { Alert, SafeAreaView, StatusBar, Text, TouchableOpacity, View } from "react-native";
 import { TextInput } from "react-native-paper";
-import { resolveVanityURL } from "../../src/api/steam";
+import { getPlayerSummary, resolveVanityURL } from "../../src/api/steam";
 import { AuthContext } from "../../src/context/AuthContext";
 import { clearDB } from "../../src/database/db";
-
+import { showToast } from "../../src/utils/toast";
 
 
 export default function Login() {
@@ -20,7 +19,7 @@ export default function Login() {
     const handleClearCache = async () => {
         try {
             await AsyncStorage.clear();
-            Alert.alert('Success', 'All cached data has been cleared!');
+            showToast('All cached data has been cleared!');
         } catch (e) {
             Alert.alert('Error', 'Failed to clear cache.');
             console.error(e);
@@ -39,7 +38,7 @@ export default function Login() {
                     onPress: async () => {
                         try {
                             await clearDB();
-                            Alert.alert("Banco limpo!", "O banco de dados foi zerado.");
+                            showToast("Banco limpo!", "O banco de dados foi zerado.");
                         } catch (err) {
                             console.error(err);
                             Alert.alert("Erro", "Falha ao limpar o banco de dados.");
@@ -50,9 +49,41 @@ export default function Login() {
         );
     };
 
+
+    async function validateSteamProfile(steamid) {
+        try {
+            const playerSummary = await getPlayerSummary(steamid);
+
+            if (!playerSummary) {
+                showToast(
+                    "Perfil Steam incorreto — confira o número ou a conexão com a internet.",
+                    "error"
+                );
+                return false;
+            }
+
+            // Steam public profile state is 3
+            if (Number(playerSummary.communityvisibilitystate) !== 3) {
+                showToast("Seu perfil Steam é privado. Torne-o público para continuar.", "warning");
+                return false;
+            }
+
+            return true;
+
+        } catch (e) {
+            console.error("[Profile] erro:", e);
+            showToast(
+                "Falha ao buscar perfil. Veja o console.",
+                "error"
+            );
+            return false;
+        }
+    }
+
+
     const handleSubmit = async () => {
         if (!input.trim()) {
-            Alert.alert("Erro", "Informe seu SteamID64 ou vanity URL.");
+            showToast("Informe seu SteamID64 ou vanity URL.", "warning");
             return;
         }
 
@@ -64,22 +95,30 @@ export default function Login() {
 
         try {
             if (isSteam64) {
+                if (validateSteamProfile(numeric)) return;
+
                 console.log("[Login] detectado SteamID64, salvando direto:", numeric);
                 await setSteamId(numeric);
                 router.replace("/(tabs)/GameStack");
                 return;
             }
 
-            // tenta resolver vanity -> steamid (se você tiver essa função)
+            // tenta resolver vanity -> steamid
             console.log("[Login] tentando resolver vanity:", input);
             const res = await resolveVanityURL(input);
             console.log("[Login] resolveVanityURL:", res);
-            if (res?.success === 1 && res?.steamid) {
-                await setSteamId(res.steamid);
-                router.replace("/(tabs)/GameStack");
-            } else {
-                Alert.alert("Erro", "Não foi possível resolver o vanity URL. Use o SteamID64 (número) se possível.");
+
+            if (res?.success !== 1 || !res?.steamid) {
+                showToast("Não foi possível resolver o vanity URL. Use o SteamID64 (número) se possível.", "error");
+                return;
             }
+
+            if (validateSteamProfile(res.steamid)) return;
+
+            // se for público, segue normalmente
+            await setSteamId(res.steamid);
+            router.replace("/(tabs)/GameStack");
+
         } catch (e) {
             console.error("[Login] erro:", e);
             Alert.alert("Erro", "Falha ao processar. Veja o console.");
@@ -87,6 +126,7 @@ export default function Login() {
             setLoading(false);
         }
     };
+
 
     return (
         <SafeAreaView className="flex-1 bg-[#111]">

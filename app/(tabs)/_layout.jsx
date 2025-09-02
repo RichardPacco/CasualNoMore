@@ -9,11 +9,14 @@ export default function _Layout() {
     const colorScheme = useColorScheme();
     const isDark = colorScheme === "dark";
 
-    NavigationBar.setBackgroundColorAsync(isDark ? "#111" : "#fff");
+    const pageBg = isDark ? "#111" : "#fff";
+
+    // Set navigation bar color safely now that edge-to-edge is disabled
+    NavigationBar.setBackgroundColorAsync(pageBg);
     NavigationBar.setButtonStyleAsync(isDark ? "light" : "dark");
 
     const tabBarStyle = {
-        backgroundColor: isDark ? "#111" : "#fff",
+        backgroundColor: pageBg,
         borderTopWidth: 0,
         elevation: 5,
         shadowColor: isDark ? "#000" : "#aaa",
@@ -29,8 +32,11 @@ export default function _Layout() {
     };
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? "#111" : "#fff" }}>
-            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={isDark ? "#111" : "#fff"} />
+        <SafeAreaView style={{ flex: 1, backgroundColor: pageBg }}>
+            <StatusBar
+                barStyle={isDark ? "light-content" : "dark-content"}
+                backgroundColor={pageBg}
+            />
             <Tabs
                 screenOptions={{
                     tabBarActiveTintColor: isDark ? "#4ade80" : "#16a34a",

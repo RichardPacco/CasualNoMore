@@ -1,23 +1,34 @@
 import { memo } from "react";
-import { Image, Text, TouchableOpacity, View } from "react-native";
+import { Image, Text, TouchableOpacity, View, useColorScheme } from "react-native";
 
 function GameCardComponent({ game, navigation }) {
+    const colorScheme = useColorScheme();
+
+    const styles = {
+        cardBg: colorScheme === "dark" ? "bg-gray-800" : "bg-gray-100",
+        titleText: colorScheme === "dark" ? "text-white" : "text-black",
+        subtitleText: colorScheme === "dark" ? "text-gray-400" : "text-gray-600",
+    };
+
     return (
         <TouchableOpacity
-            className="bg-gray-800 p-3 rounded-lg flex-row mb-3"
-            onPress={() =>
-                navigation.navigate("GameScreen", { game })
-            }
+            className={`${styles.cardBg} p-2 rounded-xl flex-row items-center mb-4`}
+            onPress={() => navigation.navigate("GameScreen", { game })}
         >
             <Image
                 source={{
-                    uri: `https://steamcdn-a.akamaihd.net/steam/apps/${game.appid}/capsule_184x69.jpg`,
+                    uri: `https://steamcdn-a.akamaihd.net/steam/apps/${game.appid}/capsule_231x87.jpg`,
                 }}
-                className="w-24 h-10 rounded"
+                className="w-40 h-20 rounded-md"
+                style={{ aspectRatio: 231 / 87 }}
+                resizeMode="cover"
             />
-            <View className="ml-3">
-                <Text className="text-white font-semibold">{game.name}</Text>
-                <Text className="text-gray-400 text-xs">
+
+            <View className="ml-4 flex-1">
+                <Text className={`${styles.titleText} text-lg font-bold`} numberOfLines={1}>
+                    {game.name}
+                </Text>
+                <Text className={`${styles.subtitleText} text-sm mt-1`}>
                     {game.playtime_forever < 60
                         ? `${game.playtime_forever} minutos`
                         : `${Math.floor(game.playtime_forever / 60)} horas ${game.playtime_forever % 60} minutos`}
@@ -27,7 +38,6 @@ function GameCardComponent({ game, navigation }) {
     );
 }
 
-// Wrap with memo
 export default memo(GameCardComponent, (prevProps, nextProps) => {
     return prevProps.game === nextProps.game && prevProps.navigation === nextProps.navigation;
 });

@@ -21,7 +21,7 @@ export default ({ config }) => {
         foregroundImage: "./assets/images/react-logo.png",
         backgroundColor: "#1E1E1E",
       },
-      edgeToEdgeEnabled: true,
+      edgeToEdgeEnabled: false,
     },
     web: {
       bundler: "metro",

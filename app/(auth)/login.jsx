@@ -123,7 +123,7 @@ export default function Login() {
 
         } catch (e) {
             console.error("[Login] erro:", e);
-            Alert.alert("Erro", "Falha ao processar. Veja o console.");
+            showToast(`Verifique conexão com a internet ou reinicie o app. ${e}`, "warning");
         } finally {
             setLoading(false);
         }

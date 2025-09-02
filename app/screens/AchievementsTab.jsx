@@ -51,10 +51,10 @@ export default function AchievementsTab({ game }) {
                     (globalPerc || []).forEach(p => {
                         percentMap[p.name] = p.percent;
                     });
-
+                    // console.log(schemaData)
                     const merged = schemaData.map(ach => ({
                         name: ach.displayName,
-                        apiname: ach.apiname,
+                        apiname: ach.name,
                         description: ach.description,
                         icon: achievementsMap[ach.apiname] ? ach.icon : ach.icongray,
                         achieved: achievementsMap[ach.apiname] || false,

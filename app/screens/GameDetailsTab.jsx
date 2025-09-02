@@ -110,24 +110,28 @@ export default function GameDetailsTab({ game }) {
                         </View>
                     )}
 
-                    {gameDetail?.metacritic && (
-                        <View className="bg-gray-800 p-3 rounded-lg flex-1">
-                            {/* Title */}
-                            <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold', marginBottom: 4 }}>
-                                MetaCritic
-                            </Text>
+                    <View className="bg-gray-800 p-3 rounded-lg flex-1">
+                        {/* Title */}
+                        <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold', marginBottom: 4 }}>
+                            MetaCritic
+                        </Text>
 
-                            {/* Score */}
+                        {gameDetail?.metacritic?.score ? (
                             <Text style={{ color: 'white', fontSize: 16 }}>
                                 {gameDetail.metacritic.score}
                             </Text>
-                        </View>
-                    )}
+                        ) : (
+                            <Text style={{ color: 'white', fontSize: 16 }}>
+                                -
+                            </Text>
+                        )}
+                    </View>
+
                 </View>
 
 
             </View>
-        </ScrollView>
+        </ScrollView >
     );
 
 }

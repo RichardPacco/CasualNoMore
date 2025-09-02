@@ -47,25 +47,24 @@ export default function AchievementsTab({ game }) {
                     achievementsList.forEach(a => {
                         achievementsMap[a.apiname] = a.achieved === 1;
                     });
-
                     const percentMap = {};
                     (globalPerc || []).forEach(p => {
-                        percentMap[p.name.toLowerCase()] = p.percent;
+                        percentMap[p.name] = p.percent;
                     });
 
                     const merged = schemaData.map(ach => ({
                         name: ach.displayName,
                         apiname: ach.apiname,
                         description: ach.description,
-                        icon: achievementsMap[ach.name] ? ach.icon : ach.icongray,
-                        achieved: achievementsMap[ach.name] || false,
-                        globalPercent: percentMap[ach.name.toLowerCase()] || 0
+                        icon: achievementsMap[ach.apiname] ? ach.icon : ach.icongray,
+                        achieved: achievementsMap[ach.apiname] || false,
+                        globalPercent: percentMap[ach.name] || 0
                     }));
 
                     merged.sort((a, b) => b.globalPercent - a.globalPercent);
                     setMergedCheevos(merged);
                 } else {
-                    setMergedCheevos([]); // No achievements
+                    setMergedCheevos([]);
                 }
 
             } catch (err) {

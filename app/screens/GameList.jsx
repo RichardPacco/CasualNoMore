@@ -1,6 +1,7 @@
 import { remapProps } from "nativewind";
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Easing, FlatList, PanResponder, Text, useColorScheme, View, } from "react-native";
+import PQueue from 'p-queue';
+import { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, FlatList, RefreshControl, Text, useColorScheme, View } from "react-native";
 import { Dropdown } from "react-native-element-dropdown";
 import { getOwnedGames, GetSchemaForGame } from "../../src/api/steam";
 import GameCard from "../../src/components/GameCard";
@@ -15,10 +16,6 @@ const StyledDropdown = remapProps(Dropdown, {
     itemTextClassName: "itemTextStyle",
 });
 
-async function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
 export default function GameList({ navigation }) {
     const { steamId } = useContext(AuthContext);
 
@@ -27,6 +24,8 @@ export default function GameList({ navigation }) {
     const [loading, setLoading] = useState(true);
     const [progress, setProgress] = useState({ current: 0, total: 0 });
     const [filter, setFilter] = useState("all");
+    const [refreshing, setRefreshing] = useState(false);
+    const [sort, setSort] = useState("recentPlaytime");
 
     const colorScheme = useColorScheme();
     const isDark = colorScheme === "dark";
@@ -41,11 +40,16 @@ export default function GameList({ navigation }) {
             { label: "🎮 Todos", value: "all" },
             { label: "🚫 Nunca Jogados", value: "neverPlayed" },
             { label: "🕹️ Jogados", value: "played" },
-            { label: "⏱️ Recentes (2 semanas)", value: "recent" },
-            { label: "🔥 Mais Recentes (ordenados)", value: "mostRecent" },
+            { label: "⏱️ Nas últimas 2 semanas", value: "recent" },
         ],
         []
     );
+
+    const sortOptions = useMemo(() => [
+        { label: "⏱️ Mais recentes", value: "recentPlaytime" },
+        { label: "🔥 Tempo de Jogo", value: "totalPlaytime" },
+        { label: "🔤 Nome", value: "name" },
+    ], []);
 
     const valueToIndex = useMemo(() => {
         const map = {};
@@ -61,74 +65,80 @@ export default function GameList({ navigation }) {
 
     const filteredGames = useMemo(() => {
         let result = games;
-        if (filter === "played") result = result.filter(g => g.playtime_forever > 0);
-        else if (filter === "neverPlayed") result = result.filter(g => g.playtime_forever === 0);
-        else if (filter === "recent") result = result.filter(g => g.playtime_2weeks > 0);
-        else if (filter === "mostRecent")
-            result = [...result].sort((a, b) => {
-                const a2 = a.playtime_2weeks || 0;
-                const b2 = b.playtime_2weeks || 0;
-                if (b2 !== a2) return b2 - a2;
-                return (b.playtime_forever || 0) - (a.playtime_forever || 0);
-            });
+
+        switch (filter) {
+            case "played":
+                result = result.filter(g => g.playtime_forever > 0);
+                break;
+            case "neverPlayed":
+                result = result.filter(g => g.playtime_forever === 0);
+                break;
+            case "recent":
+                result = result.filter(g => g.playtime_2weeks > 0);
+                break;
+            default:
+                break;
+        }
+
+        switch (sort) {
+            case "recentPlaytime":
+                result = [...result].sort((a, b) => {
+                    const a2 = a.playtime_2weeks || 0;
+                    const b2 = b.playtime_2weeks || 0;
+                    if (b2 !== a2) return b2 - a2;
+                    return (b.playtime_forever || 0) - (a.playtime_forever || 0);
+                });
+                break;
+            case "totalPlaytime":
+                result = [...result].sort((a, b) => (b.playtime_forever || 0) - (a.playtime_forever || 0));
+                break;
+            case "name":
+                result = [...result].sort((a, b) => a.name.localeCompare(b.name));
+                break;
+            default:
+                break;
+        }
+
         return result;
-    }, [games, filter]);
+    }, [games, filter, sort]);
 
     // ---------- load jogos ----------
+    const loadGames = useCallback(async () => {
+        setRefreshing(true);
+        try {
+            const cachedGames = await getAllGames(steamId);
+            let enrichedGames = [...cachedGames];
 
-    useEffect(() => {
-        if (!steamId) return;
-        let cancelled = false;
+            if (cachedGames.length > 0) {
+                setGames(cachedGames);
+                setProgress({ current: cachedGames.length, total: cachedGames.length });
+                setLoading(false);
+            }
 
-        async function loadGames() {
-            try {
-                // 1️⃣ Carregar jogos do DB
-                const cachedGames = await getAllGames(steamId);
-                if (cachedGames.length > 0) {
-                    console.log("[GameList] Carregados do DB:", cachedGames.length);
-                    setGames(cachedGames);
-                    setProgress({ current: cachedGames.length, total: cachedGames.length });
-                    setLoading(false);
-                }
-
-                // 2️⃣ Buscar jogos fresh da Steam
-                const fresh = await getOwnedGames(steamId);
-                if (!fresh?.games) return;
-
+            const fresh = await getOwnedGames(steamId);
+            if (fresh?.games) {
                 const total = fresh.games.length;
                 setProgress({ current: cachedGames.length, total });
 
-                // Mapa para reutilizar schema
                 const cacheMap = new Map(cachedGames.map(g => [g.appid, g]));
 
-                let enrichedGames = [...cachedGames];
-
                 for (let i = 0; i < fresh.games.length; i++) {
-                    if (cancelled) break;
-
                     const baseGame = fresh.games[i];
                     const cachedEntry = cacheMap.get(baseGame.appid);
 
-                    let enriched;
-                    if (cachedEntry && cachedEntry.schema) {
-                        enriched = { ...baseGame, schema: cachedEntry.schema };
-                    } else {
-                        try {
-                            const schema = await GetSchemaForGame(baseGame.appid, steamId);
-                            enriched = { ...baseGame, schema };
-                        } catch (err) {
-                            console.error("[GameList] Erro schema", baseGame.appid, err);
-                            enriched = { ...baseGame };
-                        }
-                    }
+                    let enriched = cachedEntry
+                        ? { ...baseGame, schema: cachedEntry.schema, schemaStatus: cachedEntry.schemaStatus }
+                        : { ...baseGame, schema: null, schemaStatus: "pending" };
 
-                    // Verifica se precisa atualizar
                     const idx = enrichedGames.findIndex(g => g.appid === baseGame.appid);
                     let updated = false;
 
                     if (idx >= 0) {
                         const prev = enrichedGames[idx];
-                        if ((prev.playtime_forever || 0) !== (enriched.playtime_forever || 0)) {
+                        if (
+                            prev.playtime_forever !== enriched.playtime_forever ||
+                            prev.schemaStatus !== enriched.schemaStatus
+                        ) {
                             enrichedGames[idx] = enriched;
                             updated = true;
                         }
@@ -138,101 +148,49 @@ export default function GameList({ navigation }) {
                     }
 
                     if (updated) {
-                        await saveGame(steamId, enriched); // salva jogo no DB
+                        await saveGame(steamId, enriched);
                         setGames([...enrichedGames]);
-                        setProgress({ current: enrichedGames.length, total });
-                        if (i < total - 1) await sleep(500); // pausa apenas quando há atualização
+                        setProgress({ current: i + 1, total });
                     }
                 }
 
-                setLoading(false);
-                console.log("[GameList] Todos os jogos carregados.");
-            } catch (err) {
-                console.error("[GameList] loadGames failed", err);
-                setLoading(false);
+                retrySchemas(steamId, enrichedGames, setGames);
             }
+        } catch (err) {
+            console.error("[GameList] loadGames failed", err);
         }
-
-        loadGames();
-
-        return () => {
-            cancelled = true;
-        };
+        setRefreshing(false);
     }, [steamId]);
 
-
-
-
-
-    // ---------- swipe stuff ----------
-    const [isSwiping, setIsSwiping] = useState(false);
-    const panRef = useRef(null);
-    const SWIPE_THRESHOLD = 80;
-
-    const translateX = useRef(new Animated.Value(0)).current;
-    const labelScale = useRef(new Animated.Value(1)).current;
-    const labelOpacity = useRef(new Animated.Value(1)).current;
-
-    const changeIndexBy = (delta) => {
-        setFilterIndex(prevIndex => {
-            const next = Math.max(0, Math.min(filterOptions.length - 1, prevIndex + delta));
-            if (next !== prevIndex) {
-                setFilter(filterOptions[next].value);
-                return next;
-            }
-            return prevIndex;
-        });
-    };
-
-    const panResponder = useRef(
-        PanResponder.create({
-            onStartShouldSetPanResponder: () => false,
-            onMoveShouldSetPanResponder: (_evt, gs) => {
-                const { dx, dy } = gs;
-                return Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy);
-            },
-            onPanResponderGrant: () => {
-                setIsSwiping(true);
-                translateX.stopAnimation();
-            },
-            onPanResponderMove: (_evt, gs) => {
-                translateX.setValue(gs.dx);
-                const abs = Math.min(Math.abs(gs.dx), 200);
-                const newOpacity = 1 - abs / 350;
-                labelOpacity.setValue(newOpacity);
-            },
-            onPanResponderRelease: (_evt, gs) => {
-                const { dx, vx } = gs;
-                if (dx > SWIPE_THRESHOLD || (dx > 30 && vx > 0.8)) {
-                    changeIndexBy(-1);
-                } else if (dx < -SWIPE_THRESHOLD || (dx < -30 && vx < -0.8)) {
-                    changeIndexBy(1);
-                }
-                Animated.timing(translateX, {
-                    toValue: 0,
-                    duration: 180,
-                    easing: Easing.out(Easing.quad),
-                    useNativeDriver: true,
-                }).start(() => {
-                    Animated.timing(labelOpacity, { toValue: 1, duration: 120, useNativeDriver: true }).start();
-                });
-                setIsSwiping(false);
-            },
-            onPanResponderTerminate: () => {
-                Animated.timing(translateX, { toValue: 0, duration: 150, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
-                Animated.timing(labelOpacity, { toValue: 1, duration: 120, useNativeDriver: true }).start();
-                setIsSwiping(false);
-            },
-            onPanResponderTerminationRequest: () => true,
-        })
-    ).current;
-
     useEffect(() => {
-        Animated.sequence([
-            Animated.timing(labelScale, { toValue: 1.06, duration: 120, useNativeDriver: true, easing: Easing.out(Easing.quad) }),
-            Animated.timing(labelScale, { toValue: 1.0, duration: 120, useNativeDriver: true, easing: Easing.out(Easing.quad) }),
-        ]).start();
-    }, [filterIndex, labelScale]);
+        if (!steamId) return;
+        loadGames();
+    }, [steamId, loadGames]);
+
+    async function retrySchemas(steamId, games, setGames) {
+        const queue = new PQueue({ concurrency: 1, interval: 200, intervalCap: 1 });
+
+        games
+            .filter(g => g.schemaStatus === "pending")
+            .forEach(g => {
+                queue.add(async () => {
+                    try {
+                        const schema = await GetSchemaForGame(g.appid, steamId);
+                        g.schema = schema;
+                        g.schemaStatus = "done";
+                        await saveGame(steamId, g);
+
+                        setGames(prev =>
+                            prev.map(pg => (pg.appid === g.appid ? { ...g } : pg))
+                        );
+                    } catch (err) {
+                        console.warn("[GameList] retry schema failed", g.appid, err);
+                    }
+                });
+            });
+
+        await queue.onIdle();
+    }
 
     // ---------- UI ----------
     if (loading && games.length === 0) {
@@ -281,11 +239,7 @@ export default function GameList({ navigation }) {
     const itemTextStyleObj = { color: isDark ? "#ffffff" : "#111111", fontSize: 15 };
 
     return (
-        <View
-            {...panResponder.panHandlers}
-            className={`flex-1 p-4 ${isDark ? "bg-gray-900" : "bg-white"}`}
-            ref={panRef}
-        >
+        <View className={`flex-1 p-4 ${isDark ? "bg-gray-900" : "bg-white"}`}>
             <StyledDropdown
                 className={dropdownClass}
                 containerClassName={dropdownContainerClass}
@@ -309,6 +263,25 @@ export default function GameList({ navigation }) {
                 }}
                 placeholder="🎯 Selecione um filtro"
             />
+            <StyledDropdown
+                className={dropdownClass}
+                containerClassName={dropdownContainerClass}
+                containerStyle={containerStyleForced}
+                style={mainStyleForced}
+                placeholderClassName={placeholderClass}
+                selectedTextClassName={selectedTextClass}
+                itemTextClassName={itemTextClass}
+                placeholderStyle={placeholderStyleObj}
+                selectedTextStyle={selectedTextStyleObj}
+                itemTextStyle={itemTextStyleObj}
+                activeColor={isDark ? "rgba(74, 222, 128, 0.2)" : "#d1fae5"}
+                data={sortOptions}
+                labelField="label"
+                valueField="value"
+                value={sort}
+                onChange={(item) => setSort(item.value)}
+                placeholder="🎯 Selecione uma ordenação"
+            />
 
             <FlatList
                 data={filteredGames}
@@ -318,7 +291,9 @@ export default function GameList({ navigation }) {
                 windowSize={5}
                 removeClippedSubviews={true}
                 contentContainerStyle={{ paddingBottom: 12 }}
-                scrollEnabled={!isSwiping}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={loadGames} />
+                }
                 ListHeaderComponent={
                     progress.current < progress.total ? (
                         <View className="py-4 items-center">

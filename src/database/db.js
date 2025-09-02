@@ -23,7 +23,8 @@ export async function ensureTable(steamId) {
       name TEXT,
       playtime_forever INTEGER,
       playtime_2weeks INTEGER,
-      schema TEXT
+      schema TEXT,
+      schemaStatus TEXT
     );
   `);
     return tableName;
@@ -37,12 +38,13 @@ export async function saveGame(steamId, game) {
         const db = await openDB();
         const tableName = await ensureTable(steamId);
         const schemaString = game.schema ? JSON.stringify(game.schema) : null;
+        const schemaStatus = game.schemaStatus || "pending"; // default if not set
 
         console.log(`[db] Salvando jogo: ${game.name || game.appid} na tabela ${tableName}`);
         await db.runAsync(
-            `INSERT OR REPLACE INTO ${tableName} (appid, name, playtime_forever, playtime_2weeks, schema)
-       VALUES (?, ?, ?, ?, ?)`,
-            [game.appid, game.name, game.playtime_forever || 0, game.playtime_2weeks || 0, schemaString]
+            `INSERT OR REPLACE INTO ${tableName} (appid, name, playtime_forever, playtime_2weeks, schema, schemaStatus)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+            [game.appid, game.name, game.playtime_forever || 0, game.playtime_2weeks || 0, schemaString, schemaStatus]
         );
         console.log(`[db] Jogo salvo: ${game.name || game.appid}`);
     } catch (err) {

@@ -55,6 +55,7 @@ export default function AchievementsTab({ game }) {
 
                     const merged = schemaData.map(ach => ({
                         name: ach.displayName,
+                        apiname: ach.apiname,
                         description: ach.description,
                         icon: achievementsMap[ach.name] ? ach.icon : ach.icongray,
                         achieved: achievementsMap[ach.name] || false,
@@ -87,7 +88,7 @@ export default function AchievementsTab({ game }) {
             ) : (
                 <FlatList
                     data={mergedCheevos}
-                    keyExtractor={(item) => item.name}
+                    keyExtractor={(item) => item.apiname}
                     renderItem={({ item }) => (
                         <TouchableOpacity className="flex-row items-center bg-gray-800 p-4 rounded mb-3 justify-between">
                             {/* Left: icon + percent */}

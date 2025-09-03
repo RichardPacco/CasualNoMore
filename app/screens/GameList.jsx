@@ -360,7 +360,7 @@ export default function GameList({ navigation, route }) {
                                 setSearchQuery("");
                                 setDebouncedQuery("");
                                 // keep focus so the user can keep typing
-                                if (searchInputRef.current?.focus) searchInputRef.current.focus();
+                                // if (searchInputRef.current?.focus) searchInputRef.current.focus(); //abre o teclado ao limpar
                             }}
                             style={{ marginLeft: 8 }}
                         >

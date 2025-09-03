@@ -8,7 +8,7 @@ async function fetchJson(url) {
 }
 
 export async function GetGlobalAchievementsPercentagesForApp(appId) {
-    if (!appId) throw new Error("getAchievements: appId é obrigatório");
+    if (!appId) throw new Error("GetGlobalAchievementsPercentagesForApp: appId é obrigatório");
 
     const url = `${BASE_URL}/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/?gameid=${encodeURIComponent(
         appId
@@ -18,8 +18,8 @@ export async function GetGlobalAchievementsPercentagesForApp(appId) {
 }
 
 export async function GetSchemaForGame(appId, steamId, lang = "portuguese") {
-    if (!appId) throw new Error("getAchievements: appId é obrigatório");
-    if (!steamId) throw new Error("getAchievements: steamId é obrigatório");
+    if (!appId) throw new Error("GetSchemaForGame: appId é obrigatório");
+    if (!steamId) throw new Error("GetSchemaForGame: steamId é obrigatório");
 
     const url = `${BASE_URL}/ISteamUserStats/GetSchemaForGame/v2/?key=${encodeURIComponent(
         config.apiKey
@@ -31,8 +31,8 @@ export async function GetSchemaForGame(appId, steamId, lang = "portuguese") {
 }
 
 export async function GetUserStatsForGame(appId, steamId) {
-    if (!appId) throw new Error("getAchievements: appId é obrigatório");
-    if (!steamId) throw new Error("getAchievements: steamId é obrigatório");
+    if (!appId) throw new Error("GetUserStatsForGame: appId é obrigatório");
+    if (!steamId) throw new Error("GetUserStatsForGame: steamId é obrigatório");
 
     const url = `${BASE_URL}/ISteamUserStats/GetUserStatsForGame/v2/?key=${encodeURIComponent(
         config.apiKey
@@ -63,12 +63,29 @@ export async function getPlayerSummary(steamId) {
 
 export async function getOwnedGames(steamId) {
     if (!steamId) throw new Error("getOwnedGames: steamId é obrigatório");
+
     const url = `${BASE_URL}/IPlayerService/GetOwnedGames/v0001/?key=${encodeURIComponent(
         config.apiKey
-    )}&steamid=${encodeURIComponent(steamId)}&include_appinfo=1&include_played_free_games=1&format=json`;
-    const json = await fetchJson(url);
-    return json?.response ?? { games: [], game_count: 0 };
+    )}&steamid=${encodeURIComponent(
+        steamId
+    )}&include_appinfo=1&include_played_free_games=1&format=json`;
+
+    try {
+        const json = await fetchJson(url);
+
+        // 🔑 Garante retorno consistente
+        const response = json?.response;
+        if (!response || !response.game_count || response.game_count === 0) {
+            return null; // 🚨 null significa: jogos privados ou nenhum jogo
+        }
+
+        return response; // { game_count, games }
+    } catch (err) {
+        console.error("[getOwnedGames] erro:", err.message);
+        return null; // Em caso de erro também ignora
+    }
 }
+
 
 export async function getPlayerAchievements(appId, steamId, lang = "portuguese") {
     if (!appId) throw new Error("getPlayerAchievements: appId é obrigatório");
@@ -93,5 +110,17 @@ export async function getGameStoreDetails(appId) {
     if (!json || !json[appId] || !json[appId].success) return null;
 
     return json[appId].data;
+}
+
+export async function getFriendList(steamId, relationship = "all") {
+    if (!steamId) throw new Error("getFriendlist: steamId é obrigatório");
+    const url = `${BASE_URL}/ISteamUser/GetFriendList/v1/?key=${encodeURIComponent(
+        config.apiKey
+    )}&steamid=${encodeURIComponent(
+        steamId
+    )}&relationship=${encodeURIComponent(relationship)}`
+
+    const json = await fetchJson(url);
+    return json?.friendslist?.friends ?? null;
 }
 

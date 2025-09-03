@@ -56,8 +56,8 @@ export default function AchievementsTab({ game }) {
                         name: ach.displayName,
                         apiname: ach.name,
                         description: ach.description,
-                        icon: achievementsMap[ach.apiname] ? ach.icon : ach.icongray,
-                        achieved: achievementsMap[ach.apiname] || false,
+                        icon: achievementsMap[ach.name] ? ach.icon : ach.icongray,
+                        achieved: achievementsMap[ach.name] || false,
                         globalPercent: percentMap[ach.name] || 0
                     }));
 

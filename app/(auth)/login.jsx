@@ -1,12 +1,12 @@
+import { getPlayerSummary, resolveVanityURL } from "@/src/api/steam";
+import { AuthContext } from "@/src/context/AuthContext";
+import { clearDB } from "@/src/database/db";
+import { showToast } from "@/src/utils/toast";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useContext, useState } from "react";
 import { Alert, SafeAreaView, StatusBar, Text, TouchableOpacity, View } from "react-native";
 import { TextInput } from "react-native-paper";
-import { getPlayerSummary, resolveVanityURL } from "../../src/api/steam";
-import { AuthContext } from "../../src/context/AuthContext";
-import { clearDB } from "../../src/database/db";
-import { showToast } from "../../src/utils/toast";
 
 
 export default function Login() {

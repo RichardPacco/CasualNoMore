@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Image, Linking, ScrollView, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import RenderHTML from 'react-native-render-html';
-import { getGameStoreDetails } from "../../src/api/steam";
+import { getGameStoreDetails } from "@/src/api/steam";
 
 
 export default function GameDetailsTab({ game }) {

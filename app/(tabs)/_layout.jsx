@@ -4,7 +4,7 @@ import { Tabs } from "expo-router";
 import { StatusBar, useColorScheme, View } from "react-native";
 import '../globals.css';
 
-export default function _Layout() {
+export default function TabsLayout() {
     const colorScheme = useColorScheme();
     const isDark = colorScheme === "dark";
 

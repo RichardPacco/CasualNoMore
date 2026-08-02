@@ -1,4 +1,4 @@
-import config from "../config/config";
+import config from "@/src/config/config";
 const BASE_URL = "https://api.steampowered.com";
 
 async function fetchJson(url) {
@@ -28,19 +28,6 @@ export async function GetSchemaForGame(appId, steamId, lang = "portuguese") {
     )}&l=${encodeURIComponent(lang)}&format=json`
     const json = await fetchJson(url)
     return json?.game?.availableGameStats?.achievements ?? null;
-}
-
-export async function GetUserStatsForGame(appId, steamId) {
-    if (!appId) throw new Error("GetUserStatsForGame: appId é obrigatório");
-    if (!steamId) throw new Error("GetUserStatsForGame: steamId é obrigatório");
-
-    const url = `${BASE_URL}/ISteamUserStats/GetUserStatsForGame/v2/?key=${encodeURIComponent(
-        config.apiKey
-    )}&appid=${encodeURIComponent(
-        appId
-    )}&steamid=${encodeURIComponent(steamId)}`
-    const json = await fetchJson(url)
-    return json.playerstats ?? null;
 }
 
 export async function resolveVanityURL(vanity) {

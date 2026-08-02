@@ -1,9 +1,10 @@
 import { useRouter } from "expo-router";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Image, Linking, Pressable, Text, useColorScheme, View } from "react-native";
-import { getFriendList, getOwnedGames, getPlayerSummary } from "../../src/api/steam";
-import ProfileCard from "../../src/components/ProfileCard";
-import { AuthContext } from "../../src/context/AuthContext";
+import { getFriendList, getOwnedGames, getPlayerSummary } from "@/src/api/steam";
+import ProfileCard from "@/src/components/ProfileCard";
+import { AuthContext } from "@/src/context/AuthContext";
+import { loadFriend, saveFriendProfile } from "@/src/database/db";
 
 
 export default function Profile() {
@@ -41,18 +42,19 @@ export default function Profile() {
         const [loadingFriends, setLoadingFriends] = useState(false);
 
         const loadProfile = useCallback(async () => {
-            if (!steamId) {
-                console.warn("[useProfile] No steamId provided");
-                return;
-            }
-
-            // --- Load user profile ---
-            console.log("[useProfile] Starting profile load...");
+            if (!steamId) return;
+            let myGames = [];
             setLoadingProfile(true);
+
+            // --- Load own profile ---
             try {
-                const data = await getPlayerSummary(steamId);
-                console.log("[useProfile] Profile loaded:", data?.personaname);
-                setProfile(data ?? null);
+                const [Profile, Games] = await Promise.all([
+                    getPlayerSummary(steamId),
+                    getOwnedGames(steamId),
+                ]);
+                myGames = Games?.games ?? [];
+                setProfile(Profile ?? null);
+
             } catch (err) {
                 console.error("[useProfile] Failed to load profile:", err);
                 setProfile(null);
@@ -60,53 +62,71 @@ export default function Profile() {
                 setLoadingProfile(false);
             }
 
-            // --- Load friends progressively ---
-            console.log("[useProfile] Starting friends load...");
+            // --- Load cached friends first ---
             setLoadingFriends(true);
             try {
                 const friendList = await getFriendList(steamId);
-                console.log("[useProfile] Raw friend list:", friendList);
+                const friendIds = (friendList ?? []).map(f => f.steamid);
 
-                const ids = friendList.map((f) => f.steamid) ?? [];
-                console.log("[useProfile] Friend IDs:", ids);
-
-                for (const id of ids) {
-                    console.log(`[useProfile] Loading friend ${id}...`);
-                    if (cancelledRef.current) {
-                        console.log("[useProfile] Friends loading cancelled");
-                        break;
+                const cachedFriends = [];
+                for (const id of friendIds) {
+                    const cached = await loadFriend(steamId, id);
+                    if (cached) {
+                        cachedFriends.push({
+                            steamid: id,
+                            profile: cached.profile,
+                            games: cached.games || { game_count: 0, games: [] },
+                            commonGames: cached.commonGames
+                        });
                     }
+                }
+                setFriends(cachedFriends); // show immediately
+
+                // --- Fetch fresh data progressively ---
+                for (const id of friendIds) {
+                    if (cancelledRef.current) break;
+
                     try {
                         const [friendProfile, games] = await Promise.all([
                             getPlayerSummary(id),
                             getOwnedGames(id),
                         ]);
 
-                        if (!friendProfile) {
-                            console.warn(`[useProfile] Friend profile missing for ${id}`);
-                            continue;
-                        }
+                        if (!friendProfile || !games) continue;
 
-                        if (!games) {
-                            console.warn(`[useProfile] Friend ${id} has no public games`);
-                            continue;
-                        }
+                        const commonGames = myGames.filter(myGame =>
+                            games.games?.some(friendGame => friendGame.appid === myGame.appid)
+                        );
 
-                        console.log(`[useProfile] Friend loaded: ${friendProfile.personaname}, Games: ${games.game_count}`);
+                        const friendData = { steamId: id, profile: friendProfile, games, commonGames };
 
-                        setFriends((prev) => [...prev, { steamid: id, profile: friendProfile, games }]);
+                        // Persist in DB
+                        await saveFriendProfile(steamId, friendData);
+                        // await saveFriendGames(id, games);
+
+                        // Update state progressively
+                        setFriends(prev => {
+                            const index = prev.findIndex(f => f.steamid === id);
+                            if (index !== -1) {
+                                const copy = [...prev];
+                                copy[index] = { steamid: id, ...friendData };
+                                return copy;
+                            } else {
+                                return [...prev, { steamid: id, ...friendData }];
+                            }
+                        });
                     } catch (e) {
-                        console.warn(`[useProfile] Amigo ignorado: ${id}`, e.message);
+                        console.warn(`[useProfile] Friend ignored: ${id}`, e.message);
                     }
-                    await sleep(500)
+
+                    await sleep(250); // throttle API calls
                 }
             } catch (err) {
                 console.error("[useProfile] Failed to load friends:", err);
-                setFriends([]);
             } finally {
-                console.log("[useProfile] Friends load finished");
                 setLoadingFriends(false);
             }
+
         }, [steamId]);
 
         useEffect(() => {
@@ -176,6 +196,10 @@ export default function Profile() {
                                     <Text className="text-gray-400 text-sm">
                                         Jogos: {item.games?.game_count ?? 0}
                                     </Text>
+                                    <Text className="text-gray-400 text-sm">
+                                        Jogos em comum: {item.commonGames?.length ?? 0}
+                                    </Text>
+
                                 </View>
                             </Pressable>
                         )}

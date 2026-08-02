@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import { useContext, useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
-import { AuthContext } from "../src/context/AuthContext";
+import { AuthContext } from "@/src/context/AuthContext";
 
 export default function Index() {
     const { steamId, loading } = useContext(AuthContext);
@@ -12,7 +12,7 @@ export default function Index() {
         // Se tiver steamId vai para grupo das tabs, senão vai para login
         if (steamId) router.replace("/(tabs)/GameStack");
         else router.replace("/(auth)/login");
-    }, [loading, steamId]);
+    }, [loading, steamId, router]);
 
     return (
         <View style={{ flex: 1, backgroundColor: "#111", justifyContent: "center", alignItems: "center" }}>

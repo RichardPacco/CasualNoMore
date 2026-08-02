@@ -1,8 +1,8 @@
 import { useRouter } from "expo-router";
 import { useContext } from "react";
 import { Image, Linking, Text, TouchableOpacity, View, useColorScheme } from "react-native";
-import { AuthContext } from "../context/AuthContext";
-import { formatDate } from "../utils/formatDate";
+import { AuthContext } from "@/src/context/AuthContext";
+import { formatDate } from "@/src/utils/formatDate";
 
 function getStatus(statusCode) {
     switch (statusCode) {

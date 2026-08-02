@@ -1,12 +1,11 @@
-import { useFocusEffect } from '@react-navigation/native';
 import { remapProps } from "nativewind";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, FlatList, Keyboard, PanResponder, RefreshControl, Text, TextInput, TouchableOpacity, useColorScheme, View } from "react-native";
 import { Dropdown } from "react-native-element-dropdown";
-import { getOwnedGames, GetSchemaForGame } from "../../src/api/steam";
-import GameCard from "../../src/components/GameCard";
-import { AuthContext } from "../../src/context/AuthContext";
-import { getAllGames, saveGame } from "../../src/database/db";
+import { getOwnedGames, GetSchemaForGame } from "@/src/api/steam";
+import GameCard from "@/src/components/GameCard";
+import { AuthContext } from "@/src/context/AuthContext";
+import { getAllGames, saveGamesBatch } from "@/src/database/db";
 
 const StyledDropdown = remapProps(Dropdown, {
     className: "style",
@@ -29,7 +28,6 @@ export default function GameList({ navigation, route }) {
     const [sidebarVisible, setSidebarVisible] = useState(false);
 
     // search states
-    const [searchVisible, setSearchVisible] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [debouncedQuery, setDebouncedQuery] = useState("");
     const searchInputRef = useRef(null);
@@ -177,7 +175,7 @@ export default function GameList({ navigation, route }) {
         cancelledRef.current = false;
 
         try {
-            // 1️⃣ Carregar jogos do DB
+            // 1️⃣ Load games from DB
             const cachedGames = await getAllGames(steamId);
             let enrichedGames = [...cachedGames];
 
@@ -187,7 +185,7 @@ export default function GameList({ navigation, route }) {
                 setLoading(false);
             }
 
-            // 2️⃣ Buscar jogos fresh da Steam
+            // 2️⃣ Fetch fresh games from Steam
             const fresh = await getOwnedGames(steamId);
             if (!fresh?.games) {
                 setRefreshing(false);
@@ -198,6 +196,8 @@ export default function GameList({ navigation, route }) {
             setProgress({ current: cachedGames.length, total });
 
             const cacheMap = new Map(cachedGames.map(g => [g.appid, g]));
+            const BATCH_SIZE = 5;
+            let batchToSave = [];
 
             for (let i = 0; i < fresh.games.length; i++) {
                 if (cancelledRef.current) break;
@@ -213,7 +213,6 @@ export default function GameList({ navigation, route }) {
                         const schema = await GetSchemaForGame(baseGame.appid, steamId);
                         enriched = { ...baseGame, schema, schemaStatus: "done" };
                     } catch (err) {
-                        // if schema fetch fails, keep the baseGame and mark pending
                         console.error("[GameList] Erro schema", baseGame.appid, err);
                         enriched = { ...baseGame, schema: null, schemaStatus: "pending" };
                     }
@@ -224,7 +223,7 @@ export default function GameList({ navigation, route }) {
 
                 if (idx >= 0) {
                     const prev = enrichedGames[idx];
-                    if ((prev.playtime_forever || 0) !== (enriched.playtime_forever || 0) || prev.schemaStatus !== enriched.schemaStatus) {
+                    if ((enriched.playtime_forever || 0) > (prev.playtime_forever || 0) || prev.schemaStatus !== enriched.schemaStatus) {
                         enrichedGames[idx] = enriched;
                         updated = true;
                     }
@@ -234,11 +233,20 @@ export default function GameList({ navigation, route }) {
                 }
 
                 if (updated) {
-                    await saveGame(steamId, enriched); // salva jogo no DB
+                    batchToSave.push(enriched);
+
+                    // Update UI immediately
                     setGames([...enrichedGames]);
                     setProgress({ current: enrichedGames.length, total });
-                    // optional small throttle so UI shows progress (only when updates occur)
-                    if (i < total - 1) await sleep(250);
+
+                    // Save batch if reached BATCH_SIZE or last item
+                    if (batchToSave.length >= BATCH_SIZE || i === fresh.games.length - 1) {
+                        await saveGamesBatch(steamId, batchToSave);
+                        batchToSave = [];
+                    }
+
+                    // Optional small throttle so UI shows progress
+                    if (i < total - 1) await sleep(200);
                 }
             }
 
@@ -250,6 +258,7 @@ export default function GameList({ navigation, route }) {
             setRefreshing(false);
         }
     }, [steamId]);
+
 
     useEffect(() => {
         if (!steamId) return;
@@ -266,24 +275,6 @@ export default function GameList({ navigation, route }) {
         return () => clearTimeout(t);
     }, [searchQuery]);
 
-    useFocusEffect(
-        useCallback(() => {
-            const resetAt = route?.params?.resetSearchAt;
-            if (resetAt) {
-                // Reset search UI/state
-                setSearchVisible(false);
-                setSearchQuery('');
-                setDebouncedQuery('');
-                if (searchInputRef.current?.blur) searchInputRef.current.blur();
-
-                // Optional: close sidebar
-                closeSidebar();
-
-                // Clear the param so the reset only happens once
-                navigation.setParams({ resetSearchAt: undefined });
-            }
-        }, [route?.params?.resetSearchAt])
-    );
 
     // ---------- UI ----------
     if (loading && games.length === 0) {
@@ -323,10 +314,6 @@ export default function GameList({ navigation, route }) {
         borderWidth: 1,
         borderColor: isDark ? "#4ade80" : "#9ca3af",
     };
-
-    const placeholderStyleObj = { color: isDark ? "#9ca3af" : "#374151", fontSize: 16 };
-    const selectedTextStyleObj = { color: isDark ? "#4ade80" : "#111111", fontSize: 16, fontWeight: "600" };
-    const itemTextStyleObj = { color: isDark ? "#ffffff" : "#111111", fontSize: 15 };
 
     return (
         <View
@@ -464,6 +451,26 @@ export default function GameList({ navigation, route }) {
                             labelField="label"
                             valueField="value"
                         />
+                        <TouchableOpacity
+                            onPress={loadGames}
+                            disabled={progress.current !== progress.total} // only active when all games loaded
+                            style={{
+                                marginTop: 24,
+                                paddingVertical: 12,
+                                paddingHorizontal: 16,
+                                backgroundColor: progress.current === progress.total
+                                    ? isDark ? "#4ade80" : "#10b981" // active color
+                                    : isDark ? "#374151" : "#9ca3af", // disabled color
+                                borderRadius: 10,
+                                alignItems: "center",
+                                opacity: progress.current === progress.total ? 1 : 0.6, // optional visual cue
+                            }}
+                        >
+                            <Text style={{ color: isDark ? "#111" : "#fff", fontWeight: "bold", fontSize: 16 }}>
+                                Atualizar Lista de Jogos
+                            </Text>
+                        </TouchableOpacity>
+
                     </Animated.View>
                 </>
             )}
@@ -477,7 +484,12 @@ export default function GameList({ navigation, route }) {
                 removeClippedSubviews={true}
                 contentContainerStyle={{ paddingTop: 12 }}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={loadGames} />
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={loadGames}
+                        colors={["#4ade80"]}
+                        tintColor={isDark ? "#4ade80" : "#16a34a"}
+                    />
                 }
                 ListHeaderComponent={
                     progress.current < progress.total ? (

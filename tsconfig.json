@@ -12,8 +12,10 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
+    "**/*.js",
+    "**/*.jsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
     "nativewind-env.d.ts"
-, "src/utils/formatDate.js", "src/api/steam.js", "app/components/GameCard.jsx", "app/components/ProfileCard.jsx", "app/config/constants.js", "app/screens/AchievementScreen.jsx", "app/screens/GameList.jsx", "app/screens/HomeScreen.jsx", "app/(tabs)/_layout.jsx"  ]
+  ]
 }

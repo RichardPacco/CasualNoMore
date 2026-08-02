@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { useContext, useEffect } from "react";
-import { ActivityIndicator, View } from "react-native";
+import AppSplash from "@/src/components/AppSplash";
 import { AuthContext } from "@/src/context/AuthContext";
 
 export default function Index() {
@@ -14,9 +14,5 @@ export default function Index() {
         else router.replace("/(auth)/login");
     }, [loading, steamId, router]);
 
-    return (
-        <View style={{ flex: 1, backgroundColor: "#111", justifyContent: "center", alignItems: "center" }}>
-            <ActivityIndicator size="large" color="#4ade80" />
-        </View>
-    );
+    return <AppSplash />;
 }

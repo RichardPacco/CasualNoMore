@@ -5,8 +5,10 @@ import { showToast } from "@/src/utils/toast";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useContext, useState } from "react";
-import { Alert, SafeAreaView, StatusBar, Text, TouchableOpacity, View } from "react-native";
+import { Alert, ImageBackground, SafeAreaView, StatusBar, Text, TouchableOpacity, View } from "react-native";
 import { TextInput } from "react-native-paper";
+
+const loginBackground = require("../../assets/images/login_background.png");
 
 
 export default function Login() {
@@ -132,70 +134,73 @@ export default function Login() {
 
 
     return (
-        <SafeAreaView className="flex-1 bg-[#111]">
-            <StatusBar barStyle="dark-content" backgroundColor="#111" />
+        <SafeAreaView className="flex-1">
+            <StatusBar barStyle="light-content" backgroundColor="transparent" />
 
-            <View className="flex-1 p-5 justify-between">
-                {/* Top section */}
-                <View>
-                    <Text className="text-[#4ade80] text-2xl font-bold text-center mb-3 shadow-[2px_2px_4px_#b4a6a6ff]">
-                        CasualNoMore
-                    </Text>
-                </View>
-
-                {/* Bottom section */}
-                <View>
-                    {/* Buttons */}
-                    <View className="flex-row justify-between mb-4">
-                        <TouchableOpacity
-                            onPress={handleClearCache}
-                            className="px-3 py-2 rounded-md border border-[#F87171] items-center bg-transparent"
-                        >
-                            <Text className="text-[#F87171] font-medium">Limpar Cache</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            onPress={handleClearDB}
-                            className="px-3 py-2 rounded-md border border-[#F87171] items-center bg-transparent"
-                        >
-                            <Text className="text-[#F87171] font-medium">Limpar DB</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Tip box */}
-                    <View className="bg-[#1e1e1e] p-2.5 rounded-md mb-4 border-l-4 border-[#4ade80]">
-                        <Text className="text-[#aaa] text-xs">
-                            O perfil Steam deve estar público para o aplicativo funcionar
+            <ImageBackground source={loginBackground} className="flex-1" resizeMode="cover">
+                {/* Overlay escura para garantir legibilidade */}
+                <View className="flex-1 bg-black/60 p-5 justify-between">
+                    {/* Top section */}
+                    <View>
+                        <Text className="text-[#4ade80] text-2xl font-bold text-center mb-3 shadow-[2px_2px_4px_#b4a6a6ff]">
+                            CasualNoMore
                         </Text>
                     </View>
 
-                    {/* Input */}
-                    <View className="mb-3">
-                        <TextInput
-                            label="Steam URL ou SteamID"
-                            value={input}
-                            onChangeText={setInput}
-                            mode="outlined"
-                            style={{ backgroundColor: "#222" }}
-                            theme={{
-                                colors: {
-                                    primary: "#4ade80",  // label / focus color
-                                },
-                            }}
-                            textColor="#fff"
-                        />
-                    </View>
+                    {/* Bottom section */}
+                    <View>
+                        {/* Buttons */}
+                        <View className="flex-row justify-between mb-4">
+                            <TouchableOpacity
+                                onPress={handleClearCache}
+                                className="px-3 py-2 rounded-md border border-[#F87171] items-center bg-transparent"
+                            >
+                                <Text className="text-[#F87171] font-medium">Limpar Cache</Text>
+                            </TouchableOpacity>
 
-                    {/* Continuar button */}
-                    <TouchableOpacity
-                        onPress={handleSubmit}
-                        disabled={loading}
-                        className="bg-[#4ade80] py-3 rounded-md items-center"
-                    >
-                        <Text className="text-white">{loading ? "Carregando..." : "Continuar"}</Text>
-                    </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={handleClearDB}
+                                className="px-3 py-2 rounded-md border border-[#F87171] items-center bg-transparent"
+                            >
+                                <Text className="text-[#F87171] font-medium">Limpar DB</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Tip box */}
+                        <View className="bg-[#1e1e1e]/90 p-2.5 rounded-md mb-4 border-l-4 border-[#4ade80]">
+                            <Text className="text-[#aaa] text-xs">
+                                O perfil Steam deve estar público para o aplicativo funcionar
+                            </Text>
+                        </View>
+
+                        {/* Input */}
+                        <View className="mb-3">
+                            <TextInput
+                                label="Steam URL ou SteamID"
+                                value={input}
+                                onChangeText={setInput}
+                                mode="outlined"
+                                style={{ backgroundColor: "#222" }}
+                                theme={{
+                                    colors: {
+                                        primary: "#4ade80",  // label / focus color
+                                    },
+                                }}
+                                textColor="#fff"
+                            />
+                        </View>
+
+                        {/* Continuar button */}
+                        <TouchableOpacity
+                            onPress={handleSubmit}
+                            disabled={loading}
+                            className="bg-[#4ade80] py-3 rounded-md items-center"
+                        >
+                            <Text className="text-white">{loading ? "Carregando..." : "Continuar"}</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
-            </View>
+            </ImageBackground>
         </SafeAreaView>
     );
 

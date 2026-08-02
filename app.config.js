@@ -7,7 +7,7 @@ export default ({ config }) => {
     slug: "CasualNoMore",
     version: "1.0.0",
     orientation: "portrait",
-    icon: "./assets/images/icon.png",
+    icon: "./assets/images/app_icon.png",
     scheme: "casualnomore",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
@@ -18,7 +18,7 @@ export default ({ config }) => {
       package: "com.richard.casualnomore",
       versionCode: 1,
       adaptiveIcon: {
-        foregroundImage: "./assets/images/react-logo.png",
+        foregroundImage: "./assets/images/app_icon.png",
         backgroundColor: "#1E1E1E",
       },
       edgeToEdgeEnabled: false,

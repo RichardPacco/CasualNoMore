@@ -241,14 +241,26 @@ export default function GameList({ navigation, route }) {
             const total = fresh.games.length;
             setProgress({ current: cachedGames.length, total });
 
+            // Processa primeiro os jogos mais relevantes (mais jogados recentemente)
+            // para que o topo da lista ganhe dados (progresso) antes do resto
+            const freshGames = [...fresh.games].sort((a, b) => {
+                const a2 = a.playtime_2weeks || 0;
+                const b2 = b.playtime_2weeks || 0;
+                if (b2 !== a2) return b2 - a2;
+                const a0 = a.playtime_forever || 0;
+                const b0 = b.playtime_forever || 0;
+                if (b0 !== a0) return b0 - a0;
+                return (a.name || "").localeCompare(b.name || "");
+            });
+
             const cacheMap = new Map(cachedGames.map(g => [g.appid, g]));
             const BATCH_SIZE = 5;
             let batchToSave = [];
 
-            for (let i = 0; i < fresh.games.length; i++) {
+            for (let i = 0; i < freshGames.length; i++) {
                 if (cancelledRef.current) break;
 
-                const baseGame = fresh.games[i];
+                const baseGame = freshGames[i];
                 const cachedEntry = cacheMap.get(baseGame.appid);
 
                 const enriched = await enrichGame(baseGame, cachedEntry);
@@ -279,7 +291,7 @@ export default function GameList({ navigation, route }) {
                     setProgress({ current: enrichedGames.length, total });
 
                     // Save batch if reached BATCH_SIZE or last item
-                    if (batchToSave.length >= BATCH_SIZE || i === fresh.games.length - 1) {
+                    if (batchToSave.length >= BATCH_SIZE || i === freshGames.length - 1) {
                         await saveGamesBatch(steamId, batchToSave);
                         batchToSave = [];
                     }

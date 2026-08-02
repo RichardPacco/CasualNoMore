@@ -1,9 +1,16 @@
 import { computeProgress } from "@/src/utils/achievements";
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
 import { Image, Text, TouchableOpacity, View, useColorScheme } from "react-native";
+
+const placeholderImage = require("../../assets/images/placeholder_gamelist.jpg");
 
 function GameCardComponent({ game, navigation }) {
     const colorScheme = useColorScheme();
+    const [imgFailed, setImgFailed] = useState(false);
+
+    useEffect(() => {
+        setImgFailed(false);
+    }, [game.appid]);
 
     const styles = {
         cardBg: colorScheme === "dark" ? "bg-gray-800" : "bg-gray-100",
@@ -19,9 +26,12 @@ function GameCardComponent({ game, navigation }) {
             onPress={() => navigation.navigate("GameScreen", { game })}
         >
             <Image
-                source={{
-                    uri: `https://steamcdn-a.akamaihd.net/steam/apps/${game.appid}/capsule_231x87.jpg`,
-                }}
+                source={imgFailed
+                    ? placeholderImage
+                    : {
+                        uri: `https://steamcdn-a.akamaihd.net/steam/apps/${game.appid}/capsule_231x87.jpg`,
+                    }}
+                onError={() => setImgFailed(true)}
                 className="w-40 h-20 rounded-md"
                 style={{ aspectRatio: 231 / 87 }}
                 resizeMode="cover"

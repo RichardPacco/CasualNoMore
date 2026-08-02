@@ -1,9 +1,10 @@
 import { remapProps } from "nativewind";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Animated, FlatList, Keyboard, PanResponder, RefreshControl, Text, TextInput, TouchableOpacity, useColorScheme, View } from "react-native";
+import { ActivityIndicator, Animated, FlatList, Keyboard, PanResponder, Text, TextInput, TouchableOpacity, useColorScheme, View } from "react-native";
 import { Dropdown } from "react-native-element-dropdown";
 import { getOwnedGames, GetSchemaForGame } from "@/src/api/steam";
 import GameCard from "@/src/components/GameCard";
+import PullToRefresh from "@/src/components/PullToRefresh";
 import { AuthContext } from "@/src/context/AuthContext";
 import { getAllGames, saveGamesBatch } from "@/src/database/db";
 
@@ -171,7 +172,6 @@ export default function GameList({ navigation, route }) {
     // ---------- load jogos ----------
     const loadGames = useCallback(async () => {
         if (!steamId) return;
-        setRefreshing(true);
         cancelledRef.current = false;
 
         try {
@@ -188,7 +188,6 @@ export default function GameList({ navigation, route }) {
             // 2️⃣ Fetch fresh games from Steam
             const fresh = await getOwnedGames(steamId);
             if (!fresh?.games) {
-                setRefreshing(false);
                 return;
             }
 
@@ -254,10 +253,17 @@ export default function GameList({ navigation, route }) {
         } catch (err) {
             console.error("[GameList] loadGames failed", err);
             setLoading(false);
+        }
+    }, [steamId]);
+
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        try {
+            await loadGames();
         } finally {
             setRefreshing(false);
         }
-    }, [steamId]);
+    }, [loadGames]);
 
 
     useEffect(() => {
@@ -475,33 +481,26 @@ export default function GameList({ navigation, route }) {
                 </>
             )}
 
-            <FlatList
-                data={filteredGames}
-                keyExtractor={(item) => item.appid.toString()}
-                renderItem={renderGameCard}
-                initialNumToRender={10}
-                windowSize={5}
-                removeClippedSubviews={true}
-                contentContainerStyle={{ paddingTop: 12 }}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={loadGames}
-                        colors={["#4ade80"]}
-                        tintColor={isDark ? "#4ade80" : "#16a34a"}
-                    />
-                }
-                ListHeaderComponent={
-                    progress.current < progress.total ? (
-                        <View className="py-4 items-center">
-                            <ActivityIndicator size="small" color="#4ade80" />
-                            <Text className="text-gray-400 mt-2">
-                                Carregando {progress.current}/{progress.total}
-                            </Text>
-                        </View>
-                    ) : null
-                }
-            />
+            <PullToRefresh refreshing={refreshing} onRefresh={onRefresh}>
+                <FlatList
+                    data={filteredGames}
+                    keyExtractor={(item) => item.appid.toString()}
+                    renderItem={renderGameCard}
+                    initialNumToRender={10}
+                    windowSize={5}
+                    contentContainerStyle={{ paddingTop: 12 }}
+                    ListHeaderComponent={
+                        progress.current < progress.total ? (
+                            <View className="py-4 items-center">
+                                <ActivityIndicator size="small" color="#4ade80" />
+                                <Text className="text-gray-400 mt-2">
+                                    Carregando {progress.current}/{progress.total}
+                                </Text>
+                            </View>
+                        ) : null
+                    }
+                />
+            </PullToRefresh>
         </View>
     );
 }

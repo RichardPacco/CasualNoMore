@@ -1,10 +1,26 @@
 import { useRouter } from "expo-router";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Image, Linking, Pressable, RefreshControl, Text, useColorScheme, View } from "react-native";
+import { ActivityIndicator, FlatList, Image, Linking, Pressable, Text, useColorScheme, View } from "react-native";
 import { getFriendList, getOwnedGames, getPlayerSummary } from "@/src/api/steam";
 import ProfileCard from "@/src/components/ProfileCard";
+import PullToRefresh from "@/src/components/PullToRefresh";
 import { AuthContext } from "@/src/context/AuthContext";
 import { loadFriend, saveFriendProfile } from "@/src/database/db";
+
+function gamesSignature(games) {
+    return (games?.games ?? [])
+        .map(g => g.appid)
+        .sort((a, b) => a - b)
+        .join(",");
+}
+
+function friendChanged(prev, next) {
+    if (prev.profile?.personaname !== next.profile?.personaname) return true;
+    if (prev.profile?.avatarfull !== next.profile?.avatarfull) return true;
+    if ((prev.games?.game_count ?? 0) !== (next.games?.game_count ?? 0)) return true;
+    if (gamesSignature(prev.games) !== gamesSignature(next.games)) return true;
+    return false;
+}
 
 
 export default function Profile() {
@@ -40,7 +56,13 @@ export default function Profile() {
         const [friends, setFriends] = useState([]);
         const [loadingProfile, setLoadingProfile] = useState(true);
         const [loadingFriends, setLoadingFriends] = useState(false);
+        const [refreshingFriends, setRefreshingFriends] = useState(false);
         const myGamesRef = useRef([]);
+        const friendsRef = useRef([]);
+
+        useEffect(() => {
+            friendsRef.current = friends;
+        }, [friends]);
 
         // Busca progressiva dos dados frescos dos amigos (perfil + jogos + jogos em comum)
         const refreshFriends = useCallback(async (friendIds) => {
@@ -64,6 +86,12 @@ export default function Profile() {
 
                         const friendData = { steamId: id, profile: friendProfile, games, commonGames };
 
+                        // Só atualiza se algo mudou (espelha o comportamento da lista de jogos)
+                        const existing = friendsRef.current.find(f => f.steamid === id);
+                        if (existing && !friendChanged(existing, friendData)) {
+                            continue; // nada de novo, pula persistência e state
+                        }
+
                         // Persist in DB
                         await saveFriendProfile(steamId, friendData);
 
@@ -78,11 +106,11 @@ export default function Profile() {
                                 return [...prev, { steamid: id, ...friendData }];
                             }
                         });
+
+                        await sleep(250); // throttle API calls
                     } catch (e) {
                         console.warn(`[useProfile] Friend ignored: ${id}`, e.message);
                     }
-
-                    await sleep(250); // throttle API calls
                 }
             } catch (err) {
                 console.error("[useProfile] Failed to refresh friends:", err);
@@ -145,14 +173,19 @@ export default function Profile() {
         const onRefreshFriends = useCallback(async () => {
             const friendList = await getFriendList(steamId);
             const friendIds = (friendList ?? []).map(f => f.steamid);
-            await refreshFriends(friendIds);
+            setRefreshingFriends(true);
+            try {
+                await refreshFriends(friendIds);
+            } finally {
+                setRefreshingFriends(false);
+            }
         }, [steamId, refreshFriends]);
 
         useEffect(() => {
             loadProfile();
         }, [loadProfile]);
 
-        return { profile, friends, loadingProfile, loadingFriends, loadProfile, onRefreshFriends };
+        return { profile, friends, loadingProfile, loadingFriends, refreshingFriends, loadProfile, onRefreshFriends };
     }
 
 
@@ -163,13 +196,13 @@ export default function Profile() {
         }
     }, [steamId, router]);
 
-    const { profile, friends, loadingProfile, loadingFriends, loadProfile, onRefreshFriends } =
+    const { profile, friends, loadingProfile, loadingFriends, refreshingFriends, loadProfile, onRefreshFriends } =
         useProfile(steamId);
 
     if (loadingProfile) {
         return (
             <View className={`flex-1 items-center justify-center ${pageBg}`}>
-                <ActivityIndicator size="large" color={isDark ? "#fff" : "#000"} />
+                <ActivityIndicator size="large" color={isDark ? "#4ade80" : "#000"} />
             </View>
         );
     }
@@ -184,59 +217,54 @@ export default function Profile() {
                         Amigos (Lista de Jogos Pública)
                     </Text>
 
-                    {loadingFriends && (
+                    {loadingFriends && !refreshingFriends && (
                         <ActivityIndicator
                             size="small"
-                            color={isDark ? "#fff" : "#000"}
+                            color={isDark ? "#4ade80" : "#000"}
                             style={{ marginBottom: 10 }}
                         />
                     )}
 
-                    <FlatList
-                        data={friends}
-                        keyExtractor={(item) => item.steamid}
-                        renderItem={({ item }) => (                            <Pressable
-                                onPress={() =>
-                                    Linking.openURL(
-                                        `https://steamcommunity.com/profiles/${item.steamid}`
-                                    )
-                                }
-                                className="flex-row items-center bg-gray-800 rounded-xl p-3 mb-2"
-                            >
-                                <Image
-                                    source={{ uri: item.profile?.avatarfull }}
-                                    className="w-12 h-12 rounded-full mr-3"
-                                />
-                                <View className="flex-1">
-                                    <Text className="text-white text-lg">
-                                        {item.profile?.personaname}
-                                    </Text>
-                                    <Text className="text-gray-400 text-sm">
-                                        Jogos: {item.games?.game_count ?? 0}
-                                    </Text>
-                                    <Text className="text-gray-400 text-sm">
-                                        Jogos em comum: {item.commonGames?.length ?? 0}
-                                    </Text>
+                    <PullToRefresh refreshing={refreshingFriends} onRefresh={onRefreshFriends}>
+                        <FlatList
+                            data={friends}
+                            keyExtractor={(item) => item.steamid}
+                            renderItem={({ item }) => (
+                                <Pressable
+                                    onPress={() =>
+                                        Linking.openURL(
+                                            `https://steamcommunity.com/profiles/${item.steamid}`
+                                        )
+                                    }
+                                    className="flex-row items-center bg-gray-800 rounded-xl p-3 mb-2"
+                                >
+                                    <Image
+                                        source={{ uri: item.profile?.avatarfull }}
+                                        className="w-12 h-12 rounded-full mr-3"
+                                    />
+                                    <View className="flex-1">
+                                        <Text className="text-white text-lg">
+                                            {item.profile?.personaname}
+                                        </Text>
+                                        <Text className="text-gray-400 text-sm">
+                                            Jogos: {item.games?.game_count ?? 0}
+                                        </Text>
+                                        <Text className="text-gray-400 text-sm">
+                                            Jogos em comum: {item.commonGames?.length ?? 0}
+                                        </Text>
 
-                                </View>
-                            </Pressable>
-                        )}
-                        ListEmptyComponent={
-                            !loadingFriends && (
-                                <Text className="text-gray-400 text-center mt-4">
-                                    Nenhum amigo com jogos públicos encontrado
-                                </Text>
-                            )
-                        }
-                        refreshControl={
-                            <RefreshControl
-                                refreshing={loadingFriends}
-                                onRefresh={onRefreshFriends}
-                                colors={["#4ade80"]}
-                                tintColor={isDark ? "#4ade80" : "#16a34a"}
-                            />
-                        }
-                    />
+                                    </View>
+                                </Pressable>
+                            )}
+                            ListEmptyComponent={
+                                !loadingFriends && (
+                                    <Text className="text-gray-400 text-center mt-4">
+                                        Nenhum amigo com jogos públicos encontrado
+                                    </Text>
+                                )
+                            }
+                        />
+                    </PullToRefresh>
                 </>
             ) : (
                 <View

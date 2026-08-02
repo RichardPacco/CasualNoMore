@@ -1,3 +1,5 @@
+const { COLORS } = require("./src/theme/colors.js");
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
@@ -20,7 +22,9 @@ module.exports = {
           100: '#221F3D',
           200: '#0F0D23'
         },
-        accent: '#AB8BFF'
+        accent: COLORS.accent,
+        'accent-strong': COLORS.accentStrong,
+        danger: COLORS.danger
       }
     },
   },

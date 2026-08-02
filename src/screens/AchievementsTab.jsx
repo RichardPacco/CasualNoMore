@@ -1,4 +1,5 @@
 import useAchievements from "@/src/hooks/useAchievements";
+import { COLORS } from "@/src/theme/colors";
 import { Ionicons } from "@expo/vector-icons";
 import { ActivityIndicator, FlatList, Image, Text, TouchableOpacity, View } from "react-native";
 
@@ -8,7 +9,7 @@ export default function AchievementsTab({ game }) {
     if (loading) {
         return (
             <View className="flex-1 justify-center items-center">
-                <ActivityIndicator size="large" color="#4ade80" />
+                <ActivityIndicator size="large" color={COLORS.accent} />
             </View>
         );
     }
@@ -49,7 +50,7 @@ export default function AchievementsTab({ game }) {
                             <Ionicons
                                 name={item.achieved ? "lock-open-outline" : "lock-closed-outline"}
                                 size={32}
-                                color={item.achieved ? "#34D399" : "#F87171"}
+                                color={item.achieved ? COLORS.accent : COLORS.danger}
                             />
                         </TouchableOpacity>
                     )}

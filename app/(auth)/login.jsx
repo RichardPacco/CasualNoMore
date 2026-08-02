@@ -1,11 +1,13 @@
+import { Ionicons } from "@expo/vector-icons";
 import { getPlayerSummary, resolveVanityURL } from "@/src/api/steam";
 import { AuthContext } from "@/src/context/AuthContext";
 import { clearDB } from "@/src/database/db";
 import { showToast } from "@/src/utils/toast";
+import { COLORS } from "@/src/theme/colors";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useContext, useState } from "react";
-import { Alert, ImageBackground, SafeAreaView, StatusBar, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, ImageBackground, Modal, SafeAreaView, StatusBar, Text, TouchableOpacity, View } from "react-native";
 import { TextInput } from "react-native-paper";
 
 const loginBackground = require("../../assets/images/login_background.png");
@@ -17,6 +19,7 @@ export default function Login() {
 
     const [input, setInput] = useState("");
     const [loading, setLoading] = useState(false);
+    const [confirmVisible, setConfirmVisible] = useState(false);
 
     const handleClearCache = async () => {
         try {
@@ -28,27 +31,15 @@ export default function Login() {
         }
     };
 
-    const handleClearDB = async () => {
-        Alert.alert(
-            "Confirmação",
-            "Tem certeza que quer limpar todo o banco de dados?",
-            [
-                { text: "Cancelar", style: "cancel" },
-                {
-                    text: "Sim",
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            await clearDB();
-                            showToast("Banco limpo!", "O banco de dados foi zerado.");
-                        } catch (err) {
-                            console.error(err);
-                            Alert.alert("Erro", "Falha ao limpar o banco de dados.");
-                        }
-                    },
-                },
-            ]
-        );
+    const confirmClearDB = async () => {
+        setConfirmVisible(false);
+        try {
+            await clearDB();
+            showToast("Banco limpo!", "O banco de dados foi zerado.");
+        } catch (err) {
+            console.error(err);
+            Alert.alert("Erro", "Falha ao limpar o banco de dados.");
+        }
     };
 
 
@@ -139,41 +130,38 @@ export default function Login() {
 
             <ImageBackground source={loginBackground} className="flex-1" resizeMode="cover">
                 {/* Overlay escura para garantir legibilidade */}
-                <View className="flex-1 bg-black/60 p-5 justify-between">
-                    {/* Top section */}
-                    <View>
-                        <Text className="text-[#4ade80] text-2xl font-bold text-center mb-3 shadow-[2px_2px_4px_#b4a6a6ff]">
-                            CasualNoMore
-                        </Text>
+                <View className="flex-1 bg-black/60 p-5">
+                    {/* Top corners: ações minimais */}
+                    <View className="flex-row justify-between">
+                        <TouchableOpacity
+                            onPress={handleClearCache}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            className="flex-row items-center gap-1"
+                        >
+                            <Ionicons name="trash-outline" size={20} color={COLORS.danger} />
+                            <Text className="text-danger text-xs font-medium">Cache</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            onPress={() => setConfirmVisible(true)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            className="flex-row items-center gap-1"
+                        >
+                            <Ionicons name="trash-outline" size={20} color={COLORS.danger} />
+                            <Text className="text-danger text-xs font-medium">DB</Text>
+                        </TouchableOpacity>
                     </View>
 
                     {/* Bottom section */}
-                    <View>
-                        {/* Buttons */}
-                        <View className="flex-row justify-between mb-4">
-                            <TouchableOpacity
-                                onPress={handleClearCache}
-                                className="px-3 py-2 rounded-md border border-[#F87171] items-center bg-transparent"
-                            >
-                                <Text className="text-[#F87171] font-medium">Limpar Cache</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                onPress={handleClearDB}
-                                className="px-3 py-2 rounded-md border border-[#F87171] items-center bg-transparent"
-                            >
-                                <Text className="text-[#F87171] font-medium">Limpar DB</Text>
-                            </TouchableOpacity>
-                        </View>
-
+                    <View className="flex-1 justify-end">
                         {/* Tip box */}
-                        <View className="bg-[#1e1e1e]/90 p-2.5 rounded-md mb-4 border-l-4 border-[#4ade80]">
+                        <View className="bg-[#1e1e1e]/90 p-2.5 rounded-md mb-4 border-l-4 border-accent">
                             <Text className="text-[#aaa] text-xs">
                                 O perfil Steam deve estar público para o aplicativo funcionar
                             </Text>
                         </View>
 
-                        {/* Input */}
+                        {/* Input + submit arrow */}
                         <View className="mb-3">
                             <TextInput
                                 label="Steam URL ou SteamID"
@@ -183,24 +171,70 @@ export default function Login() {
                                 style={{ backgroundColor: "#222" }}
                                 theme={{
                                     colors: {
-                                        primary: "#4ade80",  // label / focus color
+                                        primary: COLORS.accent,  // label / focus color
                                     },
                                 }}
                                 textColor="#fff"
+                                onSubmitEditing={handleSubmit}
+                                right={
+                                    <TextInput.Icon
+                                        icon={() =>
+                                            loading ? (
+                                                <ActivityIndicator size="small" color={COLORS.accent} />
+                                            ) : (
+                                                <Ionicons name="arrow-forward" size={22} color={COLORS.accent} />
+                                            )
+                                        }
+                                        onPress={handleSubmit}
+                                        disabled={loading}
+                                    />
+                                }
                             />
                         </View>
-
-                        {/* Continuar button */}
-                        <TouchableOpacity
-                            onPress={handleSubmit}
-                            disabled={loading}
-                            className="bg-[#4ade80] py-3 rounded-md items-center"
-                        >
-                            <Text className="text-white">{loading ? "Carregando..." : "Continuar"}</Text>
-                        </TouchableOpacity>
                     </View>
                 </View>
             </ImageBackground>
+
+            {/* Confirmar limpeza do banco */}
+            <Modal
+                transparent
+                animationType="fade"
+                visible={confirmVisible}
+                onRequestClose={() => setConfirmVisible(false)}
+            >
+                <View className="flex-1 bg-black/70 items-center justify-center p-6">
+                    <View className="w-full bg-[#1f2937] rounded-2xl p-6 border border-gray-700">
+                        <View className="items-center mb-4">
+                            <View className="w-14 h-14 rounded-full bg-danger/15 items-center justify-center mb-3">
+                                <Ionicons name="trash-outline" size={28} color={COLORS.danger} />
+                            </View>
+                            <Text className="text-white text-lg font-bold text-center">
+                                Limpar Banco de Dados?
+                            </Text>
+                        </View>
+
+                        <Text className="text-gray-400 text-sm text-center mb-6">
+                            Isso vai apagar todos os jogos salvos e progresso local. Essa ação não pode ser desfeita.
+                        </Text>
+
+                        <View className="flex-row gap-3">
+                            <TouchableOpacity
+                                onPress={() => setConfirmVisible(false)}
+                                className="flex-1 py-3 rounded-lg bg-gray-700 items-center"
+                            >
+                                <Text className="text-white font-semibold">Cancelar</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                onPress={confirmClearDB}
+                                className="flex-1 py-3 rounded-lg bg-danger items-center"
+                            >
+                                <Text className="text-white font-semibold">Limpar</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 

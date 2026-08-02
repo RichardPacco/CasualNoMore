@@ -1,4 +1,5 @@
 import Toast from "react-native-root-toast";
+import { COLORS } from "@/src/theme/colors";
 
 let activeToast = null;
 
@@ -14,13 +15,13 @@ export function showToast(message, type = "info") {
 
     switch (type) {
         case "success":
-            backgroundColor = "#22c55e";
+            backgroundColor = COLORS.accent;
             break;
         case "error":
-            backgroundColor = "#ef4444";
+            backgroundColor = COLORS.error;
             break;
         case "warning":
-            backgroundColor = "#facc15";
+            backgroundColor = COLORS.warning;
             break;
         default:
             backgroundColor = "#333";

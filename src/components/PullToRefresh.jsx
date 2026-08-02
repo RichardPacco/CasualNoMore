@@ -1,6 +1,7 @@
 import { cloneElement, useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { COLORS } from "@/src/theme/colors";
 import Animated, {
     runOnJS,
     useAnimatedStyle,
@@ -79,7 +80,7 @@ export default function PullToRefresh({ refreshing, onRefresh, children, style }
                         },
                     ]}
                 >
-                    <ActivityIndicator size="large" color="#4ade80" />
+                    <ActivityIndicator size="large" color={COLORS.accent} />
                 </Animated.View>
                 <Animated.View style={[{ flex: 1 }, listStyle]}>
                     {cloneElement(children, {

@@ -37,11 +37,11 @@ export default function AppSplash() {
             <Image source={appIcon} className="w-28 h-28 rounded-2xl" resizeMode="contain" />
 
             <Text className="text-white text-2xl font-bold mt-5 tracking-wide">CasualNoMore</Text>
-            <Text className="text-green-400 text-sm mt-1">Conquistas de verdade</Text>
+            <Text className="text-accent text-sm mt-1">Conquistas de verdade</Text>
 
             <View className="mt-8 w-56 h-2 bg-gray-800 rounded-full overflow-hidden">
                 <Animated.View
-                    className="h-2 w-28 bg-green-500 rounded-full"
+                    className="h-2 w-28 bg-accent rounded-full"
                     style={{ transform: [{ translateX }] }}
                 />
             </View>

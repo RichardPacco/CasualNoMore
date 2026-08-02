@@ -6,6 +6,7 @@ import ProfileCard from "@/src/components/ProfileCard";
 import PullToRefresh from "@/src/components/PullToRefresh";
 import { AuthContext } from "@/src/context/AuthContext";
 import { loadFriend, saveFriendProfile } from "@/src/database/db";
+import { COLORS } from "@/src/theme/colors";
 
 function gamesSignature(games) {
     return (games?.games ?? [])
@@ -202,7 +203,7 @@ export default function Profile({ navigation }) {
     if (loadingProfile) {
         return (
             <View className={`flex-1 items-center justify-center ${pageBg}`}>
-                <ActivityIndicator size="large" color={isDark ? "#4ade80" : "#000"} />
+                <ActivityIndicator size="large" color={isDark ? COLORS.accent : "#000"} />
             </View>
         );
     }
@@ -220,7 +221,7 @@ export default function Profile({ navigation }) {
                     {loadingFriends && !refreshingFriends && (
                         <ActivityIndicator
                             size="small"
-                            color={isDark ? "#4ade80" : "#000"}
+                            color={isDark ? COLORS.accent : "#000"}
                             style={{ marginBottom: 10 }}
                         />
                     )}

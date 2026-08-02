@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Modal, Text, TouchableOpacity, View } from "react-native";
 import AchievementsTab from './AchievementsTab';
 import GameDetailsTab from './GameDetailsTab';
+import { COLORS } from "@/src/theme/colors";
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -102,7 +103,7 @@ export default function GameScreen({ route, navigation }) {
                         height: 50,                 // Adjust height if needed
                     },
                     tabBarIndicatorStyle: {
-                        backgroundColor: '#34D399',
+                        backgroundColor: COLORS.accent,
                         borderRadius: 10,           // Rounded indicator
                         height: '100%',             // Makes the indicator fill the tab bar height
                     },

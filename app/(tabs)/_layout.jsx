@@ -3,6 +3,7 @@ import * as NavigationBar from "expo-navigation-bar";
 import { Tabs } from "expo-router";
 import { StatusBar, useColorScheme, View } from "react-native";
 import '../globals.css';
+import { COLORS } from "@/src/theme/colors";
 
 export default function TabsLayout() {
     const colorScheme = useColorScheme();
@@ -32,7 +33,7 @@ export default function TabsLayout() {
             <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={isDark ? "#111" : "#fff"} />
             <Tabs
                 screenOptions={{
-                    tabBarActiveTintColor: isDark ? "#4ade80" : "#16a34a",
+                    tabBarActiveTintColor: isDark ? COLORS.accent : COLORS.accentStrong,
                     tabBarInactiveTintColor: isDark ? "#9ca3af" : "#6b7280",
                     tabBarStyle,
                     tabBarLabelStyle,

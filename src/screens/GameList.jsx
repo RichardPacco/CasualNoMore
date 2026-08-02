@@ -8,6 +8,7 @@ import PullToRefresh from "@/src/components/PullToRefresh";
 import { AuthContext } from "@/src/context/AuthContext";
 import { getAllGames, saveGamesBatch } from "@/src/database/db";
 import { fetchAndMergeAchievements } from "@/src/utils/achievements";
+import { COLORS } from "@/src/theme/colors";
 
 const StyledDropdown = remapProps(Dropdown, {
     className: "style",
@@ -340,7 +341,7 @@ export default function GameList({ navigation, route }) {
     if (loading && games.length === 0) {
         return (
             <View className="flex-1 justify-center items-center bg-gray-900">
-                <ActivityIndicator size="large" color="#4ade80" />
+                <ActivityIndicator size="large" color={COLORS.accent} />
                 {progress.total > 0 && (
                     <Text className="text-gray-400 mt-2">
                         Buscando {progress.current}/{progress.total} jogos…
@@ -351,16 +352,16 @@ export default function GameList({ navigation, route }) {
     }
 
     const dropdownClass = isDark
-        ? "rounded-xl px-4 py-2 mb-4 border bg-slate-800 border-green-400"
+        ? "rounded-xl px-4 py-2 mb-4 border bg-slate-800 border-accent"
         : "rounded-xl px-4 py-2 mb-4 border bg-slate-200 border-gray-400";
     const dropdownContainerClass = isDark
-        ? "bg-slate-800 rounded-xl border border-green-400 py-1"
+        ? "bg-slate-800 rounded-xl border border-accent py-1"
         : "bg-slate-50 rounded-xl border border-gray-300 py-1";
 
     const containerStyleForced = {
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: isDark ? "#4ade80" : "#9ca3af",
+        borderColor: isDark ? COLORS.accent : "#9ca3af",
         backgroundColor: isDark ? "#1f2937" : "#f9fafb",
         paddingVertical: 4,
     };
@@ -372,7 +373,7 @@ export default function GameList({ navigation, route }) {
         paddingVertical: 10,
         marginBottom: 16,
         borderWidth: 1,
-        borderColor: isDark ? "#4ade80" : "#9ca3af",
+        borderColor: isDark ? COLORS.accent : "#9ca3af",
     };
 
     return (
@@ -395,7 +396,7 @@ export default function GameList({ navigation, route }) {
                             returnKeyType="search"
                             onSubmitEditing={() => Keyboard.dismiss()}
                             className={`flex-1 rounded-xl px-4 py-2 border ${isDark
-                                ? "bg-slate-800 border-green-400 text-white"
+                                ? "bg-slate-800 border-accent text-white"
                                 : "bg-slate-100 border-gray-300 text-black"
                                 }`}
                             style={{ fontSize: 16 }}
@@ -411,7 +412,7 @@ export default function GameList({ navigation, route }) {
                             }}
                             style={{ marginLeft: 8 }}
                         >
-                            <Text style={{ color: isDark ? "#4ade80" : "#111" }}>Limpar</Text>
+                            <Text style={{ color: isDark ? COLORS.accent : "#111" }}>Limpar</Text>
                         </TouchableOpacity>
                     </View>
 
@@ -422,7 +423,7 @@ export default function GameList({ navigation, route }) {
                     onPress={openSidebar}
                     style={{ marginLeft: 12, padding: 12, backgroundColor: isDark ? '#1f2937' : '#f3f4f6', borderRadius: 10 }}
                 >
-                    <Text style={{ color: isDark ? '#4ade80' : '#111' }}>☰</Text>
+                    <Text style={{ color: isDark ? COLORS.accent : '#111' }}>☰</Text>
                 </TouchableOpacity>
             </View>
 
@@ -462,7 +463,7 @@ export default function GameList({ navigation, route }) {
                         }}
                     >
                         <TouchableOpacity onPress={closeSidebar} style={{ marginBottom: 20 }}>
-                            <Text style={{ color: isDark ? "#4ade80" : "#111", fontWeight: "bold" }}>✕ Fechar</Text>
+                            <Text style={{ color: isDark ? COLORS.accent : "#111", fontWeight: "bold" }}>✕ Fechar</Text>
                         </TouchableOpacity>
 
                         {/* Sidebar dropdowns: override text colors for dark mode */}
@@ -478,9 +479,9 @@ export default function GameList({ navigation, route }) {
                                 backgroundColor: isDark ? "#0b1220" : mainStyleForced.backgroundColor,
                             }}
                             placeholderStyle={{ color: isDark ? "#9ca3af" : "#374151", fontSize: 16 }}
-                            selectedTextStyle={{ color: isDark ? "#4ade80" : "#111111", fontSize: 16, fontWeight: "600" }}
+                            selectedTextStyle={{ color: isDark ? COLORS.accent : "#111111", fontSize: 16, fontWeight: "600" }}
                             itemTextStyle={{ color: isDark ? "#ffffff" : "#111111", fontSize: 15 }}
-                            activeColor={isDark ? "rgba(74, 222, 128, 0.12)" : "#d1fae5"}
+                            activeColor={isDark ? COLORS.accentSoft : COLORS.accentSoftLight}
                             placeholder="🎯 Filtro"
                             value={filter}
                             onChange={(item) => setFilter(item.value)}
@@ -501,9 +502,9 @@ export default function GameList({ navigation, route }) {
                                 backgroundColor: isDark ? "#0b1220" : mainStyleForced.backgroundColor,
                             }}
                             placeholderStyle={{ color: isDark ? "#9ca3af" : "#374151", fontSize: 16 }}
-                            selectedTextStyle={{ color: isDark ? "#4ade80" : "#111111", fontSize: 16, fontWeight: "600" }}
+                            selectedTextStyle={{ color: isDark ? COLORS.accent : "#111111", fontSize: 16, fontWeight: "600" }}
                             itemTextStyle={{ color: isDark ? "#ffffff" : "#111111", fontSize: 15 }}
-                            activeColor={isDark ? "rgba(74, 222, 128, 0.12)" : "#d1fae5"}
+                            activeColor={isDark ? COLORS.accentSoft : COLORS.accentSoftLight}
                             placeholder="⏱️ Ordenar por"
                             value={sort}
                             onChange={(item) => setSort(item.value)}
@@ -527,7 +528,7 @@ export default function GameList({ navigation, route }) {
                     ListHeaderComponent={
                         progress.current < progress.total ? (
                             <View className="py-4 items-center">
-                                <ActivityIndicator size="small" color="#4ade80" />
+                                <ActivityIndicator size="small" color={COLORS.accent} />
                                 <Text className="text-gray-400 mt-2">
                                     Carregando {progress.current}/{progress.total}
                                 </Text>

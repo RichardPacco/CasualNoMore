@@ -54,7 +54,7 @@ export default function CommonGames({ route, navigation }) {
                 placeholderTextColor={isDark ? "#9ca3af" : "#6b7280"}
                 className={`rounded-xl px-4 py-2 border mb-2 ${
                     isDark
-                        ? "bg-slate-800 border-green-400 text-white"
+                        ? "bg-slate-800 border-accent text-white"
                         : "bg-slate-100 border-gray-300 text-black"
                 }`}
                 style={{ fontSize: 16 }}

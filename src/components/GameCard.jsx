@@ -51,7 +51,7 @@ function GameCardComponent({ game, navigation }) {
                     <>
                         <View className="w-full bg-gray-700 rounded-full h-2 mt-2">
                             <View
-                                className="bg-green-500 h-2 rounded-full"
+                                className="bg-accent h-2 rounded-full"
                                 style={{ width: `${percent}%` }}
                             />
                         </View>

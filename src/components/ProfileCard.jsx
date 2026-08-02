@@ -7,7 +7,7 @@ import { formatDate } from "@/src/utils/formatDate";
 function getStatus(statusCode) {
     switch (statusCode) {
         case 0: return { text: "Offline", colorDark: "text-gray-400", colorLight: "text-gray-600" };
-        case 1: return { text: "Online", colorDark: "text-green-400", colorLight: "text-green-600" };
+        case 1: return { text: "Online", colorDark: "text-accent", colorLight: "text-accent-strong" };
         case 2: return { text: "Ocupado", colorDark: "text-red-400", colorLight: "text-red-600" };
         case 3: return { text: "Ausente", colorDark: "text-yellow-400", colorLight: "text-yellow-600" };
         case 4: return { text: "Soneca", colorDark: "text-purple-400", colorLight: "text-purple-600" };

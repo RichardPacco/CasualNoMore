@@ -2,6 +2,9 @@ import * as SQLite from "expo-sqlite";
 
 let dbInstance = null;
 
+// Tabelas já garantidas nesta sessão, para não recriar a cada acesso
+const createdTables = new Set();
+
 export async function openDB() {
     if (!dbInstance) {
         console.log("[db] Abrindo banco de dados...");
@@ -14,8 +17,10 @@ export async function openDB() {
  * Garante que exista uma tabela para o steamId
  */
 export async function ensureTable(steamId) {
-    const db = await openDB();
     const tableName = `games_${steamId}`;
+    if (createdTables.has(tableName)) return tableName;
+
+    const db = await openDB();
     console.log(`[db] Criando tabela se não existir: ${tableName}`);
     await db.execAsync(`
     CREATE TABLE IF NOT EXISTS ${tableName} (
@@ -27,12 +32,15 @@ export async function ensureTable(steamId) {
       schemaStatus TEXT
     );
   `);
+    createdTables.add(tableName);
     return tableName;
 }
 
 export async function ensureTableFriends(steamId) {
-    const db = await openDB();
     const tableName = `friends_${steamId}`;
+    if (createdTables.has(tableName)) return tableName;
+
+    const db = await openDB();
     console.log(`[db] Criando tabela se não existir: ${tableName}`);
     await db.execAsync(`
         CREATE TABLE IF NOT EXISTS ${tableName} (
@@ -42,6 +50,7 @@ export async function ensureTableFriends(steamId) {
             commonGames TEXT
         );
     `);
+    createdTables.add(tableName);
     return tableName;
 }
 
@@ -151,6 +160,7 @@ export async function clearDB() {
             await db.runAsync(`DROP TABLE IF EXISTS ${table.name};`);
         }
 
+        createdTables.clear(); // as tabelas foram dropadas, precisam ser recriadas
         console.log("[db] Banco de dados limpo!");
     } catch (err) {
         console.error("[db] Erro ao limpar DB", err);

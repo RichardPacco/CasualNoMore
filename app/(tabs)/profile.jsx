@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Image, Linking, Pressable, Text, useColorScheme, View } from "react-native";
+import { ActivityIndicator, FlatList, Image, Linking, Pressable, RefreshControl, Text, useColorScheme, View } from "react-native";
 import { getFriendList, getOwnedGames, getPlayerSummary } from "@/src/api/steam";
 import ProfileCard from "@/src/components/ProfileCard";
 import { AuthContext } from "@/src/context/AuthContext";
@@ -40,10 +40,59 @@ export default function Profile() {
         const [friends, setFriends] = useState([]);
         const [loadingProfile, setLoadingProfile] = useState(true);
         const [loadingFriends, setLoadingFriends] = useState(false);
+        const myGamesRef = useRef([]);
+
+        // Busca progressiva dos dados frescos dos amigos (perfil + jogos + jogos em comum)
+        const refreshFriends = useCallback(async (friendIds) => {
+            if (cancelledRef.current) return;
+            setLoadingFriends(true);
+            try {
+                for (const id of friendIds) {
+                    if (cancelledRef.current) break;
+
+                    try {
+                        const [friendProfile, games] = await Promise.all([
+                            getPlayerSummary(id),
+                            getOwnedGames(id),
+                        ]);
+
+                        if (!friendProfile || !games) continue;
+
+                        const commonGames = myGamesRef.current.filter(myGame =>
+                            games.games?.some(friendGame => friendGame.appid === myGame.appid)
+                        );
+
+                        const friendData = { steamId: id, profile: friendProfile, games, commonGames };
+
+                        // Persist in DB
+                        await saveFriendProfile(steamId, friendData);
+
+                        // Update state progressively
+                        setFriends(prev => {
+                            const index = prev.findIndex(f => f.steamid === id);
+                            if (index !== -1) {
+                                const copy = [...prev];
+                                copy[index] = { steamid: id, ...friendData };
+                                return copy;
+                            } else {
+                                return [...prev, { steamid: id, ...friendData }];
+                            }
+                        });
+                    } catch (e) {
+                        console.warn(`[useProfile] Friend ignored: ${id}`, e.message);
+                    }
+
+                    await sleep(250); // throttle API calls
+                }
+            } catch (err) {
+                console.error("[useProfile] Failed to refresh friends:", err);
+            } finally {
+                setLoadingFriends(false);
+            }
+        }, [steamId]);
 
         const loadProfile = useCallback(async () => {
             if (!steamId) return;
-            let myGames = [];
             setLoadingProfile(true);
 
             // --- Load own profile ---
@@ -52,9 +101,8 @@ export default function Profile() {
                     getPlayerSummary(steamId),
                     getOwnedGames(steamId),
                 ]);
-                myGames = Games?.games ?? [];
+                myGamesRef.current = Games?.games ?? [];
                 setProfile(Profile ?? null);
-
             } catch (err) {
                 console.error("[useProfile] Failed to load profile:", err);
                 setProfile(null);
@@ -82,58 +130,29 @@ export default function Profile() {
                 }
                 setFriends(cachedFriends); // show immediately
 
-                // --- Fetch fresh data progressively ---
-                for (const id of friendIds) {
-                    if (cancelledRef.current) break;
-
-                    try {
-                        const [friendProfile, games] = await Promise.all([
-                            getPlayerSummary(id),
-                            getOwnedGames(id),
-                        ]);
-
-                        if (!friendProfile || !games) continue;
-
-                        const commonGames = myGames.filter(myGame =>
-                            games.games?.some(friendGame => friendGame.appid === myGame.appid)
-                        );
-
-                        const friendData = { steamId: id, profile: friendProfile, games, commonGames };
-
-                        // Persist in DB
-                        await saveFriendProfile(steamId, friendData);
-                        // await saveFriendGames(id, games);
-
-                        // Update state progressively
-                        setFriends(prev => {
-                            const index = prev.findIndex(f => f.steamid === id);
-                            if (index !== -1) {
-                                const copy = [...prev];
-                                copy[index] = { steamid: id, ...friendData };
-                                return copy;
-                            } else {
-                                return [...prev, { steamid: id, ...friendData }];
-                            }
-                        });
-                    } catch (e) {
-                        console.warn(`[useProfile] Friend ignored: ${id}`, e.message);
-                    }
-
-                    await sleep(250); // throttle API calls
+                // Só faz o fetch completo quando não há cache (evita refazer tudo ao reentrar)
+                if (cachedFriends.length === 0) {
+                    await refreshFriends(friendIds);
                 }
             } catch (err) {
                 console.error("[useProfile] Failed to load friends:", err);
             } finally {
                 setLoadingFriends(false);
             }
+        }, [steamId, refreshFriends]);
 
-        }, [steamId]);
+        // Pull-to-refresh: re-fetcha os amigos (perfil + jogos + comuns)
+        const onRefreshFriends = useCallback(async () => {
+            const friendList = await getFriendList(steamId);
+            const friendIds = (friendList ?? []).map(f => f.steamid);
+            await refreshFriends(friendIds);
+        }, [steamId, refreshFriends]);
 
         useEffect(() => {
             loadProfile();
         }, [loadProfile]);
 
-        return { profile, friends, loadingProfile, loadingFriends, loadProfile };
+        return { profile, friends, loadingProfile, loadingFriends, loadProfile, onRefreshFriends };
     }
 
 
@@ -144,7 +163,7 @@ export default function Profile() {
         }
     }, [steamId, router]);
 
-    const { profile, friends, loadingProfile, loadingFriends, loadProfile } =
+    const { profile, friends, loadingProfile, loadingFriends, loadProfile, onRefreshFriends } =
         useProfile(steamId);
 
     if (loadingProfile) {
@@ -176,8 +195,7 @@ export default function Profile() {
                     <FlatList
                         data={friends}
                         keyExtractor={(item) => item.steamid}
-                        renderItem={({ item }) => (
-                            <Pressable
+                        renderItem={({ item }) => (                            <Pressable
                                 onPress={() =>
                                     Linking.openURL(
                                         `https://steamcommunity.com/profiles/${item.steamid}`
@@ -209,6 +227,14 @@ export default function Profile() {
                                     Nenhum amigo com jogos públicos encontrado
                                 </Text>
                             )
+                        }
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={loadingFriends}
+                                onRefresh={onRefreshFriends}
+                                colors={["#4ade80"]}
+                                tintColor={isDark ? "#4ade80" : "#16a34a"}
+                            />
                         }
                     />
                 </>

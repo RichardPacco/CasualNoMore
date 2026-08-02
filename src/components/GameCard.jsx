@@ -1,3 +1,4 @@
+import { computeProgress } from "@/src/utils/achievements";
 import { memo } from "react";
 import { Image, Text, TouchableOpacity, View, useColorScheme } from "react-native";
 
@@ -9,6 +10,8 @@ function GameCardComponent({ game, navigation }) {
         titleText: colorScheme === "dark" ? "text-white" : "text-black",
         subtitleText: colorScheme === "dark" ? "text-gray-400" : "text-gray-600",
     };
+
+    const { unlocked, total, percent } = computeProgress(game.achievements);
 
     return (
         <TouchableOpacity
@@ -33,6 +36,20 @@ function GameCardComponent({ game, navigation }) {
                         ? `${game.playtime_forever} minutos`
                         : `${Math.floor(game.playtime_forever / 60)} horas ${game.playtime_forever % 60} minutos`}
                 </Text>
+
+                {total > 0 && (
+                    <>
+                        <View className="w-full bg-gray-700 rounded-full h-2 mt-2">
+                            <View
+                                className="bg-green-500 h-2 rounded-full"
+                                style={{ width: `${percent}%` }}
+                            />
+                        </View>
+                        <Text className={`${styles.subtitleText} text-xs mt-1`}>
+                            {unlocked}/{total} conquistas ({percent.toFixed(1)}%)
+                        </Text>
+                    </>
+                )}
             </View>
         </TouchableOpacity>
     );

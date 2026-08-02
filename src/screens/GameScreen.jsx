@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Modal, Text, TouchableOpacity, View } from "react-native";
 import AchievementsTab from './AchievementsTab';
 import GameDetailsTab from './GameDetailsTab';
-import ProgressTab from './Progresstab';
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -116,9 +115,6 @@ export default function GameScreen({ route, navigation }) {
 
                 <Tab.Screen name="Detalhes">
                     {() => <GameDetailsTab game={game} navigation={navigation} />}
-                </Tab.Screen>
-                <Tab.Screen name="Progresso">
-                    {() => <ProgressTab game={game} />}
                 </Tab.Screen>
                 <Tab.Screen name="Conquistas">
                     {() => <AchievementsTab game={game} />}

@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { Image, Linking, ScrollView, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import RenderHTML from 'react-native-render-html';
 import { getGameStoreDetails } from "@/src/api/steam";
+import { AuthContext } from "@/src/context/AuthContext";
+import { getGame, saveGame } from "@/src/database/db";
 
 
 export default function GameDetailsTab({ game }) {
-    const [gameDetail, setGameDetail] = useState(null);
+    const { steamId } = useContext(AuthContext);
+    const [gameDetail, setGameDetail] = useState(game?.details ?? null);
     const { width } = useWindowDimensions();
 
     const [showFull, setShowFull] = useState(false);
@@ -13,18 +16,44 @@ export default function GameDetailsTab({ game }) {
     useEffect(() => {
         if (!game) return;
 
-        const fetchGameDetails = async () => {
+        let cancelled = false;
+
+        const loadDetails = async () => {
+            // 1️⃣ Detalhes já no objeto do jogo
+            if (game.details) {
+                setGameDetail(game.details);
+                return;
+            }
+
+            // 2️⃣ Detalhes cacheados no banco
+            let cached = null;
+            if (steamId) {
+                cached = await getGame(steamId, game.appid);
+                if (cancelled) return;
+            }
+            if (cached?.details) {
+                setGameDetail(cached.details);
+                return;
+            }
+
+            // 3️⃣ Busca na loja e persiste
             try {
                 const details = await getGameStoreDetails(game.appid);
+                if (cancelled) return;
                 setGameDetail(details);
-                // console.log(details);
+                if (details && steamId) {
+                    await saveGame(steamId, { ...game, details, detailsStatus: "done" });
+                }
             } catch (err) {
                 console.warn(`No Details for ${game.name}`, err);
             }
         };
 
-        fetchGameDetails();
-    }, [game]);
+        loadDetails();
+        return () => {
+            cancelled = true;
+        };
+    }, [game, steamId]);
 
 
     const openSteamPage = () => {

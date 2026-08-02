@@ -29,7 +29,11 @@ export async function ensureTable(steamId) {
       playtime_forever INTEGER,
       playtime_2weeks INTEGER,
       schema TEXT,
-      schemaStatus TEXT
+      schemaStatus TEXT,
+      achievements TEXT,
+      achievementsStatus TEXT,
+      details TEXT,
+      detailsStatus TEXT
     );
   `);
     createdTables.add(tableName);
@@ -65,12 +69,16 @@ export async function saveGame(steamId, game) {
         const tableName = await ensureTable(steamId);
         const schemaString = game.schema ? JSON.stringify(game.schema) : null;
         const schemaStatus = game.schemaStatus || "pending"; // default if not set
+        const achievementsString = game.achievements ? JSON.stringify(game.achievements) : null;
+        const achievementsStatus = game.achievementsStatus || "pending";
+        const detailsString = game.details ? JSON.stringify(game.details) : null;
+        const detailsStatus = game.detailsStatus || "pending";
 
         console.log(`[db] Salvando jogo: ${game.name || game.appid} na tabela ${tableName}`);
         await db.runAsync(
-            `INSERT OR REPLACE INTO ${tableName} (appid, name, playtime_forever, playtime_2weeks, schema, schemaStatus)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-            [game.appid, game.name, game.playtime_forever || 0, game.playtime_2weeks || 0, schemaString, schemaStatus]
+            `INSERT OR REPLACE INTO ${tableName} (appid, name, playtime_forever, playtime_2weeks, schema, schemaStatus, achievements, achievementsStatus, details, detailsStatus)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [game.appid, game.name, game.playtime_forever || 0, game.playtime_2weeks || 0, schemaString, schemaStatus, achievementsString, achievementsStatus, detailsString, detailsStatus]
         );
         console.log(`[db] Jogo salvo: ${game.name || game.appid}`);
     } catch (err) {
@@ -89,11 +97,34 @@ export async function getAllGames(steamId) {
         const rows = await db.getAllAsync(`SELECT * FROM ${tableName}`);
         return rows.map(r => ({
             ...r,
-            schema: r.schema ? JSON.parse(r.schema) : null
+            schema: r.schema ? JSON.parse(r.schema) : null,
+            achievements: r.achievements ? JSON.parse(r.achievements) : null,
+            details: r.details ? JSON.parse(r.details) : null,
         }));
     } catch (err) {
         console.error("[db] erro getAllGames", err);
         return [];
+    }
+}
+
+/**
+ * Retorna um único jogo cacheado do steamId
+ */
+export async function getGame(steamId, appid) {
+    try {
+        const db = await openDB();
+        const tableName = await ensureTable(steamId);
+        const row = await db.getFirstAsync(`SELECT * FROM ${tableName} WHERE appid = ?`, [appid]);
+        if (!row) return null;
+        return {
+            ...row,
+            schema: row.schema ? JSON.parse(row.schema) : null,
+            achievements: row.achievements ? JSON.parse(row.achievements) : null,
+            details: row.details ? JSON.parse(row.details) : null,
+        };
+    } catch (err) {
+        console.error("[db] erro getGame", err);
+        return null;
     }
 }
 
@@ -107,13 +138,17 @@ export async function saveGamesBatch(steamId, games) {
         const insertPromises = games.map(game => {
             const schemaString = game.schema ? JSON.stringify(game.schema) : null;
             const schemaStatus = game.schemaStatus || "pending";
+            const achievementsString = game.achievements ? JSON.stringify(game.achievements) : null;
+            const achievementsStatus = game.achievementsStatus || "pending";
+            const detailsString = game.details ? JSON.stringify(game.details) : null;
+            const detailsStatus = game.detailsStatus || "pending";
 
             console.log(`[db] Salvando jogo: ${game.name || game.appid} na tabela ${tableName}`);
             return db.runAsync(
                 `INSERT OR REPLACE INTO ${tableName} 
-                (appid, name, playtime_forever, playtime_2weeks, schema, schemaStatus)
-                VALUES (?, ?, ?, ?, ?, ?)`,
-                [game.appid, game.name, game.playtime_forever || 0, game.playtime_2weeks || 0, schemaString, schemaStatus]
+                (appid, name, playtime_forever, playtime_2weeks, schema, schemaStatus, achievements, achievementsStatus, details, detailsStatus)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [game.appid, game.name, game.playtime_forever || 0, game.playtime_2weeks || 0, schemaString, schemaStatus, achievementsString, achievementsStatus, detailsString, detailsStatus]
             ).then(() => {
                 console.log(`[db] Jogo salvo: ${game.name || game.appid}`);
             });

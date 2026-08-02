@@ -7,6 +7,7 @@ import GameCard from "@/src/components/GameCard";
 import PullToRefresh from "@/src/components/PullToRefresh";
 import { AuthContext } from "@/src/context/AuthContext";
 import { getAllGames, saveGamesBatch } from "@/src/database/db";
+import { fetchAndMergeAchievements } from "@/src/utils/achievements";
 
 const StyledDropdown = remapProps(Dropdown, {
     className: "style",
@@ -113,6 +114,48 @@ export default function GameList({ navigation, route }) {
     // small helper
     const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 
+    /**
+     * Completa um jogo com toda a informação disponível:
+     * schema, conquistas (com progresso) e detalhes da loja.
+     * Só busca o que ainda não foi cacheado.
+     */
+    const enrichGame = useCallback(async (baseGame, cached) => {
+        let schema = cached?.schema ?? null;
+        let schemaStatus = cached?.schemaStatus || "pending";
+        let achievements = cached?.achievements ?? null;
+        let achievementsStatus = cached?.achievementsStatus || "pending";
+        let details = cached?.details ?? null;
+        let detailsStatus = cached?.detailsStatus || "pending";
+
+        if (schemaStatus === "pending") {
+            try {
+                schema = await GetSchemaForGame(baseGame.appid, steamId);
+                schemaStatus = "done";
+            } catch (err) {
+                console.error("[GameList] Erro schema", baseGame.appid, err);
+                schemaStatus = "pending";
+            }
+        }
+
+        if (achievementsStatus === "pending") {
+            try {
+                achievements = await fetchAndMergeAchievements(baseGame.appid, steamId, schema);
+                achievementsStatus = "done";
+            } catch (err) {
+                console.error("[GameList] Erro achievements", baseGame.appid, err);
+                achievementsStatus = "pending";
+            }
+        }
+
+        // Detalhes da loja são buscados sob demanda no GameDetailsTab e persistidos no DB
+        return {
+            ...baseGame,
+            playtime_forever: baseGame.playtime_forever || 0,
+            playtime_2weeks: baseGame.playtime_2weeks || 0,
+            schema, schemaStatus, achievements, achievementsStatus, details, detailsStatus
+        };
+    }, [steamId]);
+
     const renderGameCard = useCallback(
         ({ item }) => <GameCard game={item} navigation={navigation} />,
         [navigation]
@@ -123,6 +166,8 @@ export default function GameList({ navigation, route }) {
         { label: "🚫 Nunca Jogados", value: "neverPlayed" },
         { label: "🕹️ Jogados", value: "played" },
         { label: "⏱️ Nas últimas 2 semanas", value: "recent" },
+        { label: "🏆 Com Conquistas", value: "withAchievements" },
+        { label: "🚫 Sem Conquistas", value: "withoutAchievements" },
     ], []);
 
     const sortOptions = useMemo(() => [
@@ -138,6 +183,8 @@ export default function GameList({ navigation, route }) {
             case "played": result = result.filter(g => g.playtime_forever > 0); break;
             case "neverPlayed": result = result.filter(g => g.playtime_forever === 0); break;
             case "recent": result = result.filter(g => g.playtime_2weeks > 0); break;
+            case "withAchievements": result = result.filter(g => (g.achievements || []).length > 0); break;
+            case "withoutAchievements": result = result.filter(g => (g.achievements || []).length === 0); break;
             default: break;
         }
 
@@ -204,25 +251,18 @@ export default function GameList({ navigation, route }) {
                 const baseGame = fresh.games[i];
                 const cachedEntry = cacheMap.get(baseGame.appid);
 
-                let enriched;
-                if (cachedEntry && cachedEntry.schema) {
-                    enriched = { ...baseGame, schema: cachedEntry.schema, schemaStatus: cachedEntry.schemaStatus };
-                } else {
-                    try {
-                        const schema = await GetSchemaForGame(baseGame.appid, steamId);
-                        enriched = { ...baseGame, schema, schemaStatus: "done" };
-                    } catch (err) {
-                        console.error("[GameList] Erro schema", baseGame.appid, err);
-                        enriched = { ...baseGame, schema: null, schemaStatus: "pending" };
-                    }
-                }
+                const enriched = await enrichGame(baseGame, cachedEntry);
 
                 const idx = enrichedGames.findIndex(g => g.appid === baseGame.appid);
                 let updated = false;
 
                 if (idx >= 0) {
                     const prev = enrichedGames[idx];
-                    if ((enriched.playtime_forever || 0) > (prev.playtime_forever || 0) || prev.schemaStatus !== enriched.schemaStatus) {
+                    if (prev.playtime_forever !== enriched.playtime_forever
+                        || prev.playtime_2weeks !== enriched.playtime_2weeks
+                        || prev.schemaStatus !== enriched.schemaStatus
+                        || prev.achievementsStatus !== enriched.achievementsStatus
+                        || prev.detailsStatus !== enriched.detailsStatus) {
                         enrichedGames[idx] = enriched;
                         updated = true;
                     }
@@ -249,12 +289,14 @@ export default function GameList({ navigation, route }) {
                 }
             }
 
+            // Finish sync: clear progress header even if nothing was updated
+            setProgress({ current: total, total });
             setLoading(false);
         } catch (err) {
             console.error("[GameList] loadGames failed", err);
             setLoading(false);
         }
-    }, [steamId]);
+    }, [steamId, enrichGame]);
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
@@ -457,25 +499,6 @@ export default function GameList({ navigation, route }) {
                             labelField="label"
                             valueField="value"
                         />
-                        <TouchableOpacity
-                            onPress={loadGames}
-                            disabled={progress.current !== progress.total} // only active when all games loaded
-                            style={{
-                                marginTop: 24,
-                                paddingVertical: 12,
-                                paddingHorizontal: 16,
-                                backgroundColor: progress.current === progress.total
-                                    ? isDark ? "#4ade80" : "#10b981" // active color
-                                    : isDark ? "#374151" : "#9ca3af", // disabled color
-                                borderRadius: 10,
-                                alignItems: "center",
-                                opacity: progress.current === progress.total ? 1 : 0.6, // optional visual cue
-                            }}
-                        >
-                            <Text style={{ color: isDark ? "#111" : "#fff", fontWeight: "bold", fontSize: 16 }}>
-                                Atualizar Lista de Jogos
-                            </Text>
-                        </TouchableOpacity>
 
                     </Animated.View>
                 </>

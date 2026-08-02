@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Image, Linking, Pressable, Text, useColorScheme, View } from "react-native";
+import { ActivityIndicator, FlatList, Image, Pressable, Text, useColorScheme, View } from "react-native";
 import { getFriendList, getOwnedGames, getPlayerSummary } from "@/src/api/steam";
 import ProfileCard from "@/src/components/ProfileCard";
 import PullToRefresh from "@/src/components/PullToRefresh";
@@ -23,7 +23,7 @@ function friendChanged(prev, next) {
 }
 
 
-export default function Profile() {
+export default function Profile({ navigation }) {
     const router = useRouter();
     const { steamId } = useContext(AuthContext);
 
@@ -232,9 +232,7 @@ export default function Profile() {
                             renderItem={({ item }) => (
                                 <Pressable
                                     onPress={() =>
-                                        Linking.openURL(
-                                            `https://steamcommunity.com/profiles/${item.steamid}`
-                                        )
+                                        navigation.navigate("CommonGames", { friend: item })
                                     }
                                     className="flex-row items-center bg-gray-800 rounded-xl p-3 mb-2"
                                 >

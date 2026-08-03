@@ -5,6 +5,7 @@ import { Modal, Text, TouchableOpacity, View } from "react-native";
 import AchievementsTab from './AchievementsTab';
 import GameDetailsTab from './GameDetailsTab';
 import { COLORS } from "@/src/theme/colors";
+import { useTheme } from "@/src/theme/styles";
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -13,9 +14,11 @@ export default function GameScreen({ route, navigation }) {
 
     const [modalVisible, setModalVisible] = useState(false);
 
+    const t = useTheme();
+
     return (
 
-        <View className="flex-1 bg-gray-900 p-4">
+        <View className={`flex-1 ${t.pageBg} p-4`}>
 
             <Modal
                 transparent
@@ -36,7 +39,7 @@ export default function GameScreen({ route, navigation }) {
                     <View
                         style={{
                             width: 150,
-                            backgroundColor: '#1F2937', // dark gray
+                            backgroundColor: t.surface,
                             marginTop: 60, // adjust to appear below status bar
                             marginRight: 16,
                             borderRadius: 8,
@@ -46,19 +49,21 @@ export default function GameScreen({ route, navigation }) {
                             shadowOpacity: 0.25,
                             shadowRadius: 4,
                             elevation: 5,
+                            borderWidth: t.isDark ? 0 : 1,
+                            borderColor: t.borderInline,
                         }}
                     >
                         <TouchableOpacity
                             onPress={() => { console.log('Option 1'); setModalVisible(false); }}
                             style={{ padding: 12 }}
                         >
-                            <Text style={{ color: 'white' }}>Option 1</Text>
+                            <Text style={{ color: t.textInline }}>Option 1</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             onPress={() => { console.log('Option 2'); setModalVisible(false); }}
                             style={{ padding: 12 }}
                         >
-                            <Text style={{ color: 'white' }}>Option 2</Text>
+                            <Text style={{ color: t.textInline }}>Option 2</Text>
                         </TouchableOpacity>
                     </View>
                 </TouchableOpacity>
@@ -73,13 +78,13 @@ export default function GameScreen({ route, navigation }) {
                     style={{ flexDirection: 'row', alignItems: 'center' }}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                    <Ionicons name="arrow-back-outline" size={25} color="white" style={{ marginRight: 8 }} />
+                    <Ionicons name="arrow-back-outline" size={25} color={t.textInline} style={{ marginRight: 8 }} />
                 </TouchableOpacity>
 
                 {/* Title */}
                 <View style={{ flex: 1, marginHorizontal: 8 }}>
                     <Text
-                        style={{ color: 'white', fontSize: 18, fontWeight: 'bold' }}
+                        style={{ color: t.textInline, fontSize: 18, fontWeight: 'bold' }}
                         numberOfLines={1}
                         ellipsizeMode="tail"
                     >
@@ -89,7 +94,7 @@ export default function GameScreen({ route, navigation }) {
 
                 {/* Three-dot menu */}
                 <TouchableOpacity onPress={() => setModalVisible(true)}>
-                    <Ionicons name="ellipsis-vertical" size={25} color="white" />
+                    <Ionicons name="ellipsis-vertical" size={25} color={t.textInline} />
                 </TouchableOpacity>
             </View>
 
@@ -97,7 +102,7 @@ export default function GameScreen({ route, navigation }) {
             <Tab.Navigator
                 screenOptions={{
                     tabBarStyle: {
-                        backgroundColor: '#1F2937',
+                        backgroundColor: t.surface,
                         borderRadius: 10,           // Rounded corners
                         overflow: 'hidden',         // Ensure the rounding applies
                         height: 50,                 // Adjust height if needed
@@ -108,7 +113,7 @@ export default function GameScreen({ route, navigation }) {
                         height: '100%',             // Makes the indicator fill the tab bar height
                     },
                     tabBarLabelStyle: {
-                        color: 'white',
+                        color: t.textInline,
                         fontWeight: 'bold',
                     },
                 }}

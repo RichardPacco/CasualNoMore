@@ -1,8 +1,9 @@
 import { useRouter } from "expo-router";
 import { useContext } from "react";
-import { Image, Linking, Text, TouchableOpacity, View, useColorScheme } from "react-native";
+import { Image, Linking, Text, TouchableOpacity, View } from "react-native";
 import { AuthContext } from "@/src/context/AuthContext";
 import { formatDate } from "@/src/utils/formatDate";
+import { useTheme } from "@/src/theme/styles";
 
 function getStatus(statusCode) {
     switch (statusCode) {
@@ -18,16 +19,14 @@ function getStatus(statusCode) {
 }
 
 export default function ProfileCard({ data }) {
-    const colorScheme = useColorScheme(); // 'light' or 'dark'
+    const t = useTheme();
     const status = getStatus(data.personastate);
 
-    const isDark = colorScheme === "dark";
-
-    const cardBg = isDark ? "bg-gray-800" : "bg-[#f3f4f6]";
-    const coverBg = isDark ? "bg-gray-700" : "bg-gray-200";
-    const borderColor = isDark ? "border-gray-900" : "border-gray-300";
-    const textColor = isDark ? "text-white" : "text-black";
-    const secondaryTextColor = isDark ? "text-gray-300" : "text-gray-700";
+    const cardBg = t.cardBg;
+    const coverBg = t.coverBg;
+    const borderColor = t.avatarBorder;
+    const textColor = t.textPrimary;
+    const secondaryTextColor = t.textSecondary;
 
     function LogoutButton() {
         const { clearSteamId } = useContext(AuthContext);
@@ -66,7 +65,7 @@ export default function ProfileCard({ data }) {
                 />
                 <View className="ml-4 flex-1">
                     <Text className={`${textColor} text-2xl font-bold`}>{data.personaname}</Text>
-                    <Text className={isDark ? status.colorDark : status.colorLight}>{status.text}</Text>
+                    <Text className={t.isDark ? status.colorDark : status.colorLight}>{status.text}</Text>
                 </View>
             </View>
 

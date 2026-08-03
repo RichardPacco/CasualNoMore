@@ -1,12 +1,13 @@
 import { useRouter } from "expo-router";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Image, Pressable, Text, useColorScheme, View } from "react-native";
+import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from "react-native";
 import { getFriendList, getOwnedGames, getPlayerSummary } from "@/src/api/steam";
 import ProfileCard from "@/src/components/ProfileCard";
 import PullToRefresh from "@/src/components/PullToRefresh";
 import { AuthContext } from "@/src/context/AuthContext";
 import { loadFriend, saveFriendProfile } from "@/src/database/db";
 import { COLORS } from "@/src/theme/colors";
+import { useTheme } from "@/src/theme/styles";
 
 function gamesSignature(games) {
     return (games?.games ?? [])
@@ -28,14 +29,18 @@ export default function Profile({ navigation }) {
     const router = useRouter();
     const { steamId } = useContext(AuthContext);
 
-    const colorScheme = useColorScheme();
-    const isDark = colorScheme === "dark";
+    const t = useTheme();
+    const isDark = t.isDark;
 
-    const pageBg = isDark ? "bg-gray-900" : "bg-gray-100";
-    const placeholderBg = isDark ? "bg-gray-800" : "bg-white";
-    const placeholderText = isDark ? "text-gray-300" : "text-gray-700";
+    const pageBg = t.pageBg;
+    const placeholderBg = t.cardBg;
+    const placeholderText = t.textSecondary;
     const buttonBg = isDark ? "bg-blue-600" : "bg-blue-500";
     const buttonText = "text-white";
+    const friendCardBg = t.elevatedCardBg;
+    const friendCardBorder = t.cardBorder;
+    const textPrimary = t.textPrimary;
+    const textSecondary = t.textSecondary;
 
     const cancelledRef = useRef(false);
 
@@ -214,7 +219,7 @@ export default function Profile({ navigation }) {
                 <>
                     <ProfileCard data={profile} />
 
-                    <Text className="text-xl font-bold mt-6 mb-2 text-gray-200">
+                    <Text className={`text-xl font-bold mt-6 mb-2 ${t.textHeader}`}>
                         Amigos (Lista de Jogos Pública)
                     </Text>
 
@@ -235,20 +240,20 @@ export default function Profile({ navigation }) {
                                     onPress={() =>
                                         navigation.navigate("CommonGames", { friend: item })
                                     }
-                                    className="flex-row items-center bg-gray-800 rounded-xl p-3 mb-2"
+                                    className={`flex-row items-center ${friendCardBg} ${friendCardBorder} border rounded-xl p-3 mb-2`}
                                 >
                                     <Image
                                         source={{ uri: item.profile?.avatarfull }}
                                         className="w-12 h-12 rounded-full mr-3"
                                     />
                                     <View className="flex-1">
-                                        <Text className="text-white text-lg">
+                                        <Text className={`${textPrimary} text-lg`}>
                                             {item.profile?.personaname}
                                         </Text>
-                                        <Text className="text-gray-400 text-sm">
+                                        <Text className={`${textSecondary} text-sm`}>
                                             Jogos: {item.games?.game_count ?? 0}
                                         </Text>
-                                        <Text className="text-gray-400 text-sm">
+                                        <Text className={`${textSecondary} text-sm`}>
                                             Jogos em comum: {item.commonGames?.length ?? 0}
                                         </Text>
 
@@ -257,7 +262,7 @@ export default function Profile({ navigation }) {
                             )}
                             ListEmptyComponent={
                                 !loadingFriends && (
-                                    <Text className="text-gray-400 text-center mt-4">
+                                    <Text className={`${textSecondary} text-center mt-4`}>
                                         Nenhum amigo com jogos públicos encontrado
                                     </Text>
                                 )

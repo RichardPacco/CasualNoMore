@@ -9,6 +9,7 @@ import { AuthContext } from "@/src/context/AuthContext";
 import { getAllGames, saveGamesBatch } from "@/src/database/db";
 import { fetchAndMergeAchievements } from "@/src/utils/achievements";
 import { COLORS } from "@/src/theme/colors";
+import { useTheme } from "@/src/theme/styles";
 
 const StyledDropdown = remapProps(Dropdown, {
     className: "style",
@@ -37,6 +38,7 @@ export default function GameList({ navigation, route }) {
 
     const colorScheme = useColorScheme();
     const isDark = colorScheme === "dark";
+    const t = useTheme();
 
     const sidebarWidth = 280;
     const sidebarAnim = useRef(new Animated.Value(-sidebarWidth)).current;
@@ -340,10 +342,10 @@ export default function GameList({ navigation, route }) {
     // ---------- UI ----------
     if (loading && games.length === 0) {
         return (
-            <View className="flex-1 justify-center items-center bg-gray-900">
+            <View className={`flex-1 justify-center items-center ${t.pageBg}`}>
                 <ActivityIndicator size="large" color={COLORS.accent} />
                 {progress.total > 0 && (
-                    <Text className="text-gray-400 mt-2">
+                    <Text className={`${t.textSecondary} mt-2`}>
                         Buscando {progress.current}/{progress.total} jogos…
                     </Text>
                 )}
@@ -379,7 +381,7 @@ export default function GameList({ navigation, route }) {
     return (
         <View
             {...panResponder.panHandlers}
-            className={`flex-1 p-4 ${isDark ? "bg-gray-900" : "bg-white"}`}
+            className={`flex-1 p-4 ${t.pageBg}`}
         >
             {/* top row: search toggle + filters */}
             <View className="flex-row items-center mb-3">
@@ -529,7 +531,7 @@ export default function GameList({ navigation, route }) {
                         progress.current < progress.total ? (
                             <View className="py-4 items-center">
                                 <ActivityIndicator size="small" color={COLORS.accent} />
-                                <Text className="text-gray-400 mt-2">
+                                <Text className={`${t.textSecondary} mt-2`}>
                                     Carregando {progress.current}/{progress.total}
                                 </Text>
                             </View>

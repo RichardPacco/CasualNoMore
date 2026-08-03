@@ -1,28 +1,23 @@
 import { computeProgress } from "@/src/utils/achievements";
 import { memo, useEffect, useState } from "react";
-import { Image, Text, TouchableOpacity, View, useColorScheme } from "react-native";
+import { Image, Text, TouchableOpacity, View } from "react-native";
+import { useTheme } from "@/src/theme/styles";
 
 const placeholderImage = require("../../assets/images/placeholder_gamelist.jpg");
 
 function GameCardComponent({ game, navigation }) {
-    const colorScheme = useColorScheme();
+    const t = useTheme();
     const [imgFailed, setImgFailed] = useState(false);
 
     useEffect(() => {
         setImgFailed(false);
     }, [game.appid]);
 
-    const styles = {
-        cardBg: colorScheme === "dark" ? "bg-gray-800" : "bg-gray-100",
-        titleText: colorScheme === "dark" ? "text-white" : "text-black",
-        subtitleText: colorScheme === "dark" ? "text-gray-400" : "text-gray-600",
-    };
-
     const { unlocked, total, percent } = computeProgress(game.achievements);
 
     return (
         <TouchableOpacity
-            className={`${styles.cardBg} p-2 rounded-xl flex-row items-center mb-4`}
+            className={`${t.cardBg} p-2 rounded-xl flex-row items-center mb-4`}
             onPress={() => navigation.navigate("GameScreen", { game })}
         >
             <Image
@@ -38,10 +33,10 @@ function GameCardComponent({ game, navigation }) {
             />
 
             <View className="ml-4 flex-1">
-                <Text className={`${styles.titleText} text-lg font-bold`} numberOfLines={1}>
+                <Text className={`${t.textPrimary} text-lg font-bold`} numberOfLines={1}>
                     {game.name}
                 </Text>
-                <Text className={`${styles.subtitleText} text-sm mt-1`}>
+                <Text className={`${t.textSecondary} text-sm mt-1`}>
                     {game.playtime_forever < 60
                         ? `${game.playtime_forever} minutos`
                         : `${Math.floor(game.playtime_forever / 60)} horas ${game.playtime_forever % 60} minutos`}
@@ -49,13 +44,13 @@ function GameCardComponent({ game, navigation }) {
 
                 {total > 0 && (
                     <>
-                        <View className="w-full bg-gray-700 rounded-full h-2 mt-2">
+                        <View className={`w-full ${t.progressTrack} rounded-full h-2 mt-2`}>
                             <View
                                 className="bg-accent h-2 rounded-full"
                                 style={{ width: `${percent}%` }}
                             />
                         </View>
-                        <Text className={`${styles.subtitleText} text-xs mt-1`}>
+                        <Text className={`${t.textSecondary} text-xs mt-1`}>
                             {unlocked}/{total} conquistas ({percent.toFixed(1)}%)
                         </Text>
                     </>

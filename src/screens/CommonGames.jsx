@@ -1,11 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
-import { FlatList, Image, Text, TextInput, TouchableOpacity, useColorScheme, View } from "react-native";
+import { FlatList, Image, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { useTheme } from "@/src/theme/styles";
 
 export default function CommonGames({ route, navigation }) {
     const { friend } = route.params;
-    const colorScheme = useColorScheme();
-    const isDark = colorScheme === "dark";
+    const t = useTheme();
     const [searchQuery, setSearchQuery] = useState("");
 
     const games = friend?.commonGames || [];
@@ -15,31 +15,26 @@ export default function CommonGames({ route, navigation }) {
         (g.name || "").toLowerCase().includes(searchQuery.trim().toLowerCase())
     );
 
-    const textPrimary = isDark ? "text-white" : "text-black";
-    const textSecondary = isDark ? "text-gray-400" : "text-gray-600";
-    const cardBg = isDark ? "bg-gray-800" : "bg-gray-100";
-    const pageBg = isDark ? "bg-gray-900" : "bg-white";
-
     return (
-        <View className={`flex-1 p-4 ${pageBg}`}>
+        <View className={`flex-1 p-4 ${t.pageBg}`}>
             {/* Header: back + title */}
             <View className="flex-row items-center justify-between mb-4">
                 <TouchableOpacity
                     onPress={() => navigation.goBack()}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                    <Ionicons name="arrow-back-outline" size={25} color={isDark ? "white" : "black"} />
+                    <Ionicons name="arrow-back-outline" size={25} color={t.textInline} />
                 </TouchableOpacity>
 
                 <View style={{ flex: 1, marginHorizontal: 8 }}>
                     <Text
-                        className={`${textPrimary} text-lg font-bold`}
+                        className={`${t.textPrimary} text-lg font-bold`}
                         numberOfLines={1}
                         ellipsizeMode="tail"
                     >
                         Jogos em comum ({games.length})
                     </Text>
-                    <Text className={`${textSecondary} text-sm`} numberOfLines={1}>
+                    <Text className={`${t.textSecondary} text-sm`} numberOfLines={1}>
                         {friendName}
                     </Text>
                 </View>
@@ -51,12 +46,8 @@ export default function CommonGames({ route, navigation }) {
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 placeholder="Pesquisar jogos..."
-                placeholderTextColor={isDark ? "#9ca3af" : "#6b7280"}
-                className={`rounded-xl px-4 py-2 border mb-2 ${
-                    isDark
-                        ? "bg-slate-800 border-accent text-white"
-                        : "bg-slate-100 border-gray-300 text-black"
-                }`}
+                placeholderTextColor={t.placeholderText}
+                className={`rounded-xl px-4 py-2 border mb-2 ${t.inputBg} ${t.inputBorder} ${t.inputText}`}
                 style={{ fontSize: 16 }}
             />
 
@@ -65,7 +56,7 @@ export default function CommonGames({ route, navigation }) {
                 keyExtractor={(item) => item.appid.toString()}
                 contentContainerStyle={{ paddingTop: 12 }}
                 renderItem={({ item }) => (
-                    <View className={`${cardBg} p-2 rounded-xl flex-row items-center mb-4`}>
+                    <View className={`${t.cardBg} p-2 rounded-xl flex-row items-center mb-4`}>
                         <Image
                             source={{
                                 uri: `https://steamcdn-a.akamaihd.net/steam/apps/${item.appid}/capsule_231x87.jpg`,
@@ -76,14 +67,14 @@ export default function CommonGames({ route, navigation }) {
                         />
 
                         <View className="ml-4 flex-1">
-                            <Text className={`${textPrimary} text-lg font-bold`} numberOfLines={1}>
+                            <Text className={`${t.textPrimary} text-lg font-bold`} numberOfLines={1}>
                                 {item.name}
                             </Text>
                         </View>
                     </View>
                 )}
                 ListEmptyComponent={
-                    <Text className={`${textSecondary} text-center mt-8`}>
+                    <Text className={`${t.textSecondary} text-center mt-8`}>
                         Nenhum jogo em comum
                     </Text>
                 }

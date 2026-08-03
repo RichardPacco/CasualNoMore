@@ -4,12 +4,15 @@ import RenderHTML from 'react-native-render-html';
 import { getGameStoreDetails } from "@/src/api/steam";
 import { AuthContext } from "@/src/context/AuthContext";
 import { getGame, saveGame } from "@/src/database/db";
+import { useTheme } from "@/src/theme/styles";
 
 
 export default function GameDetailsTab({ game }) {
     const { steamId } = useContext(AuthContext);
     const [gameDetail, setGameDetail] = useState(game?.details ?? null);
     const { width } = useWindowDimensions();
+
+    const t = useTheme();
 
     const [showFull, setShowFull] = useState(false);
 
@@ -62,8 +65,8 @@ export default function GameDetailsTab({ game }) {
     };
 
     return (
-        <ScrollView className="flex-1 bg-gray-900">
-            <View className="flex-1 py-4 bg-gray-900">
+        <ScrollView className={`flex-1 ${t.pageBg}`}>
+            <View className={`flex-1 py-4 ${t.pageBg}`}>
                 <TouchableOpacity onPress={openSteamPage}>
 
                     <Image
@@ -85,7 +88,7 @@ export default function GameDetailsTab({ game }) {
 
                 <>
                     {(gameDetail?.short_description || gameDetail?.detailed_description) && (
-                        <View className="bg-gray-800 p-3 rounded-lg mb-3">
+                        <View className={`${t.cardBg} p-3 rounded-lg mb-3`}>
                             <RenderHTML
                                 contentWidth={width}
                                 source={{
@@ -93,7 +96,7 @@ export default function GameDetailsTab({ game }) {
                                         ? gameDetail.detailed_description
                                         : gameDetail.short_description
                                 }}
-                                baseStyle={{ color: 'white', fontSize: 16 }}
+                                baseStyle={{ color: t.textInline, fontSize: 16 }}
                             />
 
                             {/* Read More / Read Less button */}
@@ -112,45 +115,45 @@ export default function GameDetailsTab({ game }) {
                 </>
 
                 {gameDetail?.genres && (
-                    <View className="bg-gray-800 p-3 rounded-lg mb-3">
+                    <View className={`${t.cardBg} p-3 rounded-lg mb-3`}>
                         {/* Title */}
-                        <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold', marginBottom: 4 }}>
+                        <Text style={{ color: t.textInline, fontSize: 10, fontWeight: 'bold', marginBottom: 4 }}>
                             Gênero
                         </Text>
 
                         {/* Genre list */}
-                        <Text style={{ color: 'white', fontSize: 16 }}>
+                        <Text style={{ color: t.textInline, fontSize: 16 }}>
                             {gameDetail.genres.map((genre) => genre.description).join(", ")}
                         </Text>
                     </View>
                 )}
                 <View className="flex-row gap-3 mb-3">
                     {gameDetail?.release_date && (
-                        <View className="bg-gray-800 p-3 rounded-lg flex-1">
+                        <View className={`${t.cardBg} p-3 rounded-lg flex-1`}>
                             {/* Title */}
-                            <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold', marginBottom: 4 }}>
+                            <Text style={{ color: t.textInline, fontSize: 10, fontWeight: 'bold', marginBottom: 4 }}>
                                 Lançamento
                             </Text>
 
                             {/* Release Date */}
-                            <Text style={{ color: 'white', fontSize: 16 }}>
+                            <Text style={{ color: t.textInline, fontSize: 16 }}>
                                 {gameDetail.release_date.date}
                             </Text>
                         </View>
                     )}
 
-                    <View className="bg-gray-800 p-3 rounded-lg flex-1">
+                    <View className={`${t.cardBg} p-3 rounded-lg flex-1`}>
                         {/* Title */}
-                        <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold', marginBottom: 4 }}>
+                        <Text style={{ color: t.textInline, fontSize: 10, fontWeight: 'bold', marginBottom: 4 }}>
                             MetaCritic
                         </Text>
 
                         {gameDetail?.metacritic?.score ? (
-                            <Text style={{ color: 'white', fontSize: 16 }}>
+                            <Text style={{ color: t.textInline, fontSize: 16 }}>
                                 {gameDetail.metacritic.score}
                             </Text>
                         ) : (
-                            <Text style={{ color: 'white', fontSize: 16 }}>
+                            <Text style={{ color: t.textInline, fontSize: 16 }}>
                                 -
                             </Text>
                         )}

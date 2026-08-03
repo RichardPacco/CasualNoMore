@@ -87,6 +87,16 @@ export default function GameDetailsTab({ game }) {
                     />
                 </TouchableOpacity>
 
+                <TouchableOpacity
+                    onPress={openSteamPage}
+                    className="rounded-lg py-3 mb-3 flex-row items-center justify-center gap-2"
+                    style={{ backgroundColor: COLORS.accent }}
+                >
+                    <Text style={{ color: '#0B1220', fontSize: 15, fontWeight: 'bold' }}>
+                        Ver na Loja
+                    </Text>
+                </TouchableOpacity>
+
                 <>
                     {(gameDetail?.short_description || gameDetail?.detailed_description) && (
                         <View className={`${t.cardBg} p-3 rounded-lg mb-3`}>
@@ -115,16 +125,6 @@ export default function GameDetailsTab({ game }) {
                         </View>
                     )}
                 </>
-
-                <TouchableOpacity
-                    onPress={openSteamPage}
-                    className="rounded-lg py-3 mb-3 flex-row items-center justify-center gap-2"
-                    style={{ backgroundColor: COLORS.accent }}
-                >
-                    <Text style={{ color: '#0B1220', fontSize: 15, fontWeight: 'bold' }}>
-                        Ver na Loja
-                    </Text>
-                </TouchableOpacity>
 
                 {gameDetail?.genres && (
                     <View className={`${t.cardBg} p-3 rounded-lg mb-3`}>

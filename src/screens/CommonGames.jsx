@@ -1,15 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { FlatList, Image, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { useLanguage } from "@/src/i18n/LanguageContext";
 import { useTheme } from "@/src/theme/styles";
 
 export default function CommonGames({ route, navigation }) {
     const { friend } = route.params;
     const t = useTheme();
+    const { t: tr } = useLanguage();
     const [searchQuery, setSearchQuery] = useState("");
 
     const games = friend?.commonGames || [];
-    const friendName = friend?.profile?.personaname || "Amigo";
+    const friendName = friend?.profile?.personaname || tr("friendFallback");
 
     const filteredGames = games.filter(g =>
         (g.name || "").toLowerCase().includes(searchQuery.trim().toLowerCase())
@@ -32,7 +34,7 @@ export default function CommonGames({ route, navigation }) {
                         numberOfLines={1}
                         ellipsizeMode="tail"
                     >
-                        Jogos em comum ({games.length})
+                        {tr("commonGamesTitle", { count: games.length })}
                     </Text>
                     <Text className={`${t.textSecondary} text-sm`} numberOfLines={1}>
                         {friendName}
@@ -45,7 +47,7 @@ export default function CommonGames({ route, navigation }) {
             <TextInput
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                placeholder="Pesquisar jogos..."
+                placeholder={tr("searchGamesPlaceholder")}
                 placeholderTextColor={t.placeholderText}
                 className={`rounded-xl px-4 py-2 border mb-2 ${t.inputBg} ${t.inputBorder} ${t.inputText}`}
                 style={{ fontSize: 16 }}
@@ -75,7 +77,7 @@ export default function CommonGames({ route, navigation }) {
                 )}
                 ListEmptyComponent={
                     <Text className={`${t.textSecondary} text-center mt-8`}>
-                        Nenhum jogo em comum
+                        {tr("noCommonGames")}
                     </Text>
                 }
             />

@@ -1,6 +1,8 @@
 import { getGameStoreDetails } from "@/src/api/steam";
 import { AuthContext } from "@/src/context/AuthContext";
 import { getGame, saveGame } from "@/src/database/db";
+import { getLanguageStore } from "@/src/i18n/langStore";
+import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS } from "@/src/theme/colors";
 import { useTheme } from "@/src/theme/styles";
 import { useContext, useEffect, useState } from 'react';
@@ -10,6 +12,7 @@ import RenderHTML from 'react-native-render-html';
 
 export default function GameDetailsTab({ game }) {
     const { steamId } = useContext(AuthContext);
+    const { t: tr, language } = useLanguage();
     const [gameDetail, setGameDetail] = useState(game?.details ?? null);
     const { width } = useWindowDimensions();
 
@@ -21,10 +24,12 @@ export default function GameDetailsTab({ game }) {
         if (!game) return;
 
         let cancelled = false;
+        const currentLang = getLanguageStore();
+        const staleGameDetails = game.details && game.lang !== currentLang;
 
         const loadDetails = async () => {
             // 1️⃣ Detalhes já no objeto do jogo
-            if (game.details) {
+            if (game.details && !staleGameDetails) {
                 setGameDetail(game.details);
                 return;
             }
@@ -35,7 +40,7 @@ export default function GameDetailsTab({ game }) {
                 cached = await getGame(steamId, game.appid);
                 if (cancelled) return;
             }
-            if (cached?.details) {
+            if (cached?.details && cached.lang === currentLang) {
                 setGameDetail(cached.details);
                 return;
             }
@@ -46,7 +51,7 @@ export default function GameDetailsTab({ game }) {
                 if (cancelled) return;
                 setGameDetail(details);
                 if (details && steamId) {
-                    await saveGame(steamId, { ...game, details, detailsStatus: "done" });
+                    await saveGame(steamId, { ...game, details, detailsStatus: "done", lang: currentLang });
                 }
             } catch (err) {
                 console.warn(`No Details for ${game.name}`, err);
@@ -57,7 +62,7 @@ export default function GameDetailsTab({ game }) {
         return () => {
             cancelled = true;
         };
-    }, [game, steamId]);
+    }, [game, steamId, language]);
 
 
     const openSteamPage = () => {
@@ -93,7 +98,7 @@ export default function GameDetailsTab({ game }) {
                     style={{ backgroundColor: COLORS.accent }}
                 >
                     <Text style={{ color: '#0B1220', fontSize: 15, fontWeight: 'bold' }}>
-                        Ver na Loja
+                        {tr("viewInStore")}
                     </Text>
                 </TouchableOpacity>
 
@@ -118,7 +123,7 @@ export default function GameDetailsTab({ game }) {
                                     className="mt-2"
                                 >
                                     <Text style={{ color: '#60A5FA', fontSize: 14, fontWeight: 'bold' }}>
-                                        {showFull ? "Minimizar" : "Ler Mais"}
+                                        {showFull ? tr("readLess") : tr("readMore")}
                                     </Text>
                                 </TouchableOpacity>
                             )}
@@ -130,7 +135,7 @@ export default function GameDetailsTab({ game }) {
                     <View className={`${t.cardBg} p-3 rounded-lg mb-3`}>
                         {/* Title */}
                         <Text style={{ color: t.textInline, fontSize: 10, fontWeight: 'bold', marginBottom: 4 }}>
-                            Gênero
+                            {tr("genre")}
                         </Text>
 
                         {/* Genre list */}
@@ -144,7 +149,7 @@ export default function GameDetailsTab({ game }) {
                         <View className={`${t.cardBg} p-3 rounded-lg flex-1`}>
                             {/* Title */}
                             <Text style={{ color: t.textInline, fontSize: 10, fontWeight: 'bold', marginBottom: 4 }}>
-                                Lançamento
+                                {tr("release")}
                             </Text>
 
                             {/* Release Date */}

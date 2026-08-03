@@ -1,9 +1,11 @@
 import { useEffect, useRef } from "react";
 import { Animated, Easing, Image, Text, View } from "react-native";
+import { useLanguage } from "@/src/i18n/LanguageContext";
 
 const appIcon = require("../../assets/images/app_icon.png");
 
 export default function AppSplash() {
+    const { t } = useLanguage();
     const barAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
@@ -37,7 +39,7 @@ export default function AppSplash() {
             <Image source={appIcon} className="w-28 h-28 rounded-2xl" resizeMode="contain" />
 
             <Text className="text-white text-2xl font-bold mt-5 tracking-wide">CasualNoMore</Text>
-            <Text className="text-accent text-sm mt-1">Conquistas de verdade</Text>
+            <Text className="text-accent text-sm mt-1">{t("splashTagline")}</Text>
 
             <View className="mt-8 w-56 h-2 bg-gray-800 rounded-full overflow-hidden">
                 <Animated.View

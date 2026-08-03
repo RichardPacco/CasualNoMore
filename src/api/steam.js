@@ -1,4 +1,5 @@
 import config from "@/src/config/config";
+import { steamLangCode } from "@/src/i18n/langStore";
 const BASE_URL = "https://api.steampowered.com";
 
 async function fetchJson(url) {
@@ -17,7 +18,7 @@ export async function GetGlobalAchievementsPercentagesForApp(appId) {
     return json?.achievementpercentages?.achievements ?? null;
 }
 
-export async function GetSchemaForGame(appId, steamId, lang = "portuguese") {
+export async function GetSchemaForGame(appId, steamId, lang = steamLangCode()) {
     if (!appId) throw new Error("GetSchemaForGame: appId é obrigatório");
     if (!steamId) throw new Error("GetSchemaForGame: steamId é obrigatório");
 
@@ -74,7 +75,7 @@ export async function getOwnedGames(steamId) {
 }
 
 
-export async function getPlayerAchievements(appId, steamId, lang = "portuguese") {
+export async function getPlayerAchievements(appId, steamId, lang = steamLangCode()) {
     if (!appId) throw new Error("getPlayerAchievements: appId é obrigatório");
     if (!steamId) throw new Error("getPlayerAchievements: steamId é obrigatório");
     const url = `${BASE_URL}/ISteamUserStats/GetPlayerAchievements/v0001/?appid=${encodeURIComponent(
@@ -91,7 +92,7 @@ export async function getGameStoreDetails(appId) {
 
     const url = `https://store.steampowered.com/api/appdetails?appids=${encodeURIComponent(
         appId
-    )}&cc=BR&l=portuguese`
+    )}&cc=BR&l=${encodeURIComponent(steamLangCode())}`
     const json = await fetchJson(url)
 
     if (!json || !json[appId] || !json[appId].success) return null;

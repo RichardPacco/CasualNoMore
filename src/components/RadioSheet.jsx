@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Animated, Pressable, Text, useColorScheme, View } from "react-native";
+import { setOverlayOpen } from "@/src/utils/overlayBar";
 import { COLORS } from "@/src/theme/colors";
 
 export default function RadioSheet({ visible, onClose, title, options, selected, onSelect, counts }) {
@@ -8,6 +9,11 @@ export default function RadioSheet({ visible, onClose, title, options, selected,
 
     const anim = useRef(new Animated.Value(320)).current;
     const closingRef = useRef(false);
+
+    useEffect(() => {
+        setOverlayOpen(visible);
+        return () => setOverlayOpen(false);
+    }, [visible]);
 
     useEffect(() => {
         if (visible) {

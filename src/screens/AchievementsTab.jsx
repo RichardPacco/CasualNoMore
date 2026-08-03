@@ -1,5 +1,6 @@
 import useAchievements from "@/src/hooks/useAchievements";
 import { Ionicons } from "@expo/vector-icons";
+import { useLanguage } from "@/src/i18n/LanguageContext";
 import { memo, useRef } from "react";
 import { ActivityIndicator, Animated, FlatList, Image, Linking, Text, TouchableOpacity, View } from "react-native";
 import { COLORS } from "@/src/theme/colors";
@@ -9,6 +10,7 @@ const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpaci
 
 function AchievementCardComponent({ item, game }) {
     const t = useTheme();
+    const { t: tr } = useLanguage();
     const scaleAnim = useRef(new Animated.Value(1)).current;
 
     const searchGoogle = () => {
@@ -64,7 +66,7 @@ function AchievementCardComponent({ item, game }) {
             <View className="flex-1">
                 <Text className={`${t.textPrimary} font-bold text-base`}>{item.name}</Text>
                 <Text className={`${t.textSecondary} text-sm`} numberOfLines={2}>
-                    {item.description || "Descrição Oculta"}
+                    {item.description || tr("hiddenDescription")}
                 </Text>
             </View>
 
@@ -84,6 +86,7 @@ export default function AchievementsTab({ game }) {
     const { mergedCheevos, loading } = useAchievements(game);
 
     const t = useTheme();
+    const { t: tr } = useLanguage();
 
     if (loading) {
         return (
@@ -98,7 +101,7 @@ export default function AchievementsTab({ game }) {
             {mergedCheevos.length === 0 ? (
                 <View className="flex-1 justify-center items-center">
                     <Text className={`${t.textSecondary} text-center text-lg`}>
-                        Este jogo não possui conquistas
+                        {tr("noAchievements")}
                     </Text>
                 </View>
             ) : (

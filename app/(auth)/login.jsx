@@ -1,7 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { getPlayerSummary, resolveVanityURL } from "@/src/api/steam";
+import LanguageSelector from "@/src/components/LanguageSelector";
 import { AuthContext } from "@/src/context/AuthContext";
 import { clearDB } from "@/src/database/db";
+import { useLanguage } from "@/src/i18n/LanguageContext";
 import { showToast } from "@/src/utils/toast";
 import { COLORS } from "@/src/theme/colors";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -16,6 +18,7 @@ const loginBackground = require("../../assets/images/login_background.png");
 export default function Login() {
     const { setSteamId } = useContext(AuthContext);
     const router = useRouter();
+    const { t } = useLanguage();
 
     const [input, setInput] = useState("");
     const [loading, setLoading] = useState(false);
@@ -24,9 +27,9 @@ export default function Login() {
     const handleClearCache = async () => {
         try {
             await AsyncStorage.clear();
-            showToast('All cached data has been cleared!');
+            showToast(t("loginCacheCleared"));
         } catch (e) {
-            Alert.alert('Error', 'Failed to clear cache.');
+            Alert.alert(t("loginError"), t("loginClearCacheFailed"));
             console.error(e);
         }
     };
@@ -35,10 +38,10 @@ export default function Login() {
         setConfirmVisible(false);
         try {
             await clearDB();
-            showToast("Banco limpo!", "O banco de dados foi zerado.");
+            showToast(t("loginDbCleared"), t("loginDbClearedDesc"));
         } catch (err) {
             console.error(err);
-            Alert.alert("Erro", "Falha ao limpar o banco de dados.");
+            Alert.alert(t("loginError"), t("loginDbClearFailed"));
         }
     };
 
@@ -49,7 +52,7 @@ export default function Login() {
 
             if (!playerSummary) {
                 showToast(
-                    "Perfil Steam incorreto — confira o número ou a conexão com a internet.",
+                    t("loginInvalidProfile"),
                     "error"
                 );
                 return false;
@@ -57,7 +60,7 @@ export default function Login() {
 
             // Steam public profile state is 3
             if (Number(playerSummary.communityvisibilitystate) !== 3) {
-                showToast("Seu perfil Steam é privado. Torne-o público para continuar.", "warning");
+                showToast(t("loginPrivateProfile"), "warning");
                 return false;
             }
 
@@ -66,7 +69,7 @@ export default function Login() {
         } catch (e) {
             console.error("[Profile] erro:", e);
             showToast(
-                "Falha ao buscar perfil. Veja o console.",
+                t("loginFetchFailed"),
                 "error"
             );
             return false;
@@ -76,7 +79,7 @@ export default function Login() {
 
     const handleSubmit = async () => {
         if (!input.trim()) {
-            showToast("Informe seu SteamID64 ou vanity URL.", "warning");
+            showToast(t("loginEmptyInput"), "warning");
             return;
         }
 
@@ -103,7 +106,7 @@ export default function Login() {
             console.log("[Login] resolveVanityURL:", res);
 
             if (res?.success !== 1 || !res?.steamid) {
-                showToast("Não foi possível resolver o vanity URL. Use o SteamID64 (número) se possível.", "error");
+                showToast(t("loginVanityFailed"), "error");
                 return;
             }
 
@@ -116,7 +119,7 @@ export default function Login() {
 
         } catch (e) {
             console.error("[Login] erro:", e);
-            showToast(`Verifique conexão com a internet ou reinicie o app. ${e}`, "warning");
+            showToast(t("loginConnectionError", { err: e }), "warning");
         } finally {
             setLoading(false);
         }
@@ -139,7 +142,7 @@ export default function Login() {
                             className="flex-row items-center gap-1"
                         >
                             <Ionicons name="trash-outline" size={20} color={COLORS.danger} />
-                            <Text className="text-danger text-xs font-medium">Cache</Text>
+                            <Text className="text-danger text-xs font-medium">{t("loginCacheLabel")}</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
@@ -148,8 +151,14 @@ export default function Login() {
                             className="flex-row items-center gap-1"
                         >
                             <Ionicons name="trash-outline" size={20} color={COLORS.danger} />
-                            <Text className="text-danger text-xs font-medium">DB</Text>
+                            <Text className="text-danger text-xs font-medium">{t("loginDbLabel")}</Text>
                         </TouchableOpacity>
+                    </View>
+
+                    {/* Language selector */}
+                    <View className="mt-4 items-center flex-row justify-center gap-3">
+                        <Text className="text-gray-300 text-sm font-semibold">{t("languageLabel")}</Text>
+                        <LanguageSelector overlay />
                     </View>
 
                     {/* Bottom section */}
@@ -157,14 +166,14 @@ export default function Login() {
                         {/* Tip box */}
                         <View className="bg-[#1e1e1e]/90 p-2.5 rounded-md mb-4 border-l-4 border-accent">
                             <Text className="text-[#aaa] text-xs">
-                                O perfil Steam deve estar público para o aplicativo funcionar
+                                {t("loginPublicTip")}
                             </Text>
                         </View>
 
                         {/* Input + submit arrow */}
                         <View className="mb-3">
                             <TextInput
-                                label="Steam URL ou SteamID"
+                                label={t("loginSteamIdLabel")}
                                 value={input}
                                 onChangeText={setInput}
                                 mode="outlined"
@@ -209,12 +218,12 @@ export default function Login() {
                                 <Ionicons name="trash-outline" size={28} color={COLORS.danger} />
                             </View>
                             <Text className="text-white text-lg font-bold text-center">
-                                Limpar Banco de Dados?
+                                {t("loginClearDbTitle")}
                             </Text>
                         </View>
 
                         <Text className="text-gray-400 text-sm text-center mb-6">
-                            Isso vai apagar todos os jogos salvos e progresso local. Essa ação não pode ser desfeita.
+                            {t("loginClearDbMessage")}
                         </Text>
 
                         <View className="flex-row gap-3">
@@ -222,14 +231,14 @@ export default function Login() {
                                 onPress={() => setConfirmVisible(false)}
                                 className="flex-1 py-3 rounded-lg bg-gray-700 items-center"
                             >
-                                <Text className="text-white font-semibold">Cancelar</Text>
+                                <Text className="text-white font-semibold">{t("loginCancel")}</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
                                 onPress={confirmClearDB}
                                 className="flex-1 py-3 rounded-lg bg-danger items-center"
                             >
-                                <Text className="text-white font-semibold">Limpar</Text>
+                                <Text className="text-white font-semibold">{t("loginClear")}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>

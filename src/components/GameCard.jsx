@@ -1,4 +1,5 @@
 import { computeProgress } from "@/src/utils/achievements";
+import { useLanguage } from "@/src/i18n/LanguageContext";
 import { memo, useEffect, useState } from "react";
 import { Image, Text, TouchableOpacity, View } from "react-native";
 import { useTheme } from "@/src/theme/styles";
@@ -7,6 +8,7 @@ const placeholderImage = require("../../assets/images/placeholder_gamelist.jpg")
 
 function GameCardComponent({ game, navigation }) {
     const t = useTheme();
+    const { t: tr } = useLanguage();
     const [imgFailed, setImgFailed] = useState(false);
 
     useEffect(() => {
@@ -14,6 +16,13 @@ function GameCardComponent({ game, navigation }) {
     }, [game.appid]);
 
     const { unlocked, total, percent } = computeProgress(game.achievements);
+
+    const playtimeText = game.playtime_forever < 60
+        ? tr("playtimeMinutes", { minutes: game.playtime_forever })
+        : tr("playtimeHours", {
+            hours: Math.floor(game.playtime_forever / 60),
+            minutes: game.playtime_forever % 60,
+        });
 
     return (
         <TouchableOpacity
@@ -46,9 +55,7 @@ function GameCardComponent({ game, navigation }) {
                     )}
                 </View>
                 <Text className={`${t.textSecondary} text-sm mt-1`}>
-                    {game.playtime_forever < 60
-                        ? `${game.playtime_forever} minutos`
-                        : `${Math.floor(game.playtime_forever / 60)} horas ${game.playtime_forever % 60} minutos`}
+                    {playtimeText}
                 </Text>
 
                 {total > 0 && (
@@ -60,7 +67,7 @@ function GameCardComponent({ game, navigation }) {
                             />
                         </View>
                         <Text className={`${t.textSecondary} text-xs mt-1`}>
-                            {unlocked}/{total} conquistas ({percent.toFixed(1)}%)
+                            {tr("achievementsCount", { unlocked, total, percent: percent.toFixed(1) })}
                         </Text>
                     </>
                 )}

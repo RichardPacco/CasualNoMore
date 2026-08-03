@@ -2,9 +2,11 @@ import { useRouter } from "expo-router";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from "react-native";
 import { getFriendList, getOwnedGames, getPlayerSummary } from "@/src/api/steam";
+import LanguageSelector from "@/src/components/LanguageSelector";
 import ProfileCard from "@/src/components/ProfileCard";
 import PullToRefresh from "@/src/components/PullToRefresh";
 import { AuthContext } from "@/src/context/AuthContext";
+import { useLanguage } from "@/src/i18n/LanguageContext";
 import { loadFriend, saveFriendProfile } from "@/src/database/db";
 import { COLORS } from "@/src/theme/colors";
 import { useTheme } from "@/src/theme/styles";
@@ -28,6 +30,7 @@ function friendChanged(prev, next) {
 export default function Profile({ navigation }) {
     const router = useRouter();
     const { steamId } = useContext(AuthContext);
+    const { t: tr } = useLanguage();
 
     const t = useTheme();
     const isDark = t.isDark;
@@ -219,8 +222,16 @@ export default function Profile({ navigation }) {
                 <>
                     <ProfileCard data={profile} />
 
+                    {/* Language selector */}
+                    <View className={`${t.cardBg} p-3 rounded-xl mb-4 flex-row items-center justify-between`}>
+                        <Text className={`${t.textHeader} text-sm font-bold`}>
+                            {tr("languageLabel")}
+                        </Text>
+                        <LanguageSelector />
+                    </View>
+
                     <Text className={`text-xl font-bold mt-6 mb-2 ${t.textHeader}`}>
-                        Amigos (Lista de Jogos Pública)
+                        {tr("profileFriendsTitle")}
                     </Text>
 
                     {loadingFriends && !refreshingFriends && (
@@ -252,10 +263,10 @@ export default function Profile({ navigation }) {
                                             {item.profile?.personaname}
                                         </Text>
                                         <Text className={`${textSecondary} text-sm`}>
-                                            Jogos: {item.games?.game_count ?? 0}
+                                            {tr("profileGamesCount", { count: item.games?.game_count ?? 0 })}
                                         </Text>
                                         <Text className={`${textSecondary} text-sm`}>
-                                            Jogos em comum: {item.commonGames?.length ?? 0}
+                                            {tr("profileCommonGamesCount", { count: item.commonGames?.length ?? 0 })}
                                         </Text>
 
                                     </View>
@@ -264,7 +275,7 @@ export default function Profile({ navigation }) {
                             ListEmptyComponent={
                                 !loadingFriends && (
                                     <Text className={`${textSecondary} text-center mt-4`}>
-                                        Nenhum amigo com jogos públicos encontrado
+                                        {tr("profileNoPublicFriends")}
                                     </Text>
                                 )
                             }
@@ -276,17 +287,17 @@ export default function Profile({ navigation }) {
                     className={`${placeholderBg} rounded-xl overflow-hidden p-6 items-center`}
                 >
                     <Text className={`text-lg font-semibold mb-2 ${placeholderText}`}>
-                        Perfil não disponível
+                        {tr("profileUnavailable")}
                     </Text>
                     <Text className={`mb-4 ${placeholderText}`}>
-                        Ocorreu um erro ao carregar o perfil. Verifique sua conexão.
+                        {tr("profileLoadError")}
                     </Text>
                     <Pressable
                         className={`${buttonBg} px-6 py-2 rounded-lg`}
                         onPress={loadProfile}
                     >
                         <Text className={`text-center font-bold ${buttonText}`}>
-                            Tentar novamente
+                            {tr("profileRetry")}
                         </Text>
                     </Pressable>
                 </View>

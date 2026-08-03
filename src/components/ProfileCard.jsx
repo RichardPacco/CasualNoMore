@@ -2,25 +2,27 @@ import { useRouter } from "expo-router";
 import { useContext } from "react";
 import { Image, Linking, Text, TouchableOpacity, View } from "react-native";
 import { AuthContext } from "@/src/context/AuthContext";
+import { useLanguage } from "@/src/i18n/LanguageContext";
 import { formatDate } from "@/src/utils/formatDate";
 import { useTheme } from "@/src/theme/styles";
 
-function getStatus(statusCode) {
+function getStatus(statusCode, t) {
     switch (statusCode) {
-        case 0: return { text: "Offline", colorDark: "text-gray-400", colorLight: "text-gray-600" };
-        case 1: return { text: "Online", colorDark: "text-accent", colorLight: "text-accent-strong" };
-        case 2: return { text: "Ocupado", colorDark: "text-red-400", colorLight: "text-red-600" };
-        case 3: return { text: "Ausente", colorDark: "text-yellow-400", colorLight: "text-yellow-600" };
-        case 4: return { text: "Soneca", colorDark: "text-purple-400", colorLight: "text-purple-600" };
-        case 5: return { text: "Procurando Trocar", colorDark: "text-blue-400", colorLight: "text-blue-600" };
-        case 6: return { text: "Procurando Jogar", colorDark: "text-indigo-400", colorLight: "text-indigo-600" };
-        default: return { text: "Desconhecido", colorDark: "text-gray-400", colorLight: "text-gray-600" };
+        case 0: return { text: t("statusOffline"), colorDark: "text-gray-400", colorLight: "text-gray-600" };
+        case 1: return { text: t("statusOnline"), colorDark: "text-accent", colorLight: "text-accent-strong" };
+        case 2: return { text: t("statusBusy"), colorDark: "text-red-400", colorLight: "text-red-600" };
+        case 3: return { text: t("statusAway"), colorDark: "text-yellow-400", colorLight: "text-yellow-600" };
+        case 4: return { text: t("statusSleep"), colorDark: "text-purple-400", colorLight: "text-purple-600" };
+        case 5: return { text: t("statusLookingTrade"), colorDark: "text-blue-400", colorLight: "text-blue-600" };
+        case 6: return { text: t("statusLookingPlay"), colorDark: "text-indigo-400", colorLight: "text-indigo-600" };
+        default: return { text: t("statusUnknown"), colorDark: "text-gray-400", colorLight: "text-gray-600" };
     }
 }
 
 export default function ProfileCard({ data }) {
     const t = useTheme();
-    const status = getStatus(data.personastate);
+    const { t: tr } = useLanguage();
+    const status = getStatus(data.personastate, tr);
 
     const cardBg = t.cardBg;
     const coverBg = t.coverBg;
@@ -47,7 +49,7 @@ export default function ProfileCard({ data }) {
                 onPress={handleLogout}
                 className="bg-red-600 p-3 rounded-lg flex-1 mr-2 items-center"
             >
-                <Text className="text-white font-semibold">Sair</Text>
+                <Text className="text-white font-semibold">{tr("logout")}</Text>
             </TouchableOpacity>
         );
     }
@@ -72,13 +74,13 @@ export default function ProfileCard({ data }) {
             {/* Infos adicionais */}
             <View className="px-4 pb-4">
                 {data.realname && (
-                    <Text className={`${secondaryTextColor} text-sm`}>Nome: {data.realname}</Text>
+                    <Text className={`${secondaryTextColor} text-sm`}>{tr("profileName", { name: data.realname })}</Text>
                 )}
                 {data.loccountrycode && (
-                    <Text className={`${secondaryTextColor} text-sm`}>País: {data.loccountrycode}</Text>
+                    <Text className={`${secondaryTextColor} text-sm`}>{tr("profileCountry", { code: data.loccountrycode })}</Text>
                 )}
                 <Text className={`${secondaryTextColor} text-xs mt-2`}>
-                    Última vez online: {formatDate(data.lastlogoff)}
+                    {tr("profileLastOnline", { date: formatDate(data.lastlogoff) })}
                 </Text>
             </View>
 
@@ -88,7 +90,7 @@ export default function ProfileCard({ data }) {
                     className="bg-blue-600 p-3 rounded-lg flex-1 mr-2 items-center"
                     onPress={() => Linking.openURL(data.profileurl)}
                 >
-                    <Text className="text-white font-semibold">Ver Perfil</Text>
+                    <Text className="text-white font-semibold">{tr("viewProfile")}</Text>
                 </TouchableOpacity>
 
                 <LogoutButton />

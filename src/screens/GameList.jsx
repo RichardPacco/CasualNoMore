@@ -4,6 +4,8 @@ import PullToRefresh from "@/src/components/PullToRefresh";
 import RadioSheet from "@/src/components/RadioSheet";
 import { AuthContext } from "@/src/context/AuthContext";
 import { getAllGames, saveGamesBatch } from "@/src/database/db";
+import { getLanguageStore } from "@/src/i18n/langStore";
+import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS } from "@/src/theme/colors";
 import { useTheme } from "@/src/theme/styles";
 import { fetchAndMergeAchievements } from "@/src/utils/achievements";
@@ -13,6 +15,7 @@ import { ActivityIndicator, FlatList, Keyboard, Text, TextInput, TouchableOpacit
 
 export default function GameList({ navigation, route }) {
     const { steamId } = useContext(AuthContext);
+    const { t: tr, language } = useLanguage();
 
     // ---------- hooks / state ----------
     const [games, setGames] = useState([]);
@@ -47,12 +50,15 @@ export default function GameList({ navigation, route }) {
      * Só busca o que ainda não foi cacheado.
      */
     const enrichGame = useCallback(async (baseGame, cached) => {
-        let schema = cached?.schema ?? null;
-        let schemaStatus = cached?.schemaStatus || "pending";
-        let achievements = cached?.achievements ?? null;
-        let achievementsStatus = cached?.achievementsStatus || "pending";
-        let details = cached?.details ?? null;
-        let detailsStatus = cached?.detailsStatus || "pending";
+        const lang = getLanguageStore();
+        const stale = cached ? cached.lang !== lang : false;
+
+        let schema = stale ? null : (cached?.schema ?? null);
+        let schemaStatus = stale ? "pending" : (cached?.schemaStatus || "pending");
+        let achievements = stale ? null : (cached?.achievements ?? null);
+        let achievementsStatus = stale ? "pending" : (cached?.achievementsStatus || "pending");
+        let details = stale ? null : (cached?.details ?? null);
+        let detailsStatus = stale ? "pending" : (cached?.detailsStatus || "pending");
 
         if (schemaStatus === "pending") {
             try {
@@ -79,7 +85,8 @@ export default function GameList({ navigation, route }) {
             ...baseGame,
             playtime_forever: baseGame.playtime_forever || 0,
             playtime_2weeks: baseGame.playtime_2weeks || 0,
-            schema, schemaStatus, achievements, achievementsStatus, details, detailsStatus
+            schema, schemaStatus, achievements, achievementsStatus, details, detailsStatus,
+            lang,
         };
     }, [steamId]);
 
@@ -89,21 +96,21 @@ export default function GameList({ navigation, route }) {
     );
 
     const filterOptions = useMemo(() => [
-        { label: "Todos", value: "all" },
-        { label: "Nunca Jogados", value: "neverPlayed" },
-        { label: "Jogados", value: "played" },
-        { label: "Nas últimas 2 semanas", value: "recent" },
-        { label: "Com Conquistas", value: "withAchievements" },
-        { label: "Sem Conquistas", value: "withoutAchievements" },
-        { label: "Completados", value: "completed" },
-        { label: "Backlog", value: "progress" },
-    ], []);
+        { label: tr("filterAll"), value: "all" },
+        { label: tr("filterNeverPlayed"), value: "neverPlayed" },
+        { label: tr("filterPlayed"), value: "played" },
+        { label: tr("filterRecent"), value: "recent" },
+        { label: tr("filterWithAchievements"), value: "withAchievements" },
+        { label: tr("filterWithoutAchievements"), value: "withoutAchievements" },
+        { label: tr("filterCompleted"), value: "completed" },
+        { label: tr("filterBacklog"), value: "progress" },
+    ], [tr]);
 
     const sortOptions = useMemo(() => [
-        { label: "Mais recentes", value: "recentPlaytime" },
-        { label: "Tempo de Jogo", value: "totalPlaytime" },
-        { label: "Nome", value: "name" },
-    ], []);
+        { label: tr("sortRecent"), value: "recentPlaytime" },
+        { label: tr("sortPlaytime"), value: "totalPlaytime" },
+        { label: tr("sortName"), value: "name" },
+    ], [tr]);
 
     const filterCounts = useMemo(() => {
         const countFor = (value) => {
@@ -235,7 +242,8 @@ export default function GameList({ navigation, route }) {
                         || prev.playtime_2weeks !== enriched.playtime_2weeks
                         || prev.schemaStatus !== enriched.schemaStatus
                         || prev.achievementsStatus !== enriched.achievementsStatus
-                        || prev.detailsStatus !== enriched.detailsStatus) {
+                        || prev.detailsStatus !== enriched.detailsStatus
+                        || prev.lang !== enriched.lang) {
                         enrichedGames[idx] = enriched;
                         updated = true;
                     }
@@ -288,7 +296,7 @@ export default function GameList({ navigation, route }) {
         return () => {
             cancelledRef.current = true;
         };
-    }, [steamId, loadGames]);
+    }, [steamId, loadGames, language]);
 
     // debounce search query
     useEffect(() => {
@@ -304,7 +312,7 @@ export default function GameList({ navigation, route }) {
                 <ActivityIndicator size="large" color={COLORS.accent} />
                 {progress.total > 0 && (
                     <Text className={`${t.textSecondary} mt-2`}>
-                        Buscando {progress.current}/{progress.total} jogos…
+                        {tr("searchingGames", { current: progress.current, total: progress.total })}
                     </Text>
                 )}
             </View>
@@ -321,7 +329,7 @@ export default function GameList({ navigation, route }) {
                     ref={searchInputRef}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
-                    placeholder="Pesquisar jogos..."
+                    placeholder={tr("searchGamesPlaceholder")}
                     placeholderTextColor={isDark ? "#9ca3af" : "#6b7280"}
                     returnKeyType="search"
                     onSubmitEditing={() => Keyboard.dismiss()}
@@ -340,7 +348,7 @@ export default function GameList({ navigation, route }) {
                     }}
                     style={{ marginLeft: 8 }}
                 >
-                    <Text style={{ color: isDark ? COLORS.accent : "#111" }}>Limpar</Text>
+                    <Text style={{ color: isDark ? COLORS.accent : "#111" }}>{tr("clear")}</Text>
                 </TouchableOpacity>
             </View>
 
@@ -361,7 +369,7 @@ export default function GameList({ navigation, route }) {
                             <View className="py-4 items-center">
                                 <ActivityIndicator size="small" color={COLORS.accent} />
                                 <Text className={`${t.textSecondary} mt-2`}>
-                                    Carregando {progress.current}/{progress.total}
+                                    {tr("loadingGames", { current: progress.current, total: progress.total })}
                                 </Text>
                             </View>
                         ) : null
@@ -460,7 +468,7 @@ export default function GameList({ navigation, route }) {
             <RadioSheet
                 visible={filterVisible}
                 onClose={() => setFilterVisible(false)}
-                title="Filtrar"
+                title={tr("filterTitle")}
                 options={filterOptions}
                 selected={filter}
                 onSelect={setFilter}
@@ -470,7 +478,7 @@ export default function GameList({ navigation, route }) {
             <RadioSheet
                 visible={sortVisible}
                 onClose={() => setSortVisible(false)}
-                title="Ordenar por"
+                title={tr("sortTitle")}
                 options={sortOptions}
                 selected={sort}
                 onSelect={setSort}

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Modal, Text, TouchableOpacity, View, Linking } from "react-native";
 import AchievementsTab from './AchievementsTab';
 import GameDetailsTab from './GameDetailsTab';
+import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS } from "@/src/theme/colors";
 import { useTheme } from "@/src/theme/styles";
 
@@ -11,6 +12,7 @@ const Tab = createMaterialTopTabNavigator();
 
 export default function GameScreen({ route, navigation }) {
     const { game } = route.params;
+    const { t: tr } = useLanguage();
 
     const [modalVisible, setModalVisible] = useState(false);
 
@@ -69,14 +71,14 @@ export default function GameScreen({ route, navigation }) {
                             style={{ padding: 12, flexDirection: 'row', alignItems: 'center' }}
                         >
                             <Ionicons name="book-outline" size={18} color={t.textInline} style={{ marginRight: 8 }} />
-                            <Text style={{ color: t.textInline }}>Guias da Comunidade</Text>
+                            <Text style={{ color: t.textInline }}>{tr("communityGuides")}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             onPress={() => { setModalVisible(false); openDiscussions(); }}
                             style={{ padding: 12, flexDirection: 'row', alignItems: 'center' }}
                         >
                             <Ionicons name="chatbubbles-outline" size={18} color={t.textInline} style={{ marginRight: 8 }} />
-                            <Text style={{ color: t.textInline }}>Discussões na Steam</Text>
+                            <Text style={{ color: t.textInline }}>{tr("steamDiscussions")}</Text>
                         </TouchableOpacity>
                     </View>
                 </TouchableOpacity>
@@ -101,7 +103,7 @@ export default function GameScreen({ route, navigation }) {
                         numberOfLines={1}
                         ellipsizeMode="tail"
                     >
-                        {game.name} - Achievements
+                        {game.name} - {tr("achievements")}
                     </Text>
                 </View>
 
@@ -132,10 +134,10 @@ export default function GameScreen({ route, navigation }) {
                 }}
             >
 
-                <Tab.Screen name="Detalhes">
+                <Tab.Screen name="Detalhes" options={{ tabBarLabel: tr("details") }}>
                     {() => <GameDetailsTab game={game} navigation={navigation} />}
                 </Tab.Screen>
-                <Tab.Screen name="Conquistas">
+                <Tab.Screen name="Conquistas" options={{ tabBarLabel: tr("achievements") }}>
                     {() => <AchievementsTab game={game} />}
                 </Tab.Screen>
             </Tab.Navigator>

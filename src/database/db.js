@@ -33,7 +33,8 @@ export async function ensureTable(steamId) {
       achievements TEXT,
       achievementsStatus TEXT,
       details TEXT,
-      detailsStatus TEXT
+      detailsStatus TEXT,
+      lang TEXT
     );
   `);
     createdTables.add(tableName);
@@ -76,9 +77,9 @@ export async function saveGame(steamId, game) {
 
         console.log(`[db] Salvando jogo: ${game.name || game.appid} na tabela ${tableName}`);
         await db.runAsync(
-            `INSERT OR REPLACE INTO ${tableName} (appid, name, playtime_forever, playtime_2weeks, schema, schemaStatus, achievements, achievementsStatus, details, detailsStatus)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [game.appid, game.name, game.playtime_forever || 0, game.playtime_2weeks || 0, schemaString, schemaStatus, achievementsString, achievementsStatus, detailsString, detailsStatus]
+            `INSERT OR REPLACE INTO ${tableName} (appid, name, playtime_forever, playtime_2weeks, schema, schemaStatus, achievements, achievementsStatus, details, detailsStatus, lang)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [game.appid, game.name, game.playtime_forever || 0, game.playtime_2weeks || 0, schemaString, schemaStatus, achievementsString, achievementsStatus, detailsString, detailsStatus, game.lang || null]
         );
         console.log(`[db] Jogo salvo: ${game.name || game.appid}`);
     } catch (err) {
@@ -146,9 +147,9 @@ export async function saveGamesBatch(steamId, games) {
             console.log(`[db] Salvando jogo: ${game.name || game.appid} na tabela ${tableName}`);
             return db.runAsync(
                 `INSERT OR REPLACE INTO ${tableName} 
-                (appid, name, playtime_forever, playtime_2weeks, schema, schemaStatus, achievements, achievementsStatus, details, detailsStatus)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [game.appid, game.name, game.playtime_forever || 0, game.playtime_2weeks || 0, schemaString, schemaStatus, achievementsString, achievementsStatus, detailsString, detailsStatus]
+                (appid, name, playtime_forever, playtime_2weeks, schema, schemaStatus, achievements, achievementsStatus, details, detailsStatus, lang)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [game.appid, game.name, game.playtime_forever || 0, game.playtime_2weeks || 0, schemaString, schemaStatus, achievementsString, achievementsStatus, detailsString, detailsStatus, game.lang || null]
             ).then(() => {
                 console.log(`[db] Jogo salvo: ${game.name || game.appid}`);
             });

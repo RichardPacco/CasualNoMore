@@ -1,10 +1,13 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as NavigationBar from "expo-navigation-bar";
 import { Tabs } from "expo-router";
+import { useSyncExternalStore } from "react";
 import { Pressable, StatusBar, useColorScheme, View } from "react-native";
 import '../globals.css';
+import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS } from "@/src/theme/colors";
 import { theme } from "@/src/theme/styles";
+import { getOverlayOpen, subscribeOverlay } from "@/src/utils/overlayBar";
 
 function TabBarButton({ children, style, onPress, onLongPress, accessibilityState }) {
     const colorScheme = useColorScheme();
@@ -39,6 +42,8 @@ export default function TabsLayout() {
     const colorScheme = useColorScheme();
     const isDark = colorScheme === "dark";
     const s = isDark ? theme.dark : theme.light;
+    const { t } = useLanguage();
+    const overlayOpen = useSyncExternalStore(subscribeOverlay, getOverlayOpen);
 
     NavigationBar.setBackgroundColorAsync(s.surface);
     NavigationBar.setButtonStyleAsync(isDark ? "light" : "dark");
@@ -71,6 +76,7 @@ export default function TabsLayout() {
                         shadowOffset: { width: 0, height: 4 },
                         paddingTop: 4,
                         paddingBottom: 4,
+                        display: overlayOpen ? "none" : "flex",
                     },
                     tabBarButton: (props) => <TabBarButton {...props} />,
                     tabBarLabelStyle: {
@@ -82,7 +88,7 @@ export default function TabsLayout() {
                 <Tabs.Screen
                     name="GameStack"
                     options={{
-                        title: "Games",
+                        title: t("tabGames"),
                         tabBarIcon: ({ color, size, focused }) => (
                             <Ionicons
                                 name={focused ? "game-controller" : "game-controller-outline"}
@@ -95,7 +101,7 @@ export default function TabsLayout() {
                 <Tabs.Screen
                     name="ProfileStack"
                     options={{
-                        title: "Profile",
+                        title: t("tabProfile"),
                         tabBarIcon: ({ color, size, focused }) => (
                             <Ionicons
                                 name={focused ? "person-circle" : "person-circle-outline"}

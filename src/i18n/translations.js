@@ -97,6 +97,10 @@ export const translations = {
     achFilterLegendary: { pt: "Lendárias (< 5%)", en: "Legendary (< 5%)" },
     achSortRarity: { pt: "Raridade", en: "Rarity" },
     achSortReverse: { pt: "Ordem Inversa", en: "Reverse Order" },
+
+    // --- guide search ---
+    searchGoogle: { pt: "Buscar no Google", en: "Search on Google" },
+    searchChatGPT: { pt: "Perguntar ao ChatGPT", en: "Ask ChatGPT" },
     achSearchPlaceholder: { pt: "Pesquisar conquistas...", en: "Search achievements..." },
     noAchievementsMatch: { pt: "Nenhuma conquista encontrada", en: "No achievements found" },
 

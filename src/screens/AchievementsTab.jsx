@@ -1,3 +1,4 @@
+import ContextMenu from "@/src/components/ContextMenu";
 import RadioSheet from "@/src/components/RadioSheet";
 import useAchievements from "@/src/hooks/useAchievements";
 import { useLanguage } from "@/src/i18n/LanguageContext";
@@ -5,10 +6,13 @@ import { COLORS } from "@/src/theme/colors";
 import { useTheme } from "@/src/theme/styles";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import * as WebBrowser from "expo-web-browser";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Animated, FlatList, Image, Keyboard, Linking, Text, TextInput, TouchableOpacity, useColorScheme, View } from "react-native";
+import { ActivityIndicator, Animated, Dimensions, FlatList, Image, Keyboard, Text, TextInput, TouchableOpacity, useColorScheme, View } from "react-native";
 
 const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
+
+const { width: WINDOW_W, height: WINDOW_H } = Dimensions.get("window");
 
 const RAINBOW = ["#ff0000", "#ff8c00", "#ffe600", "#33cc33", "#3399ff", "#9933ff", "#ff0000"];
 
@@ -22,20 +26,23 @@ function rarityColor(percent) {
     return COLORS.rarityPearlescent;                     // perolescente
 }
 
-function AchievementCardComponent({ item, game }) {
+const FALLBACK_ICON_CDN = "https://shared.fastly.steamstatic.com/community_assets/images/apps/";
+
+function iconFallbackUri(uri, appid) {
+    if (!uri || !appid) return uri;
+    const filename = uri.split("/").pop();
+    return `${FALLBACK_ICON_CDN}${appid}/${filename}`;
+}
+
+function AchievementCardComponent({ item, game, onOpenMenu }) {
     const t = useTheme();
     const { t: tr } = useLanguage();
     const scaleAnim = useRef(new Animated.Value(1)).current;
+    const [iconFailed, setIconFailed] = useState(false);
+    const iconUri = iconFailed ? iconFallbackUri(item.icon, game?.appid) : item.icon;
 
     const isPearlescent = item.globalPercent <= 1;
-    const isLegendary = !isPearlescent && item.globalPercent < 5;
     const rarity = rarityColor(item.globalPercent);
-
-    const searchGoogle = () => {
-        const query = `${game.name} ${item.name} Guide`;
-        Linking.openURL(`https://www.google.com/search?q=${encodeURIComponent(query)}`)
-            .catch(err => console.error("Failed to open Google:", err));
-    };
 
     const handlePressIn = () => {
         Animated.spring(scaleAnim, {
@@ -55,11 +62,12 @@ function AchievementCardComponent({ item, game }) {
         }).start();
     };
 
-    const handleLongPress = () => {
+    const handleLongPress = (e) => {
         Animated.sequence([
             Animated.timing(scaleAnim, { toValue: 0.92, duration: 120, useNativeDriver: true }),
             Animated.timing(scaleAnim, { toValue: 1, duration: 120, useNativeDriver: true }),
-        ]).start(() => searchGoogle());
+        ]).start();
+        onOpenMenu?.(item, e.nativeEvent.pageX, e.nativeEvent.pageY);
     };
 
     return (
@@ -80,17 +88,13 @@ function AchievementCardComponent({ item, game }) {
                         style={{
                             padding: 2,
                             borderRadius: 10,
-                            shadowColor: "#FFFFFF",
-                            shadowOpacity: 0.7,
-                            shadowRadius: 10,
-                            shadowOffset: { width: 0, height: 0 },
-                            elevation: 10,
                         }}
                     >
                         <Image
-                            source={{ uri: item.icon }}
+                            source={{ uri: iconUri }}
                             className="w-12 h-12 rounded"
                             resizeMode="contain"
+                            onError={() => setIconFailed(true)}
                         />
                     </LinearGradient>
                 ) : (
@@ -101,19 +105,13 @@ function AchievementCardComponent({ item, game }) {
                             backgroundColor: rarity + "2E",
                             borderWidth: 1.5,
                             borderColor: rarity,
-                            ...(isLegendary ? {
-                                shadowColor: rarity,
-                                shadowOpacity: 0.7,
-                                shadowRadius: 10,
-                                shadowOffset: { width: 0, height: 0 },
-                                elevation: 10,
-                            } : null),
                         }}
                     >
                         <Image
-                            source={{ uri: item.icon }}
+                            source={{ uri: iconUri }}
                             className="w-12 h-12 rounded"
                             resizeMode="contain"
+                            onError={() => setIconFailed(true)}
                         />
                     </View>
                 )}
@@ -157,7 +155,9 @@ export default function AchievementsTab({ game }) {
     const [showTopButton, setShowTopButton] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [debouncedQuery, setDebouncedQuery] = useState("");
+    const [guideMenu, setGuideMenu] = useState(null);
     const listRef = useRef(null);
+    const containerRef = useRef(null);
 
     const colorScheme = useColorScheme();
     const isDark = colorScheme === "dark";
@@ -226,10 +226,40 @@ export default function AchievementsTab({ game }) {
         return () => clearTimeout(t);
     }, [searchQuery]);
 
+    const openGuideMenu = useCallback((item, pageX, pageY) => {
+        // Converte coordenadas da janela (pageX/pageY) para o sistema do
+        // container (leva em conta safe area / status bar).
+        containerRef.current?.measureInWindow((cx, cy, cw, ch) => {
+            setGuideMenu({ item, x: pageX - cx, y: pageY - cy, width: cw, height: ch });
+        });
+    }, []);
+
     const renderCard = useCallback(
-        ({ item }) => <AchievementCard item={item} game={game} />,
-        [game]
+        ({ item }) => <AchievementCard item={item} game={game} onOpenMenu={openGuideMenu} />,
+        [game, openGuideMenu]
     );
+
+    const guideQuery = useCallback((item) => {
+        return encodeURIComponent(`${game.name} ${item.name} Guide`);
+    }, [game]);
+
+    const searchGoogle = useCallback((item) => {
+        WebBrowser.openBrowserAsync(`https://www.google.com/search?q=${guideQuery(item)}`)
+            .catch(err => console.error("Failed to open browser:", err));
+    }, [guideQuery]);
+
+    const searchChatGPT = useCallback((item) => {
+        WebBrowser.openBrowserAsync(`https://chatgpt.com/?q=${guideQuery(item)}`)
+            .catch(err => console.error("Failed to open browser:", err));
+    }, [guideQuery]);
+
+    const guideMenuOptions = useMemo(() => {
+        if (!guideMenu) return [];
+        return [
+            { label: tr("searchGoogle"), icon: "logo-google", onPress: () => searchGoogle(guideMenu.item) },
+            { label: tr("searchChatGPT"), icon: "sparkles", onPress: () => searchChatGPT(guideMenu.item) },
+        ];
+    }, [guideMenu, tr, searchGoogle, searchChatGPT]);
 
     if (loading) {
         return (
@@ -240,7 +270,7 @@ export default function AchievementsTab({ game }) {
     }
 
     return (
-        <View className={`flex-1 ${t.pageBg} py-4`}>
+        <View ref={containerRef} className={`flex-1 ${t.pageBg} py-4`}>
             {mergedCheevos.length === 0 ? (
                 <View className="flex-1 justify-center items-center">
                     <Text className={`${t.textSecondary} text-center text-lg`}>
@@ -403,6 +433,16 @@ export default function AchievementsTab({ game }) {
                     />
                 </>
             )}
+
+            <ContextMenu
+                visible={!!guideMenu}
+                x={guideMenu?.x ?? 0}
+                y={guideMenu?.y ?? 0}
+                bounds={{ width: guideMenu?.width ?? WINDOW_W, height: guideMenu?.height ?? WINDOW_H }}
+                title={guideMenu?.item?.name}
+                options={guideMenuOptions}
+                onClose={() => setGuideMenu(null)}
+            />
         </View>
     );
 }

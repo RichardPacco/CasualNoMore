@@ -87,6 +87,15 @@ export async function getPlayerAchievements(appId, steamId, lang = steamLangCode
     return json?.playerstats ?? null; // { steamID, gameName, achievements: [...] }
 }
 
+export async function getGameAchievements(appId, lang = steamLangCode()) {
+    if (!appId) throw new Error("getGameAchievements: appId é obrigatório");
+    const url = `${BASE_URL}/IPlayerService/GetGameAchievements/v1/?appid=${encodeURIComponent(
+        appId
+    )}&language=${encodeURIComponent(lang)}&format=json`
+    const json = await fetchJson(url)
+    return json?.response?.achievements ?? null; // [{ internal_name, localized_name, localized_desc, icon, icon_gray, hidden, player_percent_unlocked }]
+}
+
 export async function getGameStoreDetails(appId) {
     if (!appId) throw new Error("getAchievements: appId é obrigatório");
 

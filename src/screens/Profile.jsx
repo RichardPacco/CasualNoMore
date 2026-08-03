@@ -341,14 +341,14 @@ export default function Profile({ navigation }) {
                 options={[
                     {
                         label: tr("friendCommonGames"),
-                        // icon: "people-outline",
+                        icon: "people-outline",
                         onPress: () => {
                             if (menu) navigation.navigate("CommonGames", { friend: menu.friend, mode: "common" });
                         },
                     },
                     {
                         label: tr("friendOwnGames"),
-                        // icon: "game-controller-outline",
+                        icon: "game-controller-outline",
                         onPress: () => {
                             if (menu) navigation.navigate("CommonGames", { friend: menu.friend, mode: "all" });
                         },

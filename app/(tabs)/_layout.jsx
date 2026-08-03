@@ -45,7 +45,6 @@ export default function TabsLayout() {
     const { t } = useLanguage();
     const overlayOpen = useSyncExternalStore(subscribeOverlay, getOverlayOpen);
 
-    NavigationBar.setBackgroundColorAsync(s.surface);
     NavigationBar.setButtonStyleAsync(isDark ? "light" : "dark");
 
     return (

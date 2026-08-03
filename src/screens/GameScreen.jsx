@@ -51,7 +51,7 @@ export default function GameScreen({ route, navigation }) {
                 >
                     <View
                         style={{
-                            width: 150,
+                            width: 200,
                             backgroundColor: t.surface,
                             marginTop: 60, // adjust to appear below status bar
                             marginRight: 16,

@@ -4,6 +4,7 @@ import useAchievements from "@/src/hooks/useAchievements";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS } from "@/src/theme/colors";
 import { useTheme } from "@/src/theme/styles";
+import { formatDate } from "@/src/utils/formatDate";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as WebBrowser from "expo-web-browser";
@@ -43,6 +44,11 @@ function AchievementCardComponent({ item, game, onOpenMenu }) {
 
     const isPearlescent = item.globalPercent <= 1;
     const rarity = rarityColor(item.globalPercent);
+
+    const unlockLabel = useMemo(() => {
+        if (!item.achieved || !item.unlocktime) return null;
+        return tr("unlockedAt", { date: formatDate(item.unlocktime) });
+    }, [item.achieved, item.unlocktime, tr]);
 
     const handlePressIn = () => {
         Animated.spring(scaleAnim, {
@@ -126,6 +132,11 @@ function AchievementCardComponent({ item, game, onOpenMenu }) {
                 <Text className={`${t.textSecondary} text-sm`} numberOfLines={2}>
                     {item.description || tr("hiddenDescription")}
                 </Text>
+                {unlockLabel && (
+                    <Text className={`${t.textSecondary} text-xs mt-1`} style={{ color: COLORS.accent }}>
+                        {unlockLabel}
+                    </Text>
+                )}
             </View>
 
             {/* Right: lock */}
@@ -170,6 +181,7 @@ export default function AchievementsTab({ game }) {
 
     const sortOptions = useMemo(() => [
         { label: tr("achSortRarity"), value: "rarity" },
+        { label: tr("achSortUnlock"), value: "unlock" },
         { label: tr("sortName"), value: "name" },
         { label: tr("achSortReverse"), value: "reverse" },
     ], [tr]);
@@ -208,6 +220,9 @@ export default function AchievementsTab({ game }) {
         switch (sort) {
             case "rarity":
                 result = [...result].sort((a, b) => b.globalPercent - a.globalPercent);
+                break;
+            case "unlock":
+                result = [...result].sort((a, b) => (b.unlocktime || 0) - (a.unlocktime || 0));
                 break;
             case "name":
                 result = [...result].sort((a, b) => (a.name || "").localeCompare(b.name || ""));

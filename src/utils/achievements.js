@@ -14,8 +14,10 @@ function iconUrl(uri, appid) {
  */
 export function mergeAchievements(schema, playerAchievements, globalPerc, fullDescriptions, appid) {
     const achievementsMap = {};
+    const unlockMap = {};
     (playerAchievements || []).forEach(a => {
         achievementsMap[a.apiname] = a.achieved === 1;
+        unlockMap[a.apiname] = a.unlocktime || 0;
     });
 
     const percentMap = {};
@@ -29,6 +31,7 @@ export function mergeAchievements(schema, playerAchievements, globalPerc, fullDe
         description: ach.description || (fullDescriptions && fullDescriptions[ach.name]) || "",
         icon: iconUrl(achievementsMap[ach.name] ? ach.icon : ach.icongray, appid),
         achieved: achievementsMap[ach.name] || false,
+        unlocktime: unlockMap[ach.name] || 0,
         globalPercent: percentMap[ach.name.toLowerCase()] || 0
     })).sort((a, b) => b.globalPercent - a.globalPercent);
 }

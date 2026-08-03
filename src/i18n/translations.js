@@ -96,7 +96,9 @@ export const translations = {
     achFilterLocked: { pt: "Bloqueadas", en: "Locked" },
     achFilterLegendary: { pt: "Lendárias (< 5%)", en: "Legendary (< 5%)" },
     achSortRarity: { pt: "Raridade", en: "Rarity" },
+    achSortUnlock: { pt: "Data de Desbloqueio", en: "Unlock Date" },
     achSortReverse: { pt: "Ordem Inversa", en: "Reverse Order" },
+    unlockedAt: { pt: "Desbloqueada em {date}", en: "Unlocked on {date}" },
 
     // --- guide search ---
     searchGoogle: { pt: "Buscar no Google", en: "Search on Google" },

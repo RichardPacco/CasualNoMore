@@ -1,10 +1,10 @@
 import useAchievements from "@/src/hooks/useAchievements";
-import { Ionicons } from "@expo/vector-icons";
 import { useLanguage } from "@/src/i18n/LanguageContext";
-import { memo, useRef } from "react";
-import { ActivityIndicator, Animated, FlatList, Image, Linking, Text, TouchableOpacity, View } from "react-native";
 import { COLORS } from "@/src/theme/colors";
 import { useTheme } from "@/src/theme/styles";
+import { Ionicons } from "@expo/vector-icons";
+import { memo, useRef } from "react";
+import { ActivityIndicator, Animated, FlatList, Image, Linking, Text, TouchableOpacity, View } from "react-native";
 
 const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
 
@@ -12,6 +12,8 @@ function AchievementCardComponent({ item, game }) {
     const t = useTheme();
     const { t: tr } = useLanguage();
     const scaleAnim = useRef(new Animated.Value(1)).current;
+
+    const rare = item.globalPercent < 10;
 
     const searchGoogle = () => {
         const query = `${game.name} ${item.name} Guide`;
@@ -54,12 +56,29 @@ function AchievementCardComponent({ item, game }) {
         >
             {/* Left: icon + percent */}
             <View className="flex-col items-center mr-4">
-                <Image
-                    source={{ uri: item.icon }}
-                    className="w-12 h-12 rounded mb-1"
-                    resizeMode="contain"
-                />
-                <Text className={`${t.textSecondary} text-sm`}>{item.globalPercent}%</Text>
+                <View
+                    style={rare ? {
+                        padding: 2,
+                        borderRadius: 10,
+                        backgroundColor: "rgba(255,179,0,0.18)",
+                        borderWidth: 1.5,
+                        borderColor: COLORS.warning,
+                        shadowColor: "#FFB300",
+                        shadowOpacity: 0.7,
+                        shadowRadius: 10,
+                        shadowOffset: { width: 0, height: 0 },
+                        elevation: 10,
+                    } : null}
+                >
+                    <Image
+                        source={{ uri: item.icon }}
+                        className="w-12 h-12 rounded"
+                        resizeMode="contain"
+                    />
+                </View>
+                <Text className={`text-sm ${rare ? "text-warning" : t.textSecondary}`}>
+                    {item.globalPercent}%
+                </Text>
             </View>
 
             {/* Middle: name + description */}

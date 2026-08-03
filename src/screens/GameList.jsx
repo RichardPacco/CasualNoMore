@@ -174,6 +174,7 @@ export default function GameList({ navigation, route }) {
         { label: "⏱️ Nas últimas 2 semanas", value: "recent" },
         { label: "🏆 Com Conquistas", value: "withAchievements" },
         { label: "🚫 Sem Conquistas", value: "withoutAchievements" },
+        { label: "✅ Completados", value: "completed" },
     ], []);
 
     const sortOptions = useMemo(() => [
@@ -191,6 +192,10 @@ export default function GameList({ navigation, route }) {
             case "recent": result = result.filter(g => g.playtime_2weeks > 0); break;
             case "withAchievements": result = result.filter(g => (g.achievements || []).length > 0); break;
             case "withoutAchievements": result = result.filter(g => (g.achievements || []).length === 0); break;
+            case "completed": result = result.filter(g => {
+                const list = g.achievements || [];
+                return list.length > 0 && list.every(a => a.achieved);
+            }); break;
             default: break;
         }
 

@@ -24,7 +24,8 @@ module.exports = {
         },
         accent: COLORS.accent,
         'accent-strong': COLORS.accentStrong,
-        danger: COLORS.danger
+        danger: COLORS.danger,
+        warning: COLORS.warning
       }
     },
   },

@@ -10,6 +10,6 @@ module.exports = {
         accentSoftLight: "#dbeafe",
         danger: "#F87171",
         error: "#ef4444",
-        warning: "#facc15",
+        warning: "#FFB300",
     },
 };

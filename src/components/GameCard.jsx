@@ -33,9 +33,18 @@ function GameCardComponent({ game, navigation }) {
             />
 
             <View className="ml-4 flex-1">
-                <Text className={`${t.textPrimary} text-lg font-bold`} numberOfLines={1}>
-                    {game.name}
-                </Text>
+                <View className="flex-row items-center">
+                    <Text className={`${t.textPrimary} text-lg font-bold flex-1`} numberOfLines={1}>
+                        {game.name}
+                    </Text>
+                    {total > 0 && unlocked === total && (
+                        <Image
+                            source={require("../../assets/images/completion_icon.png")}
+                            className="w-6 h-6 ml-2"
+                            resizeMode="contain"
+                        />
+                    )}
+                </View>
                 <Text className={`${t.textSecondary} text-sm mt-1`}>
                     {game.playtime_forever < 60
                         ? `${game.playtime_forever} minutos`
@@ -46,7 +55,7 @@ function GameCardComponent({ game, navigation }) {
                     <>
                         <View className={`w-full ${t.progressTrack} rounded-full h-2 mt-2`}>
                             <View
-                                className="bg-accent h-2 rounded-full"
+                                className={`${unlocked === total ? "bg-warning" : "bg-accent"} h-2 rounded-full`}
                                 style={{ width: `${percent}%` }}
                             />
                         </View>

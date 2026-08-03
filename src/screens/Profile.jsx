@@ -1,15 +1,15 @@
-import { useRouter } from "expo-router";
-import { useCallback, useContext, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from "react-native";
 import { getFriendList, getOwnedGames, getPlayerSummary } from "@/src/api/steam";
 import LanguageSelector from "@/src/components/LanguageSelector";
 import ProfileCard from "@/src/components/ProfileCard";
 import PullToRefresh from "@/src/components/PullToRefresh";
 import { AuthContext } from "@/src/context/AuthContext";
-import { useLanguage } from "@/src/i18n/LanguageContext";
 import { loadFriend, saveFriendProfile } from "@/src/database/db";
+import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS } from "@/src/theme/colors";
 import { useTheme } from "@/src/theme/styles";
+import { useRouter } from "expo-router";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from "react-native";
 
 function gamesSignature(games) {
     return (games?.games ?? [])
@@ -66,6 +66,7 @@ export default function Profile({ navigation }) {
         const [loadingProfile, setLoadingProfile] = useState(true);
         const [loadingFriends, setLoadingFriends] = useState(false);
         const [refreshingFriends, setRefreshingFriends] = useState(false);
+        const [refreshingProfile, setRefreshingProfile] = useState(false);
         const myGamesRef = useRef([]);
         const friendsRef = useRef([]);
 
@@ -190,11 +191,24 @@ export default function Profile({ navigation }) {
             }
         }, [steamId, refreshFriends]);
 
+        const refreshProfile = useCallback(async () => {
+            if (!steamId) return;
+            setRefreshingProfile(true);
+            try {
+                const Profile = await getPlayerSummary(steamId);
+                if (Profile) setProfile(Profile);
+            } catch (err) {
+                console.error("[useProfile] Failed to refresh profile:", err);
+            } finally {
+                setRefreshingProfile(false);
+            }
+        }, [steamId]);
+
         useEffect(() => {
             loadProfile();
         }, [loadProfile]);
 
-        return { profile, friends, loadingProfile, loadingFriends, refreshingFriends, loadProfile, onRefreshFriends };
+        return { profile, friends, loadingProfile, loadingFriends, refreshingFriends, refreshingProfile, loadProfile, onRefreshFriends, refreshProfile, };
     }
 
 
@@ -205,7 +219,7 @@ export default function Profile({ navigation }) {
         }
     }, [steamId, router]);
 
-    const { profile, friends, loadingProfile, loadingFriends, refreshingFriends, loadProfile, onRefreshFriends } =
+    const { profile, friends, loadingProfile, loadingFriends, refreshingFriends, refreshingProfile, loadProfile, onRefreshFriends, refreshProfile } =
         useProfile(steamId);
 
     if (loadingProfile) {
@@ -220,7 +234,7 @@ export default function Profile({ navigation }) {
         <View className={`flex-1 p-4 ${pageBg}`}>
             {profile ? (
                 <>
-                    <ProfileCard data={profile} />
+                    <ProfileCard data={profile} onRefresh={refreshProfile} refreshing={refreshingProfile} />
 
                     {/* Language selector */}
                     <View className={`${t.cardBg} p-3 rounded-xl mb-4 flex-row items-center justify-between`}>

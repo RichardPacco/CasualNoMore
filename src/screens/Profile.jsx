@@ -7,9 +7,10 @@ import { loadFriend, saveFriendProfile } from "@/src/database/db";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS } from "@/src/theme/colors";
 import { useTheme } from "@/src/theme/styles";
+import { useActionSheet } from "@expo/react-native-action-sheet";
 import { useRouter } from "expo-router";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Image, Platform, Pressable, Text, View } from "react-native";
 
 function gamesSignature(games) {
     return (games?.games ?? [])
@@ -31,6 +32,7 @@ export default function Profile({ navigation }) {
     const router = useRouter();
     const { steamId } = useContext(AuthContext);
     const { t: tr } = useLanguage();
+    const { showActionSheetWithOptions } = useActionSheet();
 
     const t = useTheme();
     const isDark = t.isDark;
@@ -46,6 +48,35 @@ export default function Profile({ navigation }) {
     const textSecondary = t.textSecondary;
 
     const cancelledRef = useRef(false);
+
+    const openFriendOptions = (item) => {
+        const options = [tr("friendCommonGames"), tr("friendOwnGames")];
+
+        showActionSheetWithOptions(
+            {
+                options,
+                // Android: sem botão de cancelar visível. O index "escondido"
+                // (fora do array) faz o sheet fechar ao tocar fora.
+                ...(Platform.OS === "android" ? { cancelButtonIndex: options.length } : {}),
+                title: item.profile?.personaname || tr("friendFallback"),
+                // iOS: força a aparência nativa de acordo com o tema do telefone
+                userInterfaceStyle: isDark ? "dark" : "light",
+                // Android (sheet custom): estiliza para acompanhar o tema
+                containerStyle: { backgroundColor: t.surface },
+                textStyle: { color: t.textInline },
+                titleTextStyle: { color: t.textInlineSecondary },
+                cancelButtonTintColor: t.textInline,
+                separatorStyle: { backgroundColor: isDark ? "#374151" : "#dddddd" },
+            },
+            (buttonIndex) => {
+                if (buttonIndex === 0) {
+                    navigation.navigate("CommonGames", { friend: item, mode: "common" });
+                } else if (buttonIndex === 1) {
+                    navigation.navigate("CommonGames", { friend: item, mode: "all" });
+                }
+            }
+        );
+    };
 
     useEffect(() => {
         // Se o usuário fizer logout, marca como cancelado
@@ -263,9 +294,7 @@ export default function Profile({ navigation }) {
                             contentContainerStyle={{ paddingBottom: 70 }}
                             renderItem={({ item }) => (
                                 <Pressable
-                                    onPress={() =>
-                                        navigation.navigate("CommonGames", { friend: item })
-                                    }
+                                    onPress={() => openFriendOptions(item)}
                                     className={`flex-row items-center ${friendCardBg} ${friendCardBorder} border rounded-xl p-3 mb-2`}
                                 >
                                     <Image

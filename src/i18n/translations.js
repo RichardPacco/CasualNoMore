@@ -32,7 +32,7 @@ export const translations = {
     // --- profile ---
     profileFriendsTitle: { pt: "Amigos (Lista de Jogos Pública)", en: "Friends (Public Games List)" },
     profileGamesCount: { pt: "Jogos: {count}", en: "Games: {count}" },
-    profileCommonGamesCount: { pt: "Jogos em comum: {count}", en: "Common games: {count}" },
+    profileCommonGamesCount: { pt: "Jogos compartilhados: {count}", en: "Shared games: {count}" },
     profileNoPublicFriends: { pt: "Nenhum amigo com jogos públicos encontrado", en: "No friends with public games found" },
     profileUnavailable: { pt: "Perfil não disponível", en: "Profile unavailable" },
     profileLoadError: { pt: "Ocorreu um erro ao carregar o perfil. Verifique sua conexão.", en: "An error occurred while loading the profile. Check your connection." },
@@ -102,7 +102,11 @@ export const translations = {
     noAchievementsMatch: { pt: "Nenhuma conquista encontrada", en: "No achievements found" },
 
     // --- common games ---
-    commonGamesTitle: { pt: "Jogos em comum ({count})", en: "Common games ({count})" },
-    noCommonGames: { pt: "Nenhum jogo em comum", en: "No common games" },
+    commonGamesTitle: { pt: "Jogos compartilhados ({count})", en: "Shared games ({count})" },
+    noCommonGames: { pt: "Nenhum jogo compartilhado", en: "No shared games" },
     friendFallback: { pt: "Amigo", en: "Friend" },
+    friendCommonGames: { pt: "Jogos Compartilhados", en: "Shared Games" },
+    friendOwnGames: { pt: "Jogos Dele", en: "His Games" },
+    friendGamesTitle: { pt: "Jogos dele ({count})", en: "His games ({count})" },
+    noGames: { pt: "Este amigo não possui jogos públicos", en: "This friend has no public games" },
 };

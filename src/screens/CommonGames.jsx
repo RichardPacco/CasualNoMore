@@ -5,17 +5,20 @@ import { useLanguage } from "@/src/i18n/LanguageContext";
 import { useTheme } from "@/src/theme/styles";
 
 export default function CommonGames({ route, navigation }) {
-    const { friend } = route.params;
+    const { friend, mode = "common" } = route.params;
     const t = useTheme();
     const { t: tr } = useLanguage();
     const [searchQuery, setSearchQuery] = useState("");
 
-    const games = friend?.commonGames || [];
+    const isAll = mode === "all";
+    const games = isAll ? (friend?.games?.games || []) : (friend?.commonGames || []);
     const friendName = friend?.profile?.personaname || tr("friendFallback");
 
-    const filteredGames = games.filter(g =>
-        (g.name || "").toLowerCase().includes(searchQuery.trim().toLowerCase())
-    );
+    const filteredGames = games
+        .filter(g =>
+            (g.name || "").toLowerCase().includes(searchQuery.trim().toLowerCase())
+        )
+        .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 
     return (
         <View className={`flex-1 p-4 ${t.pageBg}`}>
@@ -34,7 +37,9 @@ export default function CommonGames({ route, navigation }) {
                         numberOfLines={1}
                         ellipsizeMode="tail"
                     >
-                        {tr("commonGamesTitle", { count: games.length })}
+                        {isAll
+                            ? tr("friendGamesTitle", { count: games.length })
+                            : tr("commonGamesTitle", { count: games.length })}
                     </Text>
                     <Text className={`${t.textSecondary} text-sm`} numberOfLines={1}>
                         {friendName}
@@ -77,7 +82,7 @@ export default function CommonGames({ route, navigation }) {
                 )}
                 ListEmptyComponent={
                     <Text className={`${t.textSecondary} text-center mt-8`}>
-                        {tr("noCommonGames")}
+                        {isAll ? tr("noGames") : tr("noCommonGames")}
                     </Text>
                 }
             />

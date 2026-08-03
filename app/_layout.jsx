@@ -1,5 +1,6 @@
 import { AuthProvider } from "@/src/context/AuthContext";
 import { LanguageProvider } from "@/src/i18n/LanguageContext";
+import { ActionSheetProvider } from "@expo/react-native-action-sheet";
 import { Stack } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { RootSiblingParent } from "react-native-root-siblings";
@@ -9,19 +10,21 @@ import './globals.css';
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <RootSiblingParent>
-        <SafeAreaView style={{ flex: 1 }}>
-          <LanguageProvider>
-            <AuthProvider>
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="index" />
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen name="(auth)/login" />
-              </Stack>
-            </AuthProvider>
-          </LanguageProvider>
-        </SafeAreaView>
-      </RootSiblingParent>
+      <ActionSheetProvider>
+        <RootSiblingParent>
+          <SafeAreaView style={{ flex: 1 }}>
+            <LanguageProvider>
+              <AuthProvider>
+                <Stack screenOptions={{ headerShown: false }}>
+                  <Stack.Screen name="index" />
+                  <Stack.Screen name="(tabs)" />
+                  <Stack.Screen name="(auth)/login" />
+                </Stack>
+              </AuthProvider>
+            </LanguageProvider>
+          </SafeAreaView>
+        </RootSiblingParent>
+      </ActionSheetProvider>
     </GestureHandlerRootView>
   );
 }

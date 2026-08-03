@@ -17,9 +17,14 @@ export default function GameScreen({ route, navigation }) {
     const t = useTheme();
 
     const guidesUrl = `https://steamcommunity.com/app/${game.appid}/guides/`;
+    const discussionsUrl = `https://steamcommunity.com/app/${game.appid}/discussions/`;
 
     const openGuides = () => {
         Linking.openURL(guidesUrl).catch(err => console.error("Failed to open guides URL:", err));
+    };
+
+    const openDiscussions = () => {
+        Linking.openURL(discussionsUrl).catch(err => console.error("Failed to open discussions URL:", err));
     };
 
     return (
@@ -67,10 +72,11 @@ export default function GameScreen({ route, navigation }) {
                             <Text style={{ color: t.textInline }}>Guias da Comunidade</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                            onPress={() => { console.log('Option 2'); setModalVisible(false); }}
-                            style={{ padding: 12 }}
+                            onPress={() => { setModalVisible(false); openDiscussions(); }}
+                            style={{ padding: 12, flexDirection: 'row', alignItems: 'center' }}
                         >
-                            <Text style={{ color: t.textInline }}>Option 2</Text>
+                            <Ionicons name="chatbubbles-outline" size={18} color={t.textInline} style={{ marginRight: 8 }} />
+                            <Text style={{ color: t.textInline }}>Discussões na Steam</Text>
                         </TouchableOpacity>
                     </View>
                 </TouchableOpacity>

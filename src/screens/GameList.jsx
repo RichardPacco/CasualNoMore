@@ -1,4 +1,5 @@
 import { remapProps } from "nativewind";
+import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, FlatList, Keyboard, PanResponder, Text, TextInput, TouchableOpacity, useColorScheme, View } from "react-native";
 import { Dropdown } from "react-native-element-dropdown";
@@ -30,6 +31,8 @@ export default function GameList({ navigation, route }) {
     const [sort, setSort] = useState("recentPlaytime");
     const [refreshing, setRefreshing] = useState(false);
     const [sidebarVisible, setSidebarVisible] = useState(false);
+    const [showTopButton, setShowTopButton] = useState(false);
+    const listRef = useRef(null);
 
     // search states
     const [searchQuery, setSearchQuery] = useState("");
@@ -521,12 +524,16 @@ export default function GameList({ navigation, route }) {
 
             <PullToRefresh refreshing={refreshing} onRefresh={onRefresh}>
                 <FlatList
+                    ref={listRef}
                     data={filteredGames}
                     keyExtractor={(item) => item.appid.toString()}
                     renderItem={renderGameCard}
                     initialNumToRender={10}
                     windowSize={5}
                     contentContainerStyle={{ paddingTop: 12 }}
+                    onScroll={(e) => {
+                        setShowTopButton(e.nativeEvent.contentOffset.y > 400);
+                    }}
                     ListHeaderComponent={
                         progress.current < progress.total ? (
                             <View className="py-4 items-center">
@@ -539,6 +546,28 @@ export default function GameList({ navigation, route }) {
                     }
                 />
             </PullToRefresh>
+
+            {/* scroll to top */}
+            {showTopButton && (
+                <View className="absolute bottom-6 right-6 gap-2">
+                    {showTopButton && (
+                        <TouchableOpacity
+                            onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })}
+                            activeOpacity={0.7}
+                            className="w-10 h-10 rounded-full items-center justify-center bg-accent"
+                            style={{
+                                elevation: 4,
+                                shadowColor: "#000",
+                                shadowOpacity: 0.25,
+                                shadowRadius: 4,
+                                shadowOffset: { width: 0, height: 2 },
+                            }}
+                        >
+                            <Ionicons name="chevron-up" size={22} color="#fff" />
+                        </TouchableOpacity>
+                    )}
+                </View>
+            )}
         </View>
     );
 }

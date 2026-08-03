@@ -4,9 +4,9 @@
 
 module.exports = {
     COLORS: {
-        accent: "#66C0F4",
+        accent: "#55A8E8",
         accentStrong: "#1A9FFF",
-        accentSoft: "rgba(102, 192, 244, 0.12)",
+        accentSoft: "rgba(85, 168, 232, 0.12)",
         accentSoftLight: "#dbeafe",
         danger: "#F87171",
         error: "#ef4444",

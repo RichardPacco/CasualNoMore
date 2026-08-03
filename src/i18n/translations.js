@@ -93,6 +93,13 @@ export const translations = {
     // --- achievements ---
     hiddenDescription: { pt: "Descrição Oculta", en: "Hidden Description" },
     noAchievements: { pt: "Este jogo não possui conquistas", en: "This game has no achievements" },
+    achFilterUnlocked: { pt: "Desbloqueadas", en: "Unlocked" },
+    achFilterLocked: { pt: "Bloqueadas", en: "Locked" },
+    achFilterRare: { pt: "Raras (< 10%)", en: "Rare (< 10%)" },
+    achSortRarity: { pt: "Raridade", en: "Rarity" },
+    achSortReverse: { pt: "Ordem Inversa", en: "Reverse Order" },
+    achSearchPlaceholder: { pt: "Pesquisar conquistas...", en: "Search achievements..." },
+    noAchievementsMatch: { pt: "Nenhuma conquista encontrada", en: "No achievements found" },
 
     // --- common games ---
     commonGamesTitle: { pt: "Jogos em comum ({count})", en: "Common games ({count})" },

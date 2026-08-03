@@ -1,10 +1,11 @@
-import { useContext, useEffect, useState } from 'react';
-import { Image, Linking, ScrollView, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
-import RenderHTML from 'react-native-render-html';
 import { getGameStoreDetails } from "@/src/api/steam";
 import { AuthContext } from "@/src/context/AuthContext";
 import { getGame, saveGame } from "@/src/database/db";
+import { COLORS } from "@/src/theme/colors";
 import { useTheme } from "@/src/theme/styles";
+import { useContext, useEffect, useState } from 'react';
+import { Image, Linking, ScrollView, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import RenderHTML from 'react-native-render-html';
 
 
 export default function GameDetailsTab({ game }) {
@@ -97,6 +98,7 @@ export default function GameDetailsTab({ game }) {
                                         : gameDetail.short_description
                                 }}
                                 baseStyle={{ color: t.textInline, fontSize: 16 }}
+                                ignoredDomTags={["video", "iframe", "source", "picture", "object", "embed", "noscript", "style", "script", "track"]}
                             />
 
                             {/* Read More / Read Less button */}
@@ -113,6 +115,16 @@ export default function GameDetailsTab({ game }) {
                         </View>
                     )}
                 </>
+
+                <TouchableOpacity
+                    onPress={openSteamPage}
+                    className="rounded-lg py-3 mb-3 flex-row items-center justify-center gap-2"
+                    style={{ backgroundColor: COLORS.accent }}
+                >
+                    <Text style={{ color: '#0B1220', fontSize: 15, fontWeight: 'bold' }}>
+                        Ver na Loja
+                    </Text>
+                </TouchableOpacity>
 
                 {gameDetail?.genres && (
                     <View className={`${t.cardBg} p-3 rounded-lg mb-3`}>

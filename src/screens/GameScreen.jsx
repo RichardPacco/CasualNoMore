@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { useState } from "react";
-import { Modal, Text, TouchableOpacity, View } from "react-native";
+import { Modal, Text, TouchableOpacity, View, Linking } from "react-native";
 import AchievementsTab from './AchievementsTab';
 import GameDetailsTab from './GameDetailsTab';
 import { COLORS } from "@/src/theme/colors";
@@ -15,6 +15,12 @@ export default function GameScreen({ route, navigation }) {
     const [modalVisible, setModalVisible] = useState(false);
 
     const t = useTheme();
+
+    const guidesUrl = `https://steamcommunity.com/app/${game.appid}/guides/`;
+
+    const openGuides = () => {
+        Linking.openURL(guidesUrl).catch(err => console.error("Failed to open guides URL:", err));
+    };
 
     return (
 
@@ -54,10 +60,11 @@ export default function GameScreen({ route, navigation }) {
                         }}
                     >
                         <TouchableOpacity
-                            onPress={() => { console.log('Option 1'); setModalVisible(false); }}
-                            style={{ padding: 12 }}
+                            onPress={() => { setModalVisible(false); openGuides(); }}
+                            style={{ padding: 12, flexDirection: 'row', alignItems: 'center' }}
                         >
-                            <Text style={{ color: t.textInline }}>Option 1</Text>
+                            <Ionicons name="book-outline" size={18} color={t.textInline} style={{ marginRight: 8 }} />
+                            <Text style={{ color: t.textInline }}>Guias da Comunidade</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             onPress={() => { console.log('Option 2'); setModalVisible(false); }}

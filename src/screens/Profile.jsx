@@ -235,6 +235,7 @@ export default function Profile({ navigation }) {
                         <FlatList
                             data={friends}
                             keyExtractor={(item) => item.steamid}
+                            contentContainerStyle={{ paddingBottom: 70 }}
                             renderItem={({ item }) => (
                                 <Pressable
                                     onPress={() =>

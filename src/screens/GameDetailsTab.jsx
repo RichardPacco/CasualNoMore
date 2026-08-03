@@ -65,7 +65,7 @@ export default function GameDetailsTab({ game }) {
     };
 
     return (
-        <ScrollView className={`flex-1 ${t.pageBg}`}>
+        <ScrollView className={`flex-1 ${t.pageBg}`} contentContainerStyle={{ paddingBottom: 70 }}>
             <View className={`flex-1 py-4 ${t.pageBg}`}>
                 <TouchableOpacity onPress={openSteamPage}>
 

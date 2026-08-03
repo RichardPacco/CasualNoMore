@@ -105,6 +105,7 @@ export default function AchievementsTab({ game }) {
                 <FlatList
                     data={mergedCheevos}
                     keyExtractor={(item) => item.apiname}
+                    contentContainerStyle={{ paddingBottom: 70 }}
                     renderItem={({ item }) => <AchievementCard item={item} game={game} />}
                 />
             )}

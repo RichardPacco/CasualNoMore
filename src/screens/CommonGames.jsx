@@ -54,7 +54,7 @@ export default function CommonGames({ route, navigation }) {
             <FlatList
                 data={filteredGames}
                 keyExtractor={(item) => item.appid.toString()}
-                contentContainerStyle={{ paddingTop: 12 }}
+                contentContainerStyle={{ paddingTop: 12, paddingBottom: 70 }}
                 renderItem={({ item }) => (
                     <View className={`${t.cardBg} p-2 rounded-xl flex-row items-center mb-4`}>
                         <Image

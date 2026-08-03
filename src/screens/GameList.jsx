@@ -352,7 +352,7 @@ export default function GameList({ navigation, route }) {
                     renderItem={renderGameCard}
                     initialNumToRender={10}
                     windowSize={5}
-                    contentContainerStyle={{ paddingTop: 12 }}
+                    contentContainerStyle={{ paddingTop: 12, paddingBottom: 70 }}
                     onScroll={(e) => {
                         setShowTopButton(e.nativeEvent.contentOffset.y > 400);
                     }}
@@ -370,7 +370,7 @@ export default function GameList({ navigation, route }) {
             </PullToRefresh>
 
             {/* floating buttons: filter + sort + scroll to top */}
-            <View className="absolute bottom-6 right-6 gap-3">
+            <View className="absolute bottom-24 right-6 gap-3">
                 <TouchableOpacity
                     onPress={() => setFilterVisible(true)}
                     activeOpacity={0.8}

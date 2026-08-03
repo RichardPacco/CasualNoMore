@@ -57,7 +57,6 @@ export const translations = {
     filterAll: { pt: "Todos", en: "All" },
     filterNeverPlayed: { pt: "Nunca Jogados", en: "Never Played" },
     filterPlayed: { pt: "Jogados", en: "Played" },
-    filterRecent: { pt: "Nas últimas 2 semanas", en: "In the last 2 weeks" },
     filterWithAchievements: { pt: "Com Conquistas", en: "With Achievements" },
     filterWithoutAchievements: { pt: "Sem Conquistas", en: "Without Achievements" },
     filterCompleted: { pt: "Completados", en: "Completed" },
@@ -95,7 +94,7 @@ export const translations = {
     noAchievements: { pt: "Este jogo não possui conquistas", en: "This game has no achievements" },
     achFilterUnlocked: { pt: "Desbloqueadas", en: "Unlocked" },
     achFilterLocked: { pt: "Bloqueadas", en: "Locked" },
-    achFilterRare: { pt: "Raras (< 10%)", en: "Rare (< 10%)" },
+    achFilterLegendary: { pt: "Lendárias (< 5%)", en: "Legendary (< 5%)" },
     achSortRarity: { pt: "Raridade", en: "Rarity" },
     achSortReverse: { pt: "Ordem Inversa", en: "Reverse Order" },
     achSearchPlaceholder: { pt: "Pesquisar conquistas...", en: "Search achievements..." },
@@ -115,4 +114,11 @@ export const translations = {
     gameRefreshed: { pt: "Jogo atualizado!", en: "Game updated!" },
     gameRefreshFailed: { pt: "Falha ao atualizar o jogo.", en: "Failed to update the game." },
     gameRefreshHint: { pt: "Segure para atualizar", en: "Press and hold to refresh" },
+
+    // --- recent games refresh ---
+    refreshRecentGames: { pt: "Atualizar jogos recentes", en: "Refresh recent games" },
+    noRecentGames: { pt: "Nenhum jogo jogado recentemente.", en: "No recently played games." },
+
+    // --- list separators ---
+    recentGamesSeparator: { pt: "Jogados Recentemente", en: "Recently Played" },
 };

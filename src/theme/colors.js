@@ -11,5 +11,11 @@ module.exports = {
         danger: "#F87171",
         error: "#ef4444",
         warning: "#FFB300",
+        rarityCommon: "#FFFFFF",
+        rarityUncommon: "#4ADE80",
+        rarityRare: "#60A5FA",
+        rarityEpic: "#C084FC",
+        rarityLegendary: "#FFB300",
+        rarityPearlescent: "#00E5FF",
     },
 };

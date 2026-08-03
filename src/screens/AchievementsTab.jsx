@@ -4,17 +4,32 @@ import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS } from "@/src/theme/colors";
 import { useTheme } from "@/src/theme/styles";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, FlatList, Image, Keyboard, Linking, Text, TextInput, TouchableOpacity, useColorScheme, View } from "react-native";
 
 const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
+
+const RAINBOW = ["#ff0000", "#ff8c00", "#ffe600", "#33cc33", "#3399ff", "#9933ff", "#ff0000"];
+
+// Cor da borda por raridade (baseada no % global de desbloqueio)
+function rarityColor(percent) {
+    if (percent > 50) return COLORS.rarityCommon;      // comum
+    if (percent > 25) return COLORS.rarityUncommon;    // incomum
+    if (percent > 10) return COLORS.rarityRare;        // rara
+    if (percent > 5) return COLORS.rarityEpic;         // épica
+    if (percent > 1) return COLORS.rarityLegendary     // lendária
+    return COLORS.rarityPearlescent;                     // perolescente
+}
 
 function AchievementCardComponent({ item, game }) {
     const t = useTheme();
     const { t: tr } = useLanguage();
     const scaleAnim = useRef(new Animated.Value(1)).current;
 
-    const rare = item.globalPercent < 10;
+    const isPearlescent = item.globalPercent <= 1;
+    const isLegendary = !isPearlescent && item.globalPercent < 5;
+    const rarity = rarityColor(item.globalPercent);
 
     const searchGoogle = () => {
         const query = `${game.name} ${item.name} Guide`;
@@ -57,27 +72,52 @@ function AchievementCardComponent({ item, game }) {
         >
             {/* Left: icon + percent */}
             <View className="flex-col items-center mr-4">
-                <View
-                    style={rare ? {
-                        padding: 2,
-                        borderRadius: 10,
-                        backgroundColor: "rgba(255,179,0,0.18)",
-                        borderWidth: 1.5,
-                        borderColor: COLORS.warning,
-                        shadowColor: "#FFB300",
-                        shadowOpacity: 0.7,
-                        shadowRadius: 10,
-                        shadowOffset: { width: 0, height: 0 },
-                        elevation: 10,
-                    } : null}
-                >
-                    <Image
-                        source={{ uri: item.icon }}
-                        className="w-12 h-12 rounded"
-                        resizeMode="contain"
-                    />
-                </View>
-                <Text className={`text-sm ${rare ? "text-warning" : t.textSecondary}`}>
+                {isPearlescent ? (
+                    <LinearGradient
+                        colors={RAINBOW}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={{
+                            padding: 2,
+                            borderRadius: 10,
+                            shadowColor: "#FFFFFF",
+                            shadowOpacity: 0.7,
+                            shadowRadius: 10,
+                            shadowOffset: { width: 0, height: 0 },
+                            elevation: 10,
+                        }}
+                    >
+                        <Image
+                            source={{ uri: item.icon }}
+                            className="w-12 h-12 rounded"
+                            resizeMode="contain"
+                        />
+                    </LinearGradient>
+                ) : (
+                    <View
+                        style={{
+                            padding: 2,
+                            borderRadius: 10,
+                            backgroundColor: rarity + "2E",
+                            borderWidth: 1.5,
+                            borderColor: rarity,
+                            ...(isLegendary ? {
+                                shadowColor: rarity,
+                                shadowOpacity: 0.7,
+                                shadowRadius: 10,
+                                shadowOffset: { width: 0, height: 0 },
+                                elevation: 10,
+                            } : null),
+                        }}
+                    >
+                        <Image
+                            source={{ uri: item.icon }}
+                            className="w-12 h-12 rounded"
+                            resizeMode="contain"
+                        />
+                    </View>
+                )}
+                <Text className="text-sm" style={{ color: rarity }}>
                     {item.globalPercent}%
                 </Text>
             </View>
@@ -126,7 +166,6 @@ export default function AchievementsTab({ game }) {
         { label: tr("filterAll"), value: "all" },
         { label: tr("achFilterUnlocked"), value: "unlocked" },
         { label: tr("achFilterLocked"), value: "locked" },
-        { label: tr("achFilterRare"), value: "rare" },
     ], [tr]);
 
     const sortOptions = useMemo(() => [
@@ -140,7 +179,6 @@ export default function AchievementsTab({ game }) {
             switch (value) {
                 case "unlocked": return mergedCheevos.filter(a => a.achieved).length;
                 case "locked": return mergedCheevos.filter(a => !a.achieved).length;
-                case "rare": return mergedCheevos.filter(a => a.globalPercent < 10).length;
                 default: return mergedCheevos.length;
             }
         };
@@ -156,7 +194,6 @@ export default function AchievementsTab({ game }) {
         switch (filter) {
             case "unlocked": result = result.filter(a => a.achieved); break;
             case "locked": result = result.filter(a => !a.achieved); break;
-            case "rare": result = result.filter(a => a.globalPercent < 10); break;
             default: break;
         }
 
@@ -213,7 +250,7 @@ export default function AchievementsTab({ game }) {
             ) : (
                 <>
                     {/* search input */}
-                    <View className="flex-row items-center px-4 mb-3">
+                    <View className="flex-row items-center px-0 mb-3">
                         <TextInput
                             value={searchQuery}
                             onChangeText={setSearchQuery}
@@ -242,7 +279,7 @@ export default function AchievementsTab({ game }) {
                         ref={listRef}
                         data={filteredCheevos}
                         keyExtractor={(item) => item.apiname}
-                        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 70 }}
+                        contentContainerStyle={{ paddingHorizontal: 0, paddingBottom: 70 }}
                         renderItem={renderCard}
                         initialNumToRender={10}
                         windowSize={5}

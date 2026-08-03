@@ -25,6 +25,7 @@ export default function GameList({ navigation, route }) {
     const [filter, setFilter] = useState("all");
     const [sort, setSort] = useState("recentPlaytime");
     const [refreshing, setRefreshing] = useState(false);
+    const [refreshingRecent, setRefreshingRecent] = useState(false);
     const [filterVisible, setFilterVisible] = useState(false);
     const [sortVisible, setSortVisible] = useState(false);
     const [showTopButton, setShowTopButton] = useState(false);
@@ -92,8 +93,25 @@ export default function GameList({ navigation, route }) {
     }, [steamId]);
 
     /**
-     * Atualiza um único jogo por completo ao segurar no card: playtime fresco,
-     * schema, conquistas. Salva no DB e atualiza a lista.
+     * Força refetch completo de um jogo (playtime, schema, conquistas),
+     * salva no DB e atualiza a lista.
+     */
+    const forceRefreshGame = useCallback(async (baseGame) => {
+        const reset = {
+            ...baseGame,
+            schema: null,
+            schemaStatus: "pending",
+            achievements: null,
+            achievementsStatus: "pending",
+        };
+        const fresh = await enrichGame(baseGame, reset);
+
+        setGames(prev => prev.map(g => g.appid === fresh.appid ? fresh : g));
+        await saveGame(steamId, fresh);
+    }, [steamId, enrichGame]);
+
+    /**
+     * Atualiza um único jogo por completo ao segurar no card.
      */
     const refreshSingleGame = useCallback(async (game) => {
         showToast(tr("gameRefreshing"), "info");
@@ -102,25 +120,48 @@ export default function GameList({ navigation, route }) {
             const baseGame = owned?.games?.find(g => g.appid === game.appid);
             if (!baseGame) throw new Error("game not in owned list");
 
-            // Força refetch completo: zera status para enrichGame refazer tudo
-            const reset = {
-                ...baseGame,
-                schema: null,
-                schemaStatus: "pending",
-                achievements: null,
-                achievementsStatus: "pending",
-            };
-            const fresh = await enrichGame(baseGame, reset);
-
-            setGames(prev => prev.map(g => g.appid === game.appid ? fresh : g));
-            await saveGame(steamId, fresh);
-
+            await forceRefreshGame(baseGame);
             showToast(tr("gameRefreshed"), "success");
         } catch (err) {
             console.error("[GameList] refreshSingleGame failed", game.appid, err);
             showToast(tr("gameRefreshFailed"), "error");
         }
-    }, [steamId, enrichGame, tr]);
+    }, [steamId, forceRefreshGame, tr]);
+
+    /**
+     * Atualiza por completo apenas os jogos jogados nas últimas 2 semanas
+     * (playtime_2weeks > 0) — botão de refresh recentes.
+     */
+    const refreshRecentGames = useCallback(async () => {
+        if (refreshingRecent) return;
+        setRefreshingRecent(true);
+        showToast(tr("gameRefreshing"), "info");
+        try {
+            const owned = await getOwnedGames(steamId);
+            if (!owned?.games) throw new Error("no games");
+
+            const recent = owned.games.filter(g => (g.playtime_2weeks || 0) > 0);
+            if (recent.length === 0) {
+                showToast(tr("noRecentGames"), "info");
+                return;
+            }
+
+            for (const baseGame of recent) {
+                if (cancelledRef.current) break;
+                await forceRefreshGame(baseGame);
+            }
+
+            showToast(tr("gameRefreshed"), "success");
+        } catch (err) {
+            console.error("[GameList] refreshRecentGames failed", err);
+            showToast(tr("gameRefreshFailed"), "error");
+        } finally {
+            setRefreshingRecent(false);
+        }
+    }, [steamId, forceRefreshGame, refreshingRecent, tr]);
+
+    // jogo "recente" = jogado nas últimas 2 semanas
+    const isRecentGame = useCallback((g) => (g.playtime_2weeks || 0) > 0, []);
 
     const renderGameCard = useCallback(
         ({ item }) => <GameCard game={item} navigation={navigation} onLongPress={refreshSingleGame} />,
@@ -131,7 +172,6 @@ export default function GameList({ navigation, route }) {
         { label: tr("filterAll"), value: "all" },
         { label: tr("filterNeverPlayed"), value: "neverPlayed" },
         { label: tr("filterPlayed"), value: "played" },
-        { label: tr("filterRecent"), value: "recent" },
         { label: tr("filterWithAchievements"), value: "withAchievements" },
         { label: tr("filterWithoutAchievements"), value: "withoutAchievements" },
         { label: tr("filterCompleted"), value: "completed" },
@@ -149,7 +189,6 @@ export default function GameList({ navigation, route }) {
             switch (value) {
                 case "played": return games.filter(g => g.playtime_forever > 0).length;
                 case "neverPlayed": return games.filter(g => g.playtime_forever === 0).length;
-                case "recent": return games.filter(g => g.playtime_2weeks > 0).length;
                 case "withAchievements": return games.filter(g => (g.achievements || []).length > 0).length;
                 case "withoutAchievements": return games.filter(g => (g.achievements || []).length === 0).length;
                 case "completed": return games.filter(g => {
@@ -175,7 +214,6 @@ export default function GameList({ navigation, route }) {
         switch (filter) {
             case "played": result = result.filter(g => g.playtime_forever > 0); break;
             case "neverPlayed": result = result.filter(g => g.playtime_forever === 0); break;
-            case "recent": result = result.filter(g => g.playtime_2weeks > 0); break;
             case "withAchievements": result = result.filter(g => (g.achievements || []).length > 0); break;
             case "withoutAchievements": result = result.filter(g => (g.achievements || []).length === 0); break;
             case "completed": result = result.filter(g => {
@@ -215,6 +253,15 @@ export default function GameList({ navigation, route }) {
 
         return result;
     }, [games, filter, sort, debouncedQuery]);
+
+    // Na ordenação padrão, separa os recentes (vão num card com borda no
+    // cabeçalho) do restante (vira a lista virtualizada).
+    const recentBlock = useMemo(() => {
+        if (sort !== "recentPlaytime") return null;
+        const recent = filteredGames.filter(isRecentGame);
+        const rest = filteredGames.filter(g => !isRecentGame(g));
+        return { recent, rest };
+    }, [filteredGames, sort, isRecentGame]);
 
     // ---------- load jogos ----------
     const loadGames = useCallback(async () => {
@@ -387,7 +434,7 @@ export default function GameList({ navigation, route }) {
             <PullToRefresh refreshing={refreshing} onRefresh={onRefresh}>
                 <FlatList
                     ref={listRef}
-                    data={filteredGames}
+                    data={recentBlock ? recentBlock.rest : filteredGames}
                     keyExtractor={(item) => item.appid.toString()}
                     renderItem={renderGameCard}
                     initialNumToRender={10}
@@ -397,20 +444,66 @@ export default function GameList({ navigation, route }) {
                         setShowTopButton(e.nativeEvent.contentOffset.y > 400);
                     }}
                     ListHeaderComponent={
-                        progress.current < progress.total ? (
-                            <View className="py-4 items-center">
-                                <ActivityIndicator size="small" color={COLORS.accent} />
-                                <Text className={`${t.textSecondary} mt-2`}>
-                                    {tr("loadingGames", { current: progress.current, total: progress.total })}
-                                </Text>
-                            </View>
-                        ) : null
+                        <>
+                            {progress.current < progress.total && (
+                                <View className="py-4 items-center">
+                                    <ActivityIndicator size="small" color={COLORS.accent} />
+                                    <Text className={`${t.textSecondary} mt-2`}>
+                                        {tr("loadingGames", { current: progress.current, total: progress.total })}
+                                    </Text>
+                                </View>
+                            )}
+
+                            {recentBlock && recentBlock.recent.length > 0 && (
+                                <View
+                                    className={`rounded-xl ${t.elevatedCardBg} p-2 mb-4`}
+                                    style={{ borderWidth: 1, borderColor: COLORS.accent }}
+                                >
+                                    <View className="flex-row items-center gap-2 px-2 pb-1">
+                                        <Text className="text-xs font-semibold uppercase tracking-wide"
+                                            style={{ color: COLORS.accent }}>
+                                            {tr("recentGamesSeparator")}
+                                        </Text>
+                                        <View className="flex-1 h-px" style={{ backgroundColor: COLORS.accent }} />
+                                    </View>
+                                    {recentBlock.recent.map(g => (
+                                        <GameCard
+                                            key={g.appid}
+                                            game={g}
+                                            navigation={navigation}
+                                            onLongPress={refreshSingleGame}
+                                        />
+                                    ))}
+                                </View>
+                            )}
+                        </>
                     }
                 />
             </PullToRefresh>
 
-            {/* floating buttons: filter + sort + scroll to top */}
+            {/* floating buttons: refresh recent + filter + sort + scroll to top */}
             <View className="absolute bottom-24 right-6 gap-3">
+                <TouchableOpacity
+                    onPress={refreshRecentGames}
+                    disabled={refreshingRecent}
+                    activeOpacity={0.8}
+                    accessibilityLabel={tr("refreshRecentGames")}
+                    className={`w-12 h-12 rounded-xl items-center justify-center border ${t.elevatedCardBg} ${t.cardBorder}`}
+                    style={{
+                        elevation: 6,
+                        shadowColor: "#000",
+                        shadowOpacity: 0.25,
+                        shadowRadius: 6,
+                        shadowOffset: { width: 0, height: 3 },
+                    }}
+                >
+                    {refreshingRecent ? (
+                        <ActivityIndicator size="small" color={COLORS.accent} />
+                    ) : (
+                        <Ionicons name="refresh" size={22} color={COLORS.accent} />
+                    )}
+                </TouchableOpacity>
+
                 <TouchableOpacity
                     onPress={() => setFilterVisible(true)}
                     activeOpacity={0.8}

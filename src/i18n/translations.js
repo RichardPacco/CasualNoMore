@@ -2,7 +2,7 @@ export const translations = {
     // --- app-level ---
     tabGames: { pt: "Jogos", en: "Games" },
     tabProfile: { pt: "Perfil", en: "Profile" },
-    splashTagline: { pt: "Conquistas de verdade", en: "Real achievements" },
+    splashTagline: { pt: "Nenhum jogo é casual se tem conquistas !", en: "No game is casual if theres cheevos to hunt !" },
 
     // --- login ---
     loginCacheCleared: { pt: "Todos os dados de cache foram limpos!", en: "All cached data has been cleared!" },

@@ -1,21 +1,23 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useContext } from "react";
 import { Image, Linking, Text, TouchableOpacity, View } from "react-native";
 import { AuthContext } from "@/src/context/AuthContext";
 import { useLanguage } from "@/src/i18n/LanguageContext";
+import { COLORS } from "@/src/theme/colors";
 import { formatDate } from "@/src/utils/formatDate";
 import { useTheme } from "@/src/theme/styles";
 
 function getStatus(statusCode, t) {
     switch (statusCode) {
-        case 0: return { text: t("statusOffline"), colorDark: "text-gray-400", colorLight: "text-gray-600" };
-        case 1: return { text: t("statusOnline"), colorDark: "text-accent", colorLight: "text-accent-strong" };
-        case 2: return { text: t("statusBusy"), colorDark: "text-red-400", colorLight: "text-red-600" };
-        case 3: return { text: t("statusAway"), colorDark: "text-yellow-400", colorLight: "text-yellow-600" };
-        case 4: return { text: t("statusSleep"), colorDark: "text-purple-400", colorLight: "text-purple-600" };
-        case 5: return { text: t("statusLookingTrade"), colorDark: "text-blue-400", colorLight: "text-blue-600" };
-        case 6: return { text: t("statusLookingPlay"), colorDark: "text-indigo-400", colorLight: "text-indigo-600" };
-        default: return { text: t("statusUnknown"), colorDark: "text-gray-400", colorLight: "text-gray-600" };
+        case 0: return { text: t("statusOffline"), overlayColor: "#9ca3af" };
+        case 1: return { text: t("statusOnline"), overlayColor: "#55A8E8" };
+        case 2: return { text: t("statusBusy"), overlayColor: "#f87171" };
+        case 3: return { text: t("statusAway"), overlayColor: "#facc15" };
+        case 4: return { text: t("statusSleep"), overlayColor: "#c084fc" };
+        case 5: return { text: t("statusLookingTrade"), overlayColor: "#60a5fa" };
+        case 6: return { text: t("statusLookingPlay"), overlayColor: "#818cf8" };
+        default: return { text: t("statusUnknown"), overlayColor: "#9ca3af" };
     }
 }
 
@@ -25,9 +27,7 @@ export default function ProfileCard({ data }) {
     const status = getStatus(data.personastate, tr);
 
     const cardBg = t.cardBg;
-    const coverBg = t.coverBg;
     const borderColor = t.avatarBorder;
-    const textColor = t.textPrimary;
     const secondaryTextColor = t.textSecondary;
 
     function LogoutButton() {
@@ -47,50 +47,75 @@ export default function ProfileCard({ data }) {
         return (
             <TouchableOpacity
                 onPress={handleLogout}
-                className="bg-red-600 p-3 rounded-lg flex-1 mr-2 items-center"
+                className={`flex-1 flex-row items-center justify-center gap-2 rounded-xl py-3 border ${t.elevatedCardBg} ${t.cardBorder}`}
             >
-                <Text className="text-white font-semibold">{tr("logout")}</Text>
+                <Ionicons name="log-out-outline" size={18} color={COLORS.danger} />
+                <Text className="font-semibold text-danger">{tr("logout")}</Text>
             </TouchableOpacity>
         );
     }
 
     return (
-        <View className={`${cardBg} rounded-xl overflow-hidden mb-4`}>
-            {/* Capa */}
-            <View className={`${coverBg} h-16 w-full`} />
-
-            {/* Foto e nome */}
-            <View className="p-4 -mt-12 flex-row items-center">
+        <View className={`${cardBg} ${t.cardBorder} border rounded-xl overflow-hidden mb-4`}>
+            {/* Capa com avatar desfocado */}
+            <View className="h-32">
                 <Image
                     source={{ uri: data.avatarfull }}
-                    className={`w-24 h-24 rounded-full border-4 ${borderColor}`}
+                    className="absolute inset-0 w-full h-full"
+                    resizeMode="cover"
+                    blurRadius={24}
                 />
-                <View className="ml-4 flex-1">
-                    <Text className={`${textColor} text-2xl font-bold`}>{data.personaname}</Text>
-                    <Text className={t.isDark ? status.colorDark : status.colorLight}>{status.text}</Text>
+                <View className="absolute inset-0 bg-black/50" />
+
+                {/* Foto e nome */}
+                <View className="absolute bottom-0 left-0 right-0 flex-row items-end p-4">
+                    <Image
+                        source={{ uri: data.avatarfull }}
+                        className={`w-20 h-20 rounded-full border-4 ${borderColor}`}
+                    />
+                    <View className="ml-3 flex-1 pb-0.5">
+                        <Text className="text-white text-xl font-bold" numberOfLines={1}>
+                            {data.personaname}
+                        </Text>
+                        <Text style={{ color: status.overlayColor }}>{status.text}</Text>
+                    </View>
                 </View>
             </View>
 
             {/* Infos adicionais */}
-            <View className="px-4 pb-4">
+            <View className="px-4 pt-3 pb-2 gap-1.5">
                 {data.realname && (
-                    <Text className={`${secondaryTextColor} text-sm`}>{tr("profileName", { name: data.realname })}</Text>
+                    <View className="flex-row items-center">
+                        <Ionicons name="person-outline" size={15} color={t.textInlineSecondary} />
+                        <Text className={`${secondaryTextColor} text-sm ml-2`}>
+                            {tr("profileName", { name: data.realname })}
+                        </Text>
+                    </View>
                 )}
                 {data.loccountrycode && (
-                    <Text className={`${secondaryTextColor} text-sm`}>{tr("profileCountry", { code: data.loccountrycode })}</Text>
+                    <View className="flex-row items-center">
+                        <Ionicons name="location-outline" size={15} color={t.textInlineSecondary} />
+                        <Text className={`${secondaryTextColor} text-sm ml-2`}>
+                            {tr("profileCountry", { code: data.loccountrycode })}
+                        </Text>
+                    </View>
                 )}
-                <Text className={`${secondaryTextColor} text-xs mt-2`}>
-                    {tr("profileLastOnline", { date: formatDate(data.lastlogoff) })}
-                </Text>
+                <View className="flex-row items-center">
+                    <Ionicons name="time-outline" size={15} color={t.textInlineSecondary} />
+                    <Text className={`${secondaryTextColor} text-sm ml-2`}>
+                        {tr("profileLastOnline", { date: formatDate(data.lastlogoff) })}
+                    </Text>
+                </View>
             </View>
 
             {/* Botão para abrir na Steam */}
-            <View className="flex-row justify-between px-4 mb-4">
+            <View className="flex-row justify-between gap-3 px-4 pt-1 pb-4">
                 <TouchableOpacity
-                    className="bg-blue-600 p-3 rounded-lg flex-1 mr-2 items-center"
+                    className={`flex-1 flex-row items-center justify-center gap-2 rounded-xl py-3 border ${t.elevatedCardBg} ${t.cardBorder}`}
                     onPress={() => Linking.openURL(data.profileurl)}
                 >
-                    <Text className="text-white font-semibold">{tr("viewProfile")}</Text>
+                    <Ionicons name="open-outline" size={18} color={COLORS.accent} />
+                    <Text className="font-semibold text-accent">{tr("viewProfile")}</Text>
                 </TouchableOpacity>
 
                 <LogoutButton />

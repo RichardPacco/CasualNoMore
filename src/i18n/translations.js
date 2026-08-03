@@ -78,8 +78,8 @@ export const translations = {
     achievementsCount: { pt: "{unlocked}/{total} conquistas ({percent}%)", en: "{unlocked}/{total} achievements ({percent}%)" },
 
     // --- game screen ---
-    communityGuides: { pt: "Guias da Comunidade", en: "Community Guides" },
-    steamDiscussions: { pt: "Discussões na Steam", en: "Steam Discussions" },
+    communityGuides: { pt: "Guias da Comunidade", en: "Steam Guides" },
+    steamDiscussions: { pt: "Discussões na Steam", en: "Steam   Discussions" },
     achievements: { pt: "Conquistas", en: "Achievements" },
     details: { pt: "Detalhes", en: "Details" },
 

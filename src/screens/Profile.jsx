@@ -1,4 +1,5 @@
 import { getFriendList, getOwnedGames, getPlayerSummary } from "@/src/api/steam";
+import ContextMenu from "@/src/components/ContextMenu";
 import LanguageSelector from "@/src/components/LanguageSelector";
 import ProfileCard from "@/src/components/ProfileCard";
 import PullToRefresh from "@/src/components/PullToRefresh";
@@ -7,10 +8,9 @@ import { loadFriend, saveFriendProfile } from "@/src/database/db";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS } from "@/src/theme/colors";
 import { useTheme } from "@/src/theme/styles";
-import { useActionSheet } from "@expo/react-native-action-sheet";
 import { useRouter } from "expo-router";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Image, Platform, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from "react-native";
 
 function gamesSignature(games) {
     return (games?.games ?? [])
@@ -32,7 +32,6 @@ export default function Profile({ navigation }) {
     const router = useRouter();
     const { steamId } = useContext(AuthContext);
     const { t: tr } = useLanguage();
-    const { showActionSheetWithOptions } = useActionSheet();
 
     const t = useTheme();
     const isDark = t.isDark;
@@ -48,34 +47,20 @@ export default function Profile({ navigation }) {
     const textSecondary = t.textSecondary;
 
     const cancelledRef = useRef(false);
+    const containerRef = useRef(null);
+    const [menu, setMenu] = useState(null);
 
-    const openFriendOptions = (item) => {
-        const options = [tr("friendCommonGames"), tr("friendOwnGames")];
+    const openContextMenu = (e, item) => {
+        const { pageX, pageY } = e.nativeEvent;
+        // Converte coordenadas da janela (pageX/pageY) para o sistema de
+        // coordenadas do container (leva em conta safe area / status bar).
+        containerRef.current?.measureInWindow((cx, cy, cw, ch) => {
+            setMenu({ x: pageX - cx, y: pageY - cy, width: cw, height: ch, friend: item, });
+        });
+    };
 
-        showActionSheetWithOptions(
-            {
-                options,
-                // Android: sem botão de cancelar visível. O index "escondido"
-                // (fora do array) faz o sheet fechar ao tocar fora.
-                ...(Platform.OS === "android" ? { cancelButtonIndex: options.length } : {}),
-                title: item.profile?.personaname || tr("friendFallback"),
-                // iOS: força a aparência nativa de acordo com o tema do telefone
-                userInterfaceStyle: isDark ? "dark" : "light",
-                // Android (sheet custom): estiliza para acompanhar o tema
-                containerStyle: { backgroundColor: t.surface },
-                textStyle: { color: t.textInline },
-                titleTextStyle: { color: t.textInlineSecondary },
-                cancelButtonTintColor: t.textInline,
-                separatorStyle: { backgroundColor: isDark ? "#374151" : "#dddddd" },
-            },
-            (buttonIndex) => {
-                if (buttonIndex === 0) {
-                    navigation.navigate("CommonGames", { friend: item, mode: "common" });
-                } else if (buttonIndex === 1) {
-                    navigation.navigate("CommonGames", { friend: item, mode: "all" });
-                }
-            }
-        );
+    const closeContextMenu = () => {
+        setMenu(null);
     };
 
     useEffect(() => {
@@ -262,7 +247,7 @@ export default function Profile({ navigation }) {
     }
 
     return (
-        <View className={`flex-1 p-4 ${pageBg}`}>
+        <View ref={containerRef} className={`flex-1 p-4 ${pageBg}`}>
             {profile ? (
                 <>
                     <ProfileCard data={profile} onRefresh={refreshProfile} refreshing={refreshingProfile} />
@@ -294,7 +279,7 @@ export default function Profile({ navigation }) {
                             contentContainerStyle={{ paddingBottom: 70 }}
                             renderItem={({ item }) => (
                                 <Pressable
-                                    onPress={() => openFriendOptions(item)}
+                                    onPress={(e) => openContextMenu(e, item)}
                                     className={`flex-row items-center ${friendCardBg} ${friendCardBorder} border rounded-xl p-3 mb-2`}
                                 >
                                     <Image
@@ -345,6 +330,31 @@ export default function Profile({ navigation }) {
                     </Pressable>
                 </View>
             )}
+
+            <ContextMenu
+                visible={!!menu}
+                x={menu?.x ?? 0}
+                y={menu?.y ?? 0}
+                bounds={{ width: menu?.width, height: menu?.height }}
+                title={menu?.friend?.profile?.personaname}
+                onClose={closeContextMenu}
+                options={[
+                    {
+                        label: tr("friendCommonGames"),
+                        // icon: "people-outline",
+                        onPress: () => {
+                            if (menu) navigation.navigate("CommonGames", { friend: menu.friend, mode: "common" });
+                        },
+                    },
+                    {
+                        label: tr("friendOwnGames"),
+                        // icon: "game-controller-outline",
+                        onPress: () => {
+                            if (menu) navigation.navigate("CommonGames", { friend: menu.friend, mode: "all" });
+                        },
+                    },
+                ]}
+            />
         </View>
     );
 }

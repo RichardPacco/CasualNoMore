@@ -109,4 +109,10 @@ export const translations = {
     friendOwnGames: { pt: "Jogos Dele", en: "His Games" },
     friendGamesTitle: { pt: "Jogos dele ({count})", en: "His games ({count})" },
     noGames: { pt: "Este amigo não possui jogos públicos", en: "This friend has no public games" },
+
+    // --- single game refresh ---
+    gameRefreshing: { pt: "Atualizando jogo...", en: "Updating game..." },
+    gameRefreshed: { pt: "Jogo atualizado!", en: "Game updated!" },
+    gameRefreshFailed: { pt: "Falha ao atualizar o jogo.", en: "Failed to update the game." },
+    gameRefreshHint: { pt: "Segure para atualizar", en: "Press and hold to refresh" },
 };

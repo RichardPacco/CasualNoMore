@@ -6,7 +6,7 @@ import { useTheme } from "@/src/theme/styles";
 
 const placeholderImage = require("../../assets/images/placeholder_gamelist.jpg");
 
-function GameCardComponent({ game, navigation }) {
+function GameCardComponent({ game, navigation, onLongPress }) {
     const t = useTheme();
     const { t: tr } = useLanguage();
     const [imgFailed, setImgFailed] = useState(false);
@@ -28,6 +28,8 @@ function GameCardComponent({ game, navigation }) {
         <TouchableOpacity
             className={`${t.cardBg} p-2 rounded-xl flex-row items-center mb-4`}
             onPress={() => navigation.navigate("GameScreen", { game })}
+            onLongPress={onLongPress ? () => onLongPress(game) : undefined}
+            delayLongPress={400}
         >
             <Image
                 source={imgFailed
@@ -77,5 +79,7 @@ function GameCardComponent({ game, navigation }) {
 }
 
 export default memo(GameCardComponent, (prevProps, nextProps) => {
-    return prevProps.game === nextProps.game && prevProps.navigation === nextProps.navigation;
+    return prevProps.game === nextProps.game
+        && prevProps.navigation === nextProps.navigation
+        && prevProps.onLongPress === nextProps.onLongPress;
 });

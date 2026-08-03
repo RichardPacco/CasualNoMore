@@ -3,12 +3,13 @@ import GameCard from "@/src/components/GameCard";
 import PullToRefresh from "@/src/components/PullToRefresh";
 import RadioSheet from "@/src/components/RadioSheet";
 import { AuthContext } from "@/src/context/AuthContext";
-import { getAllGames, saveGamesBatch } from "@/src/database/db";
+import { getAllGames, saveGame, saveGamesBatch } from "@/src/database/db";
 import { getLanguageStore } from "@/src/i18n/langStore";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS } from "@/src/theme/colors";
 import { useTheme } from "@/src/theme/styles";
 import { fetchAndMergeAchievements } from "@/src/utils/achievements";
+import { showToast } from "@/src/utils/toast";
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Keyboard, Text, TextInput, TouchableOpacity, useColorScheme, View } from "react-native";
@@ -90,9 +91,40 @@ export default function GameList({ navigation, route }) {
         };
     }, [steamId]);
 
+    /**
+     * Atualiza um único jogo por completo ao segurar no card: playtime fresco,
+     * schema, conquistas. Salva no DB e atualiza a lista.
+     */
+    const refreshSingleGame = useCallback(async (game) => {
+        showToast(tr("gameRefreshing"), "info");
+        try {
+            const owned = await getOwnedGames(steamId);
+            const baseGame = owned?.games?.find(g => g.appid === game.appid);
+            if (!baseGame) throw new Error("game not in owned list");
+
+            // Força refetch completo: zera status para enrichGame refazer tudo
+            const reset = {
+                ...baseGame,
+                schema: null,
+                schemaStatus: "pending",
+                achievements: null,
+                achievementsStatus: "pending",
+            };
+            const fresh = await enrichGame(baseGame, reset);
+
+            setGames(prev => prev.map(g => g.appid === game.appid ? fresh : g));
+            await saveGame(steamId, fresh);
+
+            showToast(tr("gameRefreshed"), "success");
+        } catch (err) {
+            console.error("[GameList] refreshSingleGame failed", game.appid, err);
+            showToast(tr("gameRefreshFailed"), "error");
+        }
+    }, [steamId, enrichGame, tr]);
+
     const renderGameCard = useCallback(
-        ({ item }) => <GameCard game={item} navigation={navigation} />,
-        [navigation]
+        ({ item }) => <GameCard game={item} navigation={navigation} onLongPress={refreshSingleGame} />,
+        [navigation, refreshSingleGame]
     );
 
     const filterOptions = useMemo(() => [

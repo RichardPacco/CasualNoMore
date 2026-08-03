@@ -1,4 +1,4 @@
-let currentLanguage = "pt";
+let currentLanguage = "en";
 
 export function setLanguageStore(lang) {
     if (lang === "en" || lang === "pt") currentLanguage = lang;

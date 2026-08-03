@@ -6,13 +6,13 @@ import { translations } from "./translations";
 export const SUPPORTED_LANGUAGES = ["pt", "en"];
 
 const LanguageContext = createContext({
-    language: "pt",
+    language: "en",
     setLanguage: () => {},
     t: (key) => key,
 });
 
 export function LanguageProvider({ children }) {
-    const [language, setLanguageState] = useState("pt");
+    const [language, setLanguageState] = useState("en");
 
     useEffect(() => {
         let mounted = true;

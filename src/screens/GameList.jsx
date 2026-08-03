@@ -1,24 +1,15 @@
-import { remapProps } from "nativewind";
-import { Ionicons } from "@expo/vector-icons";
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Animated, FlatList, Keyboard, PanResponder, Text, TextInput, TouchableOpacity, useColorScheme, View } from "react-native";
-import { Dropdown } from "react-native-element-dropdown";
 import { getOwnedGames, GetSchemaForGame } from "@/src/api/steam";
 import GameCard from "@/src/components/GameCard";
 import PullToRefresh from "@/src/components/PullToRefresh";
+import RadioSheet from "@/src/components/RadioSheet";
 import { AuthContext } from "@/src/context/AuthContext";
 import { getAllGames, saveGamesBatch } from "@/src/database/db";
-import { fetchAndMergeAchievements } from "@/src/utils/achievements";
 import { COLORS } from "@/src/theme/colors";
 import { useTheme } from "@/src/theme/styles";
-
-const StyledDropdown = remapProps(Dropdown, {
-    className: "style",
-    containerClassName: "containerStyle",
-    placeholderClassName: "placeholderStyle",
-    selectedTextClassName: "selectedTextStyle",
-    itemTextClassName: "itemTextStyle",
-});
+import { fetchAndMergeAchievements } from "@/src/utils/achievements";
+import { Ionicons } from "@expo/vector-icons";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, FlatList, Keyboard, Text, TextInput, TouchableOpacity, useColorScheme, View } from "react-native";
 
 export default function GameList({ navigation, route }) {
     const { steamId } = useContext(AuthContext);
@@ -30,7 +21,8 @@ export default function GameList({ navigation, route }) {
     const [filter, setFilter] = useState("all");
     const [sort, setSort] = useState("recentPlaytime");
     const [refreshing, setRefreshing] = useState(false);
-    const [sidebarVisible, setSidebarVisible] = useState(false);
+    const [filterVisible, setFilterVisible] = useState(false);
+    const [sortVisible, setSortVisible] = useState(false);
     const [showTopButton, setShowTopButton] = useState(false);
     const listRef = useRef(null);
 
@@ -42,77 +34,6 @@ export default function GameList({ navigation, route }) {
     const colorScheme = useColorScheme();
     const isDark = colorScheme === "dark";
     const t = useTheme();
-
-    const sidebarWidth = 280;
-    const sidebarAnim = useRef(new Animated.Value(-sidebarWidth)).current;
-
-    const openSidebar = () => {
-        setSidebarVisible(true);
-        Animated.timing(sidebarAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start();
-    };
-    const closeSidebar = () => {
-        Animated.timing(sidebarAnim, { toValue: -sidebarWidth, duration: 300, useNativeDriver: true }).start(() => setSidebarVisible(false));
-    };
-
-    // Pan drag helpers
-    const startAnimValueRef = useRef(-sidebarWidth);
-
-    // PanResponder: ONLY allow drag-to-open (start near left edge). When sidebar is open, dragging does nothing.
-    const panResponder = useRef(
-        PanResponder.create({
-            onStartShouldSetPanResponder: () => false,
-            onMoveShouldSetPanResponder: (_evt, gs) => {
-                const { dx, dy, moveX } = gs;
-                const startedNearEdge = moveX < 40; // start only from left edge
-                const horizontalEnough = Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy);
-                // IMPORTANT: only allow starting the gesture when sidebar is closed (no drag-to-close)
-                return horizontalEnough && startedNearEdge && !sidebarVisible;
-            },
-            onPanResponderGrant: () => {
-                // capture current animated value and make sidebar render so we can drag it in
-                sidebarAnim.stopAnimation((value) => {
-                    startAnimValueRef.current = (typeof value === "number") ? value : -sidebarWidth;
-                    // if fully closed, ensure the sidebar renders to visualize drag
-                    if (startAnimValueRef.current <= -sidebarWidth + 1) {
-                        setSidebarVisible(true);
-                    }
-                });
-            },
-            onPanResponderMove: (_evt, gs) => {
-                const { dx } = gs;
-                // only move while opening (do not allow dragging past 0)
-                const next = Math.min(0, Math.max(-sidebarWidth, startAnimValueRef.current + dx));
-                sidebarAnim.setValue(next);
-            },
-            onPanResponderRelease: (_evt, gs) => {
-                const { dx, vx } = gs;
-                const endPos = startAnimValueRef.current + dx;
-                // open if dragged enough or flung right; otherwise snap closed
-                const shouldOpen = vx > 0.35 || endPos > -sidebarWidth / 2;
-                if (shouldOpen) {
-                    Animated.timing(sidebarAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => {
-                        setSidebarVisible(true);
-                    });
-                } else {
-                    // snap back closed
-                    Animated.timing(sidebarAnim, { toValue: -sidebarWidth, duration: 180, useNativeDriver: true }).start(() => {
-                        setSidebarVisible(false);
-                    });
-                }
-            },
-            onPanResponderTerminate: () => {
-                // if interrupted, snap to nearest (same logic as release)
-                sidebarAnim.stopAnimation((value) => {
-                    if (value > -sidebarWidth / 2) {
-                        Animated.timing(sidebarAnim, { toValue: 0, duration: 180, useNativeDriver: true }).start(() => setSidebarVisible(true));
-                    } else {
-                        Animated.timing(sidebarAnim, { toValue: -sidebarWidth, duration: 160, useNativeDriver: true }).start(() => setSidebarVisible(false));
-                    }
-                });
-            },
-            onPanResponderTerminationRequest: () => true,
-        })
-    ).current;
 
     // cancellation ref used by loadGames and the effect
     const cancelledRef = useRef(false);
@@ -168,20 +89,46 @@ export default function GameList({ navigation, route }) {
     );
 
     const filterOptions = useMemo(() => [
-        { label: "🎮 Todos", value: "all" },
-        { label: "🚫 Nunca Jogados", value: "neverPlayed" },
-        { label: "🕹️ Jogados", value: "played" },
-        { label: "⏱️ Nas últimas 2 semanas", value: "recent" },
-        { label: "🏆 Com Conquistas", value: "withAchievements" },
-        { label: "🚫 Sem Conquistas", value: "withoutAchievements" },
-        { label: "✅ Completados", value: "completed" },
+        { label: "Todos", value: "all" },
+        { label: "Nunca Jogados", value: "neverPlayed" },
+        { label: "Jogados", value: "played" },
+        { label: "Nas últimas 2 semanas", value: "recent" },
+        { label: "Com Conquistas", value: "withAchievements" },
+        { label: "Sem Conquistas", value: "withoutAchievements" },
+        { label: "Completados", value: "completed" },
+        { label: "Backlog", value: "progress" },
     ], []);
 
     const sortOptions = useMemo(() => [
-        { label: "⏱️ Mais recentes", value: "recentPlaytime" },
-        { label: "🔥 Tempo de Jogo", value: "totalPlaytime" },
-        { label: "🔤 Nome", value: "name" },
+        { label: "Mais recentes", value: "recentPlaytime" },
+        { label: "Tempo de Jogo", value: "totalPlaytime" },
+        { label: "Nome", value: "name" },
     ], []);
+
+    const filterCounts = useMemo(() => {
+        const countFor = (value) => {
+            switch (value) {
+                case "played": return games.filter(g => g.playtime_forever > 0).length;
+                case "neverPlayed": return games.filter(g => g.playtime_forever === 0).length;
+                case "recent": return games.filter(g => g.playtime_2weeks > 0).length;
+                case "withAchievements": return games.filter(g => (g.achievements || []).length > 0).length;
+                case "withoutAchievements": return games.filter(g => (g.achievements || []).length === 0).length;
+                case "completed": return games.filter(g => {
+                    const list = g.achievements || [];
+                    return list.length > 0 && list.every(a => a.achieved);
+                }).length;
+                case "progress": return games.filter(g => {
+                    const list = g.achievements || [];
+                    return list.length > 0 && !list.every(a => a.achieved) && list.some(a => a.achieved);
+                }).length;
+                default: return games.length;
+            }
+        };
+        return filterOptions.reduce((acc, opt) => {
+            acc[opt.value] = countFor(opt.value);
+            return acc;
+        }, {});
+    }, [games, filterOptions]);
 
     const filteredGames = useMemo(() => {
         let result = games;
@@ -195,6 +142,10 @@ export default function GameList({ navigation, route }) {
             case "completed": result = result.filter(g => {
                 const list = g.achievements || [];
                 return list.length > 0 && list.every(a => a.achieved);
+            }); break;
+            case "progress": result = result.filter(g => {
+                const list = g.achievements || [];
+                return list.length > 0 && !list.every(a => a.achieved) && list.some(a => a.achieved);
             }); break;
             default: break;
         }
@@ -225,7 +176,6 @@ export default function GameList({ navigation, route }) {
 
         return result;
     }, [games, filter, sort, debouncedQuery]);
-
 
     // ---------- load jogos ----------
     const loadGames = useCallback(async () => {
@@ -361,171 +311,38 @@ export default function GameList({ navigation, route }) {
         );
     }
 
-    const dropdownClass = isDark
-        ? "rounded-xl px-4 py-2 mb-4 border bg-slate-800 border-accent"
-        : "rounded-xl px-4 py-2 mb-4 border bg-slate-200 border-gray-400";
-    const dropdownContainerClass = isDark
-        ? "bg-slate-800 rounded-xl border border-accent py-1"
-        : "bg-slate-50 rounded-xl border border-gray-300 py-1";
-
-    const containerStyleForced = {
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: isDark ? COLORS.accent : "#9ca3af",
-        backgroundColor: isDark ? "#1f2937" : "#f9fafb",
-        paddingVertical: 4,
-    };
-
-    const mainStyleForced = {
-        backgroundColor: isDark ? "#111827" : "#e5e7eb",
-        borderRadius: 12,
-        paddingHorizontal: 14,
-        paddingVertical: 10,
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor: isDark ? COLORS.accent : "#9ca3af",
-    };
-
     return (
         <View
-            {...panResponder.panHandlers}
             className={`flex-1 p-4 ${t.pageBg}`}
         >
-            {/* top row: search toggle + filters */}
+            {/* search input */}
             <View className="flex-row items-center mb-3">
-                {/* search toggle / input */}
-                <View style={{ flex: 1 }}>
-                    {/* always-visible search input */}
-                    <View className="flex-row items-center">
-                        <TextInput
-                            ref={searchInputRef}
-                            value={searchQuery}
-                            onChangeText={setSearchQuery}
-                            placeholder="Pesquisar jogos..."
-                            placeholderTextColor={isDark ? "#9ca3af" : "#6b7280"}
-                            returnKeyType="search"
-                            onSubmitEditing={() => Keyboard.dismiss()}
-                            className={`flex-1 rounded-xl px-4 py-2 border ${isDark
-                                ? "bg-slate-800 border-accent text-white"
-                                : "bg-slate-100 border-gray-300 text-black"
-                                }`}
-                            style={{ fontSize: 16 }}
-                        />
+                <TextInput
+                    ref={searchInputRef}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    placeholder="Pesquisar jogos..."
+                    placeholderTextColor={isDark ? "#9ca3af" : "#6b7280"}
+                    returnKeyType="search"
+                    onSubmitEditing={() => Keyboard.dismiss()}
+                    className={`flex-1 rounded-xl px-4 py-2 border ${isDark
+                        ? "bg-slate-800 border-accent text-white"
+                        : "bg-slate-100 border-gray-300 text-black"
+                        }`}
+                    style={{ fontSize: 16 }}
+                />
 
-                        {/* Clear query */}
-                        <TouchableOpacity
-                            onPress={() => {
-                                setSearchQuery("");
-                                setDebouncedQuery("");
-                                // keep focus so the user can keep typing
-                                // if (searchInputRef.current?.focus) searchInputRef.current.focus(); //abre o teclado ao limpar
-                            }}
-                            style={{ marginLeft: 8 }}
-                        >
-                            <Text style={{ color: isDark ? COLORS.accent : "#111" }}>Limpar</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                </View>
-
-                {/* filters toggle */}
+                {/* Clear query */}
                 <TouchableOpacity
-                    onPress={openSidebar}
-                    style={{ marginLeft: 12, padding: 12, backgroundColor: isDark ? '#1f2937' : '#f3f4f6', borderRadius: 10 }}
+                    onPress={() => {
+                        setSearchQuery("");
+                        setDebouncedQuery("");
+                    }}
+                    style={{ marginLeft: 8 }}
                 >
-                    <Text style={{ color: isDark ? COLORS.accent : '#111' }}>☰</Text>
+                    <Text style={{ color: isDark ? COLORS.accent : "#111" }}>Limpar</Text>
                 </TouchableOpacity>
             </View>
-
-            {/* overlay + Sidebar (rendered when sidebarVisible) */}
-            {sidebarVisible && (
-                <>
-                    {/* overlay to tap to close */}
-                    <TouchableOpacity
-                        activeOpacity={1}
-                        onPress={closeSidebar}
-                        style={{
-                            position: "absolute",
-                            left: 0,
-                            top: 0,
-                            bottom: 0,
-                            right: 0,
-                            backgroundColor: "rgba(0,0,0,0.28)",
-                            zIndex: 9,
-                        }}
-                    />
-
-                    <Animated.View
-                        style={{
-                            position: "absolute",
-                            left: 0,
-                            top: 0,
-                            bottom: 0,
-                            width: sidebarWidth,
-                            backgroundColor: isDark ? "#111827" : "#f9fafb",
-                            transform: [{ translateX: sidebarAnim }],
-                            padding: 16,
-                            zIndex: 10,
-                            shadowColor: "#000",
-                            shadowOpacity: 0.2,
-                            shadowRadius: 6,
-                            shadowOffset: { width: 2, height: 0 },
-                        }}
-                    >
-                        <TouchableOpacity onPress={closeSidebar} style={{ marginBottom: 20 }}>
-                            <Text style={{ color: isDark ? COLORS.accent : "#111", fontWeight: "bold" }}>✕ Fechar</Text>
-                        </TouchableOpacity>
-
-                        {/* Sidebar dropdowns: override text colors for dark mode */}
-                        <StyledDropdown
-                            className={dropdownClass}
-                            containerClassName={dropdownContainerClass}
-                            containerStyle={{
-                                ...containerStyleForced,
-                                backgroundColor: isDark ? "#1f2937" : containerStyleForced.backgroundColor,
-                            }}
-                            style={{
-                                ...mainStyleForced,
-                                backgroundColor: isDark ? "#0b1220" : mainStyleForced.backgroundColor,
-                            }}
-                            placeholderStyle={{ color: isDark ? "#9ca3af" : "#374151", fontSize: 16 }}
-                            selectedTextStyle={{ color: isDark ? COLORS.accent : "#111111", fontSize: 16, fontWeight: "600" }}
-                            itemTextStyle={{ color: isDark ? "#ffffff" : "#111111", fontSize: 15 }}
-                            activeColor={isDark ? COLORS.accentSoft : COLORS.accentSoftLight}
-                            placeholder="🎯 Filtro"
-                            value={filter}
-                            onChange={(item) => setFilter(item.value)}
-                            data={filterOptions}
-                            labelField="label"
-                            valueField="value"
-                        />
-
-                        <StyledDropdown
-                            className={dropdownClass}
-                            containerClassName={dropdownContainerClass}
-                            containerStyle={{
-                                ...containerStyleForced,
-                                backgroundColor: isDark ? "#1f2937" : containerStyleForced.backgroundColor,
-                            }}
-                            style={{
-                                ...mainStyleForced,
-                                backgroundColor: isDark ? "#0b1220" : mainStyleForced.backgroundColor,
-                            }}
-                            placeholderStyle={{ color: isDark ? "#9ca3af" : "#374151", fontSize: 16 }}
-                            selectedTextStyle={{ color: isDark ? COLORS.accent : "#111111", fontSize: 16, fontWeight: "600" }}
-                            itemTextStyle={{ color: isDark ? "#ffffff" : "#111111", fontSize: 15 }}
-                            activeColor={isDark ? COLORS.accentSoft : COLORS.accentSoftLight}
-                            placeholder="⏱️ Ordenar por"
-                            value={sort}
-                            onChange={(item) => setSort(item.value)}
-                            data={sortOptions}
-                            labelField="label"
-                            valueField="value"
-                        />
-
-                    </Animated.View>
-                </>
-            )}
 
             <PullToRefresh refreshing={refreshing} onRefresh={onRefresh}>
                 <FlatList
@@ -552,27 +369,112 @@ export default function GameList({ navigation, route }) {
                 />
             </PullToRefresh>
 
-            {/* scroll to top */}
-            {showTopButton && (
-                <View className="absolute bottom-6 right-6 gap-2">
-                    {showTopButton && (
-                        <TouchableOpacity
-                            onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })}
-                            activeOpacity={0.7}
-                            className="w-10 h-10 rounded-full items-center justify-center bg-accent"
+            {/* floating buttons: filter + sort + scroll to top */}
+            <View className="absolute bottom-6 right-6 gap-3">
+                <TouchableOpacity
+                    onPress={() => setFilterVisible(true)}
+                    activeOpacity={0.8}
+                    className={`w-12 h-12 rounded-xl items-center justify-center border ${t.elevatedCardBg} ${t.cardBorder}`}
+                    style={{
+                        elevation: 6,
+                        shadowColor: "#000",
+                        shadowOpacity: 0.25,
+                        shadowRadius: 6,
+                        shadowOffset: { width: 0, height: 3 },
+                    }}
+                >
+                    <Ionicons
+                        name={filter === "all" ? "funnel-outline" : "funnel"}
+                        size={22}
+                        color={COLORS.accent}
+                    />
+                    {filter !== "all" && (
+                        <View
                             style={{
-                                elevation: 4,
-                                shadowColor: "#000",
-                                shadowOpacity: 0.25,
-                                shadowRadius: 4,
-                                shadowOffset: { width: 0, height: 2 },
+                                position: "absolute",
+                                top: 8,
+                                right: 8,
+                                width: 8,
+                                height: 8,
+                                borderRadius: 4,
+                                backgroundColor: COLORS.warning,
+                                borderWidth: 1,
+                                borderColor: isDark ? "#111827" : "#ffffff",
                             }}
-                        >
-                            <Ionicons name="chevron-up" size={22} color="#fff" />
-                        </TouchableOpacity>
+                        />
                     )}
-                </View>
-            )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    onPress={() => setSortVisible(true)}
+                    activeOpacity={0.8}
+                    className={`w-12 h-12 rounded-xl items-center justify-center border ${t.elevatedCardBg} ${t.cardBorder}`}
+                    style={{
+                        elevation: 6,
+                        shadowColor: "#000",
+                        shadowOpacity: 0.25,
+                        shadowRadius: 6,
+                        shadowOffset: { width: 0, height: 3 },
+                    }}
+                >
+                    <Ionicons
+                        name={sort === "recentPlaytime" ? "swap-vertical-outline" : "swap-vertical"}
+                        size={22}
+                        color={COLORS.accent}
+                    />
+                    {sort !== "recentPlaytime" && (
+                        <View
+                            style={{
+                                position: "absolute",
+                                top: 8,
+                                right: 8,
+                                width: 8,
+                                height: 8,
+                                borderRadius: 4,
+                                backgroundColor: COLORS.warning,
+                                borderWidth: 1,
+                                borderColor: isDark ? "#111827" : "#ffffff",
+                            }}
+                        />
+                    )}
+                </TouchableOpacity>
+
+                {showTopButton && (
+                    <TouchableOpacity
+                        onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })}
+                        activeOpacity={0.8}
+                        className={`w-12 h-12 rounded-xl items-center justify-center border ${t.elevatedCardBg} ${t.cardBorder}`}
+                        style={{
+                            elevation: 6,
+                            shadowColor: "#000",
+                            shadowOpacity: 0.25,
+                            shadowRadius: 6,
+                            shadowOffset: { width: 0, height: 3 },
+                        }}
+                    >
+                        <Ionicons name="chevron-up-outline" size={24} color={COLORS.accent} />
+                    </TouchableOpacity>
+                )}
+            </View>
+
+            <RadioSheet
+                visible={filterVisible}
+                onClose={() => setFilterVisible(false)}
+                title="Filtrar"
+                options={filterOptions}
+                selected={filter}
+                onSelect={setFilter}
+                counts={filterCounts}
+            />
+
+            <RadioSheet
+                visible={sortVisible}
+                onClose={() => setSortVisible(false)}
+                title="Ordenar por"
+                options={sortOptions}
+                selected={sort}
+                onSelect={setSort}
+            />
         </View>
     );
 }

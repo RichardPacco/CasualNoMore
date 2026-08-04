@@ -487,17 +487,19 @@ export default function GameList({ navigation, route }) {
                         </>
                     }
                     ListEmptyComponent={
-                        <View className="items-center justify-center py-20 px-6">
-                            <View className="w-16 h-16 rounded-full bg-accent/15 items-center justify-center mb-4">
-                                <Ionicons name="game-controller-outline" size={30} color={COLORS.accent} />
+                        games.length === 0 ? (
+                            <View className="items-center justify-center py-20 px-6">
+                                <View className="w-16 h-16 rounded-full bg-accent/15 items-center justify-center mb-4">
+                                    <Ionicons name="game-controller-outline" size={30} color={COLORS.accent} />
+                                </View>
+                                <Text className="text-white text-lg font-bold text-center">
+                                    {tr("noGamesTitle")}
+                                </Text>
+                                <Text className={`${t.textSecondary} text-sm text-center mt-2`}>
+                                    {tr("noGamesMessage")}
+                                </Text>
                             </View>
-                            <Text className="text-white text-lg font-bold text-center">
-                                {tr("noGamesTitle")}
-                            </Text>
-                            <Text className={`${t.textSecondary} text-sm text-center mt-2`}>
-                                {tr("noGamesMessage")}
-                            </Text>
-                        </View>
+                        ) : null
                     }
                 />
             </PullToRefresh>

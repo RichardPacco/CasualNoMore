@@ -1,6 +1,7 @@
 export const translations = {
     // --- app-level ---
     tabGames: { pt: "Jogos", en: "Games" },
+    tabFriends: { pt: "Amigos", en: "Friends" },
     tabProfile: { pt: "Perfil", en: "Profile" },
     splashTagline: { pt: "Nenhum jogo é casual se tem conquistas !", en: "No game is casual if theres cheevos to hunt !" },
 
@@ -35,8 +36,12 @@ export const translations = {
 
     // --- profile ---
     profileFriendsTitle: { pt: "Amigos (Lista de Jogos Pública)", en: "Friends (Public Games List)" },
+    searchFriendsPlaceholder: { pt: "Pesquisar amigos...", en: "Search friends..." },
+    friendsSearchNoResults: { pt: "Nenhum amigo encontrado", en: "No friends found" },
     profileGamesCount: { pt: "Jogos: {count}", en: "Games: {count}" },
     profileCommonGamesCount: { pt: "Jogos compartilhados: {count}", en: "Shared games: {count}" },
+    profilePerfectedGames: { pt: "Jogos completos", en: "Perfected games" },
+    profileAvgCompletion: { pt: "Conclusão média", en: "Avg completion" },
     profileNoPublicFriends: { pt: "Nenhum amigo com jogos públicos encontrado", en: "No friends with public games found" },
     profileFriendsPrivate: { pt: "Sua lista de amigos está privada, em 'Somente amigos' ou indisponível", en: "Your friend list is private, set to 'friends only', or unavailable" },
     profileUnavailable: { pt: "Perfil não disponível", en: "Profile unavailable" },

@@ -98,6 +98,19 @@ export default function TabsLayout() {
                     }}
                 />
                 <Tabs.Screen
+                    name="FriendsStack"
+                    options={{
+                        title: t("tabFriends"),
+                        tabBarIcon: ({ color, size, focused }) => (
+                            <Ionicons
+                                name={focused ? "people" : "people-outline"}
+                                color={color}
+                                size={size}
+                            />
+                        ),
+                    }}
+                />
+                <Tabs.Screen
                     name="ProfileStack"
                     options={{
                         title: t("tabProfile"),

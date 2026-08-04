@@ -117,7 +117,12 @@ export async function getFriendList(steamId, relationship = "all") {
         steamId
     )}&relationship=${encodeURIComponent(relationship)}`
 
-    const json = await fetchJson(url);
-    return json?.friendslist?.friends ?? null;
+    try {
+        const json = await fetchJson(url);
+        return json?.friendslist?.friends ?? null;
+    } catch (err) {
+        console.error("[getFriendList] erro:", err.message);
+        return null; // 🚨 null significa: lista de amigos privada ou erro de conexão
+    }
 }
 

@@ -28,6 +28,7 @@ export async function ensureTable(steamId) {
       name TEXT,
       playtime_forever INTEGER,
       playtime_2weeks INTEGER,
+      playtimeHidden INTEGER DEFAULT 0,
       schema TEXT,
       schemaStatus TEXT,
       achievements TEXT,
@@ -74,12 +75,13 @@ export async function saveGame(steamId, game) {
         const achievementsStatus = game.achievementsStatus || "pending";
         const detailsString = game.details ? JSON.stringify(game.details) : null;
         const detailsStatus = game.detailsStatus || "pending";
+        const playtimeHidden = game.playtimeHidden ? 1 : 0;
 
         console.log(`[db] Salvando jogo: ${game.name || game.appid} na tabela ${tableName}`);
         await db.runAsync(
-            `INSERT OR REPLACE INTO ${tableName} (appid, name, playtime_forever, playtime_2weeks, schema, schemaStatus, achievements, achievementsStatus, details, detailsStatus, lang)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [game.appid, game.name, game.playtime_forever || 0, game.playtime_2weeks || 0, schemaString, schemaStatus, achievementsString, achievementsStatus, detailsString, detailsStatus, game.lang || null]
+            `INSERT OR REPLACE INTO ${tableName} (appid, name, playtime_forever, playtime_2weeks, playtimeHidden, schema, schemaStatus, achievements, achievementsStatus, details, detailsStatus, lang)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [game.appid, game.name, game.playtime_forever || 0, game.playtime_2weeks || 0, playtimeHidden, schemaString, schemaStatus, achievementsString, achievementsStatus, detailsString, detailsStatus, game.lang || null]
         );
         console.log(`[db] Jogo salvo: ${game.name || game.appid}`);
     } catch (err) {
@@ -143,13 +145,14 @@ export async function saveGamesBatch(steamId, games) {
             const achievementsStatus = game.achievementsStatus || "pending";
             const detailsString = game.details ? JSON.stringify(game.details) : null;
             const detailsStatus = game.detailsStatus || "pending";
+            const playtimeHidden = game.playtimeHidden ? 1 : 0;
 
             console.log(`[db] Salvando jogo: ${game.name || game.appid} na tabela ${tableName}`);
             return db.runAsync(
                 `INSERT OR REPLACE INTO ${tableName} 
-                (appid, name, playtime_forever, playtime_2weeks, schema, schemaStatus, achievements, achievementsStatus, details, detailsStatus, lang)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [game.appid, game.name, game.playtime_forever || 0, game.playtime_2weeks || 0, schemaString, schemaStatus, achievementsString, achievementsStatus, detailsString, detailsStatus, game.lang || null]
+                (appid, name, playtime_forever, playtime_2weeks, playtimeHidden, schema, schemaStatus, achievements, achievementsStatus, details, detailsStatus, lang)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [game.appid, game.name, game.playtime_forever || 0, game.playtime_2weeks || 0, playtimeHidden, schemaString, schemaStatus, achievementsString, achievementsStatus, detailsString, detailsStatus, game.lang || null]
             ).then(() => {
                 console.log(`[db] Jogo salvo: ${game.name || game.appid}`);
             });

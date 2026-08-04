@@ -17,12 +17,16 @@ function GameCardComponent({ game, navigation, onLongPress }) {
 
     const { unlocked, total, percent } = computeProgress(game.achievements);
 
-    const playtimeText = game.playtime_forever < 60
-        ? tr("playtimeMinutes", { minutes: game.playtime_forever })
-        : tr("playtimeHours", {
-            hours: Math.floor(game.playtime_forever / 60),
-            minutes: game.playtime_forever % 60,
-        });
+    const playtimeText = game.playtimeHidden
+        ? tr("playtimeHidden")
+        : game.playtime_forever > 0
+            ? (game.playtime_forever < 60
+                ? tr("playtimeMinutes", { minutes: game.playtime_forever })
+                : tr("playtimeHours", {
+                    hours: Math.floor(game.playtime_forever / 60),
+                    minutes: game.playtime_forever % 60,
+                }))
+            : tr("playtimeNeverPlayed");
 
     return (
         <TouchableOpacity

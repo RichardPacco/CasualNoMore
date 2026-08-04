@@ -1,6 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { getPlayerSummary, resolveVanityURL } from "@/src/api/steam";
 import LanguageSelector from "@/src/components/LanguageSelector";
+import ClearDbModal from "@/src/components/ClearDbModal";
+import RemoveAccountModal from "@/src/components/RemoveAccountModal";
 import { AuthContext } from "@/src/context/AuthContext";
 import { clearDB } from "@/src/database/db";
 import { useLanguage } from "@/src/i18n/LanguageContext";
@@ -9,20 +11,21 @@ import { COLORS } from "@/src/theme/colors";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useContext, useState } from "react";
-import { ActivityIndicator, Alert, ImageBackground, Modal, SafeAreaView, StatusBar, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Image, ImageBackground, SafeAreaView, StatusBar, Text, TouchableOpacity, View } from "react-native";
 import { TextInput } from "react-native-paper";
 
 const loginBackground = require("../../assets/images/login_background.png");
 
 
 export default function Login() {
-    const { setSteamId } = useContext(AuthContext);
+    const { setSteamId, savedAccounts, addSavedAccount, removeSavedAccount } = useContext(AuthContext);
     const router = useRouter();
     const { t } = useLanguage();
 
     const [input, setInput] = useState("");
     const [loading, setLoading] = useState(false);
     const [confirmVisible, setConfirmVisible] = useState(false);
+    const [accountToRemove, setAccountToRemove] = useState(null);
 
     const handleClearCache = async () => {
         try {
@@ -55,16 +58,16 @@ export default function Login() {
                     t("loginInvalidProfile"),
                     "error"
                 );
-                return false;
+                return null;
             }
 
             // Steam public profile state is 3
             if (Number(playerSummary.communityvisibilitystate) !== 3) {
                 showToast(t("loginPrivateProfile"), "warning");
-                return false;
+                return null;
             }
 
-            return true;
+            return playerSummary;
 
         } catch (e) {
             console.error("[Profile] erro:", e);
@@ -72,9 +75,41 @@ export default function Login() {
                 t("loginFetchFailed"),
                 "error"
             );
-            return false;
+            return null;
         }
     }
+
+
+    const saveAccount = async (playerSummary, steamid) => {
+        await addSavedAccount({
+            steamId: steamid,
+            name: playerSummary?.personaname || steamid,
+            avatar: playerSummary?.avatarfull || null,
+        });
+    };
+
+    const handleQuickLogin = async (account) => {
+        setLoading(true);
+        await addSavedAccount(account);
+        await setSteamId(account.steamId);
+        router.replace("/(tabs)/GameStack");
+    };
+
+    const confirmRemoveAccount = (account) => {
+        setAccountToRemove(account);
+    };
+
+    const doRemoveAccount = async () => {
+        if (!accountToRemove) return;
+        const id = accountToRemove.steamId;
+        setAccountToRemove(null);
+        try {
+            await removeSavedAccount(id);
+        } catch (err) {
+            console.error(err);
+            Alert.alert(t("loginError"), t("loginDbClearFailed"));
+        }
+    };
 
 
     const handleSubmit = async () => {
@@ -91,10 +126,11 @@ export default function Login() {
 
         try {
             if (isSteam64) {
-                const isValid = await validateSteamProfile(numeric); // ✅ await here
-                if (!isValid) return;
+                const playerSummary = await validateSteamProfile(numeric); // ✅ await aqui
+                if (!playerSummary) return;
 
                 console.log("[Login] detectado SteamID64, salvando direto:", numeric);
+                await saveAccount(playerSummary, numeric);
                 await setSteamId(numeric);
                 router.replace("/(tabs)/GameStack");
                 return;
@@ -110,10 +146,11 @@ export default function Login() {
                 return;
             }
 
-            const isValid = await validateSteamProfile(res.steamid); // ✅ await here
-            if (!isValid) return;
+            const playerSummary = await validateSteamProfile(res.steamid); // ✅ await aqui
+            if (!playerSummary) return;
 
             // se for público, segue normalmente
+            await saveAccount(playerSummary, res.steamid);
             await setSteamId(res.steamid);
             router.replace("/(tabs)/GameStack");
 
@@ -163,6 +200,44 @@ export default function Login() {
 
                     {/* Bottom section */}
                     <View className="flex-1 justify-end">
+                        {/* Saved accounts */}
+                        <View className="mb-4">
+                            <Text className="text-gray-400 text-xs font-semibold mb-2 text-center">
+                                {t("loginAccountsLabel")}
+                            </Text>
+                            <View className="flex-row justify-center gap-5">
+                                {[0, 1, 2].map((i) => {
+                                    const acc = savedAccounts[i];
+                                    if (!acc) {
+                                        return (
+                                            <View key={i} className="items-center">
+                                                <View className="w-14 h-14 rounded-full border-2 border-dashed border-gray-600 items-center justify-center">
+                                                    <Ionicons name="add" size={22} color="#6b7280" />
+                                                </View>
+                                                <Text className="text-gray-600 text-xs mt-1">-</Text>
+                                            </View>
+                                        );
+                                    }
+                                    return (
+                                        <TouchableOpacity
+                                            key={acc.steamId}
+                                            onPress={() => handleQuickLogin(acc)}
+                                            onLongPress={() => confirmRemoveAccount(acc)}
+                                            className="items-center"
+                                        >
+                                            <Image
+                                                source={{ uri: acc.avatar }}
+                                                className="w-14 h-14 rounded-full border-2 border-accent"
+                                            />
+                                            <Text className="text-white text-xs mt-1 max-w-[70px] text-center" numberOfLines={1}>
+                                                {acc.name}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+                        </View>
+
                         {/* Tip box */}
                         <View className="bg-[#1e1e1e]/90 p-2.5 rounded-md mb-4 border-l-4 border-accent">
                             <Text className="text-[#aaa] text-xs">
@@ -205,45 +280,19 @@ export default function Login() {
             </ImageBackground>
 
             {/* Confirmar limpeza do banco */}
-            <Modal
-                transparent
-                animationType="fade"
+            <ClearDbModal
                 visible={confirmVisible}
-                onRequestClose={() => setConfirmVisible(false)}
-            >
-                <View className="flex-1 bg-black/70 items-center justify-center p-6">
-                    <View className="w-full bg-[#1f2937] rounded-2xl p-6 border border-gray-700">
-                        <View className="items-center mb-4">
-                            <View className="w-14 h-14 rounded-full bg-danger/15 items-center justify-center mb-3">
-                                <Ionicons name="trash-outline" size={28} color={COLORS.danger} />
-                            </View>
-                            <Text className="text-white text-lg font-bold text-center">
-                                {t("loginClearDbTitle")}
-                            </Text>
-                        </View>
+                onClose={() => setConfirmVisible(false)}
+                onConfirm={confirmClearDB}
+            />
 
-                        <Text className="text-gray-400 text-sm text-center mb-6">
-                            {t("loginClearDbMessage")}
-                        </Text>
-
-                        <View className="flex-row gap-3">
-                            <TouchableOpacity
-                                onPress={() => setConfirmVisible(false)}
-                                className="flex-1 py-3 rounded-lg bg-gray-700 items-center"
-                            >
-                                <Text className="text-white font-semibold">{t("loginCancel")}</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                onPress={confirmClearDB}
-                                className="flex-1 py-3 rounded-lg bg-danger items-center"
-                            >
-                                <Text className="text-white font-semibold">{t("loginClear")}</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
-            </Modal>
+            {/* Confirmar remoção de conta salva */}
+            <RemoveAccountModal
+                visible={!!accountToRemove}
+                account={accountToRemove}
+                onClose={() => setAccountToRemove(null)}
+                onConfirm={doRemoveAccount}
+            />
         </SafeAreaView>
     );
 

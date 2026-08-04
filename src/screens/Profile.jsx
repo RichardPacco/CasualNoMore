@@ -83,6 +83,7 @@ export default function Profile({ navigation }) {
         const [loadingFriends, setLoadingFriends] = useState(false);
         const [refreshingFriends, setRefreshingFriends] = useState(false);
         const [refreshingProfile, setRefreshingProfile] = useState(false);
+        const [friendListError, setFriendListError] = useState(false);
         const myGamesRef = useRef([]);
         const friendsRef = useRef([]);
 
@@ -168,6 +169,7 @@ export default function Profile({ navigation }) {
             setLoadingFriends(true);
             try {
                 const friendList = await getFriendList(steamId);
+                setFriendListError(friendList === null);
                 const friendIds = (friendList ?? []).map(f => f.steamid);
 
                 const cachedFriends = [];
@@ -198,6 +200,7 @@ export default function Profile({ navigation }) {
         // Pull-to-refresh: re-fetcha os amigos (perfil + jogos + comuns)
         const onRefreshFriends = useCallback(async () => {
             const friendList = await getFriendList(steamId);
+            setFriendListError(friendList === null);
             const friendIds = (friendList ?? []).map(f => f.steamid);
             setRefreshingFriends(true);
             try {
@@ -224,7 +227,7 @@ export default function Profile({ navigation }) {
             loadProfile();
         }, [loadProfile]);
 
-        return { profile, friends, loadingProfile, loadingFriends, refreshingFriends, refreshingProfile, loadProfile, onRefreshFriends, refreshProfile, };
+        return { profile, friends, loadingProfile, loadingFriends, refreshingFriends, refreshingProfile, loadProfile, onRefreshFriends, refreshProfile, friendListError };
     }
 
 
@@ -235,7 +238,7 @@ export default function Profile({ navigation }) {
         }
     }, [steamId, router]);
 
-    const { profile, friends, loadingProfile, loadingFriends, refreshingFriends, refreshingProfile, loadProfile, onRefreshFriends, refreshProfile } =
+    const { profile, friends, loadingProfile, loadingFriends, refreshingFriends, refreshingProfile, loadProfile, onRefreshFriends, refreshProfile, friendListError } =
         useProfile(steamId);
 
     if (loadingProfile) {
@@ -303,7 +306,7 @@ export default function Profile({ navigation }) {
                             ListEmptyComponent={
                                 !loadingFriends && (
                                     <Text className={`${textSecondary} text-center mt-4`}>
-                                        {tr("profileNoPublicFriends")}
+                                        {friendListError ? tr("profileFriendsPrivate") : tr("profileNoPublicFriends")}
                                     </Text>
                                 )
                             }

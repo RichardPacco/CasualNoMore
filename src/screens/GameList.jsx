@@ -82,11 +82,17 @@ export default function GameList({ navigation, route }) {
             }
         }
 
-        // Detalhes da loja são buscados sob demanda no GameDetailsTab e persistidos no DB
+        // Detalhes da loja são buscados sob demanda no GameDetailsTab e persistidos no DB.
+        // Steam mascara tempo de jogo privado como 0 (não omite o campo). Se o jogo tem
+        // conquistas desbloqueadas ele foi jogado — logo playtime 0 significa tempo privado.
+        const rawPlaytime = baseGame.playtime_forever || 0;
+        const unlockedCount = (achievements || []).filter(a => a.achieved).length;
+        const playtimeHidden = rawPlaytime === 0 && unlockedCount > 0;
         return {
             ...baseGame,
-            playtime_forever: baseGame.playtime_forever || 0,
+            playtime_forever: rawPlaytime,
             playtime_2weeks: baseGame.playtime_2weeks || 0,
+            playtimeHidden,
             schema, schemaStatus, achievements, achievementsStatus, details, detailsStatus,
             lang,
         };
@@ -282,6 +288,7 @@ export default function GameList({ navigation, route }) {
             // 2️⃣ Fetch fresh games from Steam
             const fresh = await getOwnedGames(steamId);
             if (!fresh?.games) {
+                if (cachedGames.length === 0) setLoading(false);
                 return;
             }
 
@@ -319,6 +326,7 @@ export default function GameList({ navigation, route }) {
                     const prev = enrichedGames[idx];
                     if (prev.playtime_forever !== enriched.playtime_forever
                         || prev.playtime_2weeks !== enriched.playtime_2weeks
+                        || prev.playtimeHidden !== enriched.playtimeHidden
                         || prev.schemaStatus !== enriched.schemaStatus
                         || prev.achievementsStatus !== enriched.achievementsStatus
                         || prev.detailsStatus !== enriched.detailsStatus
@@ -477,6 +485,19 @@ export default function GameList({ navigation, route }) {
                                 </View>
                             )}
                         </>
+                    }
+                    ListEmptyComponent={
+                        <View className="items-center justify-center py-20 px-6">
+                            <View className="w-16 h-16 rounded-full bg-accent/15 items-center justify-center mb-4">
+                                <Ionicons name="game-controller-outline" size={30} color={COLORS.accent} />
+                            </View>
+                            <Text className="text-white text-lg font-bold text-center">
+                                {tr("noGamesTitle")}
+                            </Text>
+                            <Text className={`${t.textSecondary} text-sm text-center mt-2`}>
+                                {tr("noGamesMessage")}
+                            </Text>
+                        </View>
                     }
                 />
             </PullToRefresh>

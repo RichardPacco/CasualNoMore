@@ -25,6 +25,10 @@ export const translations = {
     loginClearDbMessage: { pt: "Isso vai apagar todos os jogos salvos e progresso local. Essa ação não pode ser desfeita.", en: "This will delete all saved games and local progress. This action cannot be undone." },
     loginCancel: { pt: "Cancelar", en: "Cancel" },
     loginClear: { pt: "Limpar", en: "Clear" },
+    loginAccountsLabel: { pt: "Contas salvas — Toque para entrar - Segure para excluir", en: "Saved accounts — Tap to enter - Hold to delete" },
+    loginRemoveAccountTitle: { pt: "Remover conta?", en: "Remove account?" },
+    loginRemoveAccountMessage: { pt: "Remover {name} das contas salvas?", en: "Remove {name} from saved accounts?" },
+    loginRemove: { pt: "Remover", en: "Remove" },
 
     // --- language ---
     languageLabel: { pt: "Idioma", en: "Language" },
@@ -34,6 +38,7 @@ export const translations = {
     profileGamesCount: { pt: "Jogos: {count}", en: "Games: {count}" },
     profileCommonGamesCount: { pt: "Jogos compartilhados: {count}", en: "Shared games: {count}" },
     profileNoPublicFriends: { pt: "Nenhum amigo com jogos públicos encontrado", en: "No friends with public games found" },
+    profileFriendsPrivate: { pt: "Sua lista de amigos está privada, em 'Somente amigos' ou indisponível", en: "Your friend list is private, set to 'friends only', or unavailable" },
     profileUnavailable: { pt: "Perfil não disponível", en: "Profile unavailable" },
     profileLoadError: { pt: "Ocorreu um erro ao carregar o perfil. Verifique sua conexão.", en: "An error occurred while loading the profile. Check your connection." },
     profileRetry: { pt: "Tentar novamente", en: "Try again" },
@@ -74,6 +79,8 @@ export const translations = {
     // --- game card ---
     playtimeMinutes: { pt: "{minutes} minutos", en: "{minutes} minutes" },
     playtimeHours: { pt: "{hours} horas {minutes} minutos", en: "{hours} hours {minutes} minutes" },
+    playtimeHidden: { pt: "Tempo de jogo oculto", en: "Playtime hidden" },
+    playtimeNeverPlayed: { pt: "Nunca jogado", en: "Never played" },
     achievementsCount: { pt: "{unlocked}/{total} conquistas ({percent}%)", en: "{unlocked}/{total} achievements ({percent}%)" },
 
     // --- game screen ---
@@ -124,6 +131,8 @@ export const translations = {
     // --- recent games refresh ---
     refreshRecentGames: { pt: "Atualizar jogos recentes", en: "Refresh recent games" },
     noRecentGames: { pt: "Nenhum jogo jogado recentemente.", en: "No recently played games." },
+    noGamesTitle: { pt: "Nenhum jogo encontrado", en: "No games found" },
+    noGamesMessage: { pt: "Sua lista de jogos pode estar privada ou em 'Somente amigos', pode estar vazia ou houve um erro de conexão. Puxe para baixo para tentar novamente.", en: "Your games list may be private or set to 'friends only', may be empty, or there was a connection error. Pull down to retry." },
 
     // --- list separators ---
     recentGamesSeparator: { pt: "Jogados Recentemente", en: "Recently Played" },

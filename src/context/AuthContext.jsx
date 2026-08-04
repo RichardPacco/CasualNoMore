@@ -1,11 +1,31 @@
 import React, { createContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export const AuthContext = createContext({ steamId: null, setSteamId: () => { }, clearSteamId: () => { }, loading: true });
+const SAVED_ACCOUNTS_KEY = "@saved_accounts";
+const MAX_SAVED_ACCOUNTS = 3;
+
+export const AuthContext = createContext({
+    steamId: null,
+    setSteamId: () => { },
+    clearSteamId: () => { },
+    loading: true,
+    savedAccounts: [],
+    addSavedAccount: () => { },
+    removeSavedAccount: () => { },
+});
 
 export function AuthProvider({ children }) {
     const [steamId, setSteamIdState] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [savedAccounts, setSavedAccounts] = useState([]);
+
+    const persistSavedAccounts = async (accounts) => {
+        try {
+            await AsyncStorage.setItem(SAVED_ACCOUNTS_KEY, JSON.stringify(accounts));
+        } catch (e) {
+            console.error("[Auth] erro ao salvar contas:", e);
+        }
+    };
 
     useEffect(() => {
         let mounted = true;
@@ -22,6 +42,16 @@ export function AuthProvider({ children }) {
                 if (!mounted) return;
                 setLoading(false);
                 console.log("[Auth] loading = false");
+            }
+        })();
+
+        (async () => {
+            try {
+                const stored = await AsyncStorage.getItem(SAVED_ACCOUNTS_KEY);
+                if (!mounted) return;
+                if (stored) setSavedAccounts(JSON.parse(stored));
+            } catch (e) {
+                console.error("[Auth] erro ao ler contas salvas:", e);
             }
         })();
 
@@ -46,8 +76,24 @@ export function AuthProvider({ children }) {
         }
     };
 
+    const addSavedAccount = async (account) => {
+        if (!account?.steamId) return;
+        const next = [
+            account,
+            ...savedAccounts.filter(a => a.steamId !== account.steamId),
+        ].slice(0, MAX_SAVED_ACCOUNTS);
+        setSavedAccounts(next);
+        await persistSavedAccounts(next);
+    };
+
+    const removeSavedAccount = async (steamId) => {
+        const next = savedAccounts.filter(a => a.steamId !== steamId);
+        setSavedAccounts(next);
+        await persistSavedAccounts(next);
+    };
+
     return (
-        <AuthContext.Provider value={{ steamId, setSteamId, clearSteamId, loading }}>
+        <AuthContext.Provider value={{ steamId, setSteamId, clearSteamId, loading, savedAccounts, addSavedAccount, removeSavedAccount }}>
             {children}
         </AuthContext.Provider>
     );

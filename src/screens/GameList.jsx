@@ -326,7 +326,7 @@ export default function GameList({ navigation, route }) {
                     const prev = enrichedGames[idx];
                     if (prev.playtime_forever !== enriched.playtime_forever
                         || prev.playtime_2weeks !== enriched.playtime_2weeks
-                        || prev.playtimeHidden !== enriched.playtimeHidden
+                        || !!prev.playtimeHidden !== !!enriched.playtimeHidden
                         || prev.schemaStatus !== enriched.schemaStatus
                         || prev.achievementsStatus !== enriched.achievementsStatus
                         || prev.detailsStatus !== enriched.detailsStatus

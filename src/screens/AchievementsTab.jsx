@@ -1,5 +1,6 @@
 import ContextMenu from "@/src/components/ContextMenu";
 import RadioSheet from "@/src/components/RadioSheet";
+import SearchBar from "@/src/components/SearchBar";
 import useAchievements from "@/src/hooks/useAchievements";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS } from "@/src/theme/colors";
@@ -9,7 +10,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as WebBrowser from "expo-web-browser";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Dimensions, FlatList, Image, Keyboard, Text, TextInput, TouchableOpacity, useColorScheme, View } from "react-native";
+import { ActivityIndicator, Animated, Dimensions, FlatList, Image, Keyboard, Text, TouchableOpacity, useColorScheme, View } from "react-native";
 
 const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
 
@@ -295,30 +296,19 @@ export default function AchievementsTab({ game }) {
             ) : (
                 <>
                     {/* search input */}
-                    <View className="flex-row items-center px-0 mb-3">
-                        <TextInput
-                            value={searchQuery}
-                            onChangeText={setSearchQuery}
-                            placeholder={tr("achSearchPlaceholder")}
-                            placeholderTextColor={isDark ? "#9ca3af" : "#6b7280"}
-                            returnKeyType="search"
-                            onSubmitEditing={() => Keyboard.dismiss()}
-                            className={`flex-1 rounded-xl px-4 py-2 border ${isDark
-                                ? "bg-slate-800 border-accent text-white"
-                                : "bg-slate-100 border-gray-300 text-black"
-                                }`}
-                            style={{ fontSize: 16 }}
-                        />
-                        <TouchableOpacity
-                            onPress={() => {
-                                setSearchQuery("");
-                                setDebouncedQuery("");
-                            }}
-                            style={{ marginLeft: 8 }}
-                        >
-                            <Text style={{ color: isDark ? COLORS.accent : "#111" }}>{tr("clear")}</Text>
-                        </TouchableOpacity>
-                    </View>
+                    <SearchBar
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        onClear={() => {
+                            setSearchQuery("");
+                            setDebouncedQuery("");
+                        }}
+                        placeholder={tr("achSearchPlaceholder")}
+                        inputProps={{
+                            returnKeyType: "search",
+                            onSubmitEditing: () => Keyboard.dismiss(),
+                        }}
+                    />
 
                     <FlatList
                         ref={listRef}

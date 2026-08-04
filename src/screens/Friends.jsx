@@ -1,13 +1,14 @@
 import { getFriendList, getOwnedGames, getPlayerSummary } from "@/src/api/steam";
 import ContextMenu from "@/src/components/ContextMenu";
 import PullToRefresh from "@/src/components/PullToRefresh";
+import SearchBar from "@/src/components/SearchBar";
 import { AuthContext } from "@/src/context/AuthContext";
 import { loadFriend, saveFriendProfile } from "@/src/database/db";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS } from "@/src/theme/colors";
 import { useTheme } from "@/src/theme/styles";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Image, Pressable, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from "react-native";
 
 function gamesSignature(games) {
     return (games?.games ?? [])
@@ -199,22 +200,11 @@ export default function Friends({ navigation }) {
                 {tr("profileFriendsTitle")}
             </Text>
 
-            <View className="flex-row items-center mb-4">
-                <TextInput
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                    placeholder={tr("searchFriendsPlaceholder")}
-                    placeholderTextColor={t.placeholderText}
-                    className={`flex-1 rounded-xl px-4 py-2 border ${t.inputBg} ${t.inputBorder} ${t.inputText}`}
-                    style={{ fontSize: 16 }}
-                />
-                <TouchableOpacity
-                    onPress={() => setSearchQuery("")}
-                    style={{ marginLeft: 8 }}
-                >
-                    <Text style={{ color: isDark ? COLORS.accent : "#111" }}>{tr("clear")}</Text>
-                </TouchableOpacity>
-            </View>
+            <SearchBar
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder={tr("searchFriendsPlaceholder")}
+            />
 
             {loading && friends.length === 0 ? (
                 <View className="flex-1 items-center justify-center">

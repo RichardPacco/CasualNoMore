@@ -12,7 +12,8 @@ import { fetchAndMergeAchievements } from "@/src/utils/achievements";
 import { showToast } from "@/src/utils/toast";
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Keyboard, Text, TextInput, TouchableOpacity, useColorScheme, View } from "react-native";
+import { ActivityIndicator, FlatList, Keyboard, Text, TouchableOpacity, useColorScheme, View } from "react-native";
+import SearchBar from "@/src/components/SearchBar";
 
 export default function GameList({ navigation, route }) {
     const { steamId } = useContext(AuthContext);
@@ -34,7 +35,6 @@ export default function GameList({ navigation, route }) {
     // search states
     const [searchQuery, setSearchQuery] = useState("");
     const [debouncedQuery, setDebouncedQuery] = useState("");
-    const searchInputRef = useRef(null);
 
     const colorScheme = useColorScheme();
     const isDark = colorScheme === "dark";
@@ -411,33 +411,19 @@ export default function GameList({ navigation, route }) {
             className={`flex-1 p-4 ${t.pageBg}`}
         >
             {/* search input */}
-            <View className="flex-row items-center mb-3">
-                <TextInput
-                    ref={searchInputRef}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                    placeholder={tr("searchGamesPlaceholder")}
-                    placeholderTextColor={isDark ? "#9ca3af" : "#6b7280"}
-                    returnKeyType="search"
-                    onSubmitEditing={() => Keyboard.dismiss()}
-                    className={`flex-1 rounded-xl px-4 py-2 border ${isDark
-                        ? "bg-slate-800 border-accent text-white"
-                        : "bg-slate-100 border-gray-300 text-black"
-                        }`}
-                    style={{ fontSize: 16 }}
-                />
-
-                {/* Clear query */}
-                <TouchableOpacity
-                    onPress={() => {
-                        setSearchQuery("");
-                        setDebouncedQuery("");
-                    }}
-                    style={{ marginLeft: 8 }}
-                >
-                    <Text style={{ color: isDark ? COLORS.accent : "#111" }}>{tr("clear")}</Text>
-                </TouchableOpacity>
-            </View>
+            <SearchBar
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                onClear={() => {
+                    setSearchQuery("");
+                    setDebouncedQuery("");
+                }}
+                placeholder={tr("searchGamesPlaceholder")}
+                inputProps={{
+                    returnKeyType: "search",
+                    onSubmitEditing: () => Keyboard.dismiss(),
+                }}
+            />
 
             <PullToRefresh refreshing={refreshing} onRefresh={onRefresh}>
                 <FlatList

@@ -38,6 +38,7 @@ export default function Friends({ navigation }) {
     const [friends, setFriends] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [progress, setProgress] = useState({ current: 0, total: 0 });
     const [friendListError, setFriendListError] = useState(false);
     const [menu, setMenu] = useState(null);
     const [searchQuery, setSearchQuery] = useState("");
@@ -73,8 +74,10 @@ export default function Friends({ navigation }) {
         if (cancelledRef.current) return;
         setLoading(true);
         try {
-            for (const id of friendIds) {
+            for (let i = 0; i < friendIds.length; i++) {
                 if (cancelledRef.current) break;
+                const id = friendIds[i];
+                setProgress({ current: i + 1, total: friendIds.length });
 
                 try {
                     const [friendProfile, games] = await Promise.all([
@@ -209,6 +212,11 @@ export default function Friends({ navigation }) {
             {loading && friends.length === 0 ? (
                 <View className="flex-1 items-center justify-center">
                     <ActivityIndicator size="large" color={isDark ? COLORS.accent : "#000"} />
+                    {progress.total > 0 && (
+                        <Text className={`${t.textSecondary} mt-2`}>
+                            {tr("searchingFriends", { current: progress.current, total: progress.total })}
+                        </Text>
+                    )}
                 </View>
             ) : (
                 <PullToRefresh refreshing={refreshing} onRefresh={onRefresh}>
@@ -216,6 +224,16 @@ export default function Friends({ navigation }) {
                         data={filteredFriends}
                         keyExtractor={(item) => item.steamid}
                         contentContainerStyle={{ paddingBottom: 70 }}
+                        ListHeaderComponent={
+                            progress.current < progress.total && (
+                                <View className="py-4 items-center">
+                                    <ActivityIndicator size="small" color={COLORS.accent} />
+                                    <Text className={`${t.textSecondary} mt-2`}>
+                                        {tr("loadingFriends", { current: progress.current, total: progress.total })}
+                                    </Text>
+                                </View>
+                            )
+                        }
                         renderItem={({ item }) => (
                             <Pressable
                                 onPress={(e) => openContextMenu(e, item)}

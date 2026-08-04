@@ -38,7 +38,9 @@ export function mergeAchievements(schema, playerAchievements, globalPerc, fullDe
 
 /**
  * Fetch player achievements + global percentages and merge with the schema.
- * Fails softly: any failing source falls back to empty data.
+ * Fontes secundárias falham silenciosamente; mas se o estado de desbloqueio
+ * (getPlayerAchievements) falhar, lança erro — senão o merge mostraria tudo
+ * como "não conquistado" e o caller gravaria esse dado falso como "done".
  */
 export async function fetchAndMergeAchievements(appid, steamId, schema) {
     const [playerAchievements, globalPerc, gameAchievements] = await Promise.all([
@@ -46,6 +48,15 @@ export async function fetchAndMergeAchievements(appid, steamId, schema) {
         GetGlobalAchievementsPercentagesForApp(appid).catch(() => null),
         getGameAchievements(appid).catch(() => null),
     ]);
+
+    // Se o jogo tem conquistas no schema, o estado de desbloqueio é obrigatório:
+    // sem ele o merge mostraria tudo como "não conquistado" (falso) e o caller
+    // gravaria esse dado como "done". Jogos sem conquistas (ex: Dota 2) retornam
+    // vazio e são tratados normalmente.
+    const hasSchemaAchievements = Array.isArray(schema) && schema.length > 0;
+    if (hasSchemaAchievements && !(playerAchievements?.achievements?.length > 0)) {
+        throw new Error(`fetchAndMergeAchievements: player achievements indisponíveis (${appid})`);
+    }
 
     const fullDescriptions = {};
     (gameAchievements || []).forEach(a => {

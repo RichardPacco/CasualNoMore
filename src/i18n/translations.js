@@ -78,6 +78,8 @@ export const translations = {
     searchGamesPlaceholder: { pt: "Pesquisar jogos...", en: "Search games..." },
     clear: { pt: "Limpar", en: "Clear" },
     loadingGames: { pt: "Carregando {current}/{total}", en: "Loading {current}/{total}" },
+    searchingFriends: { pt: "Buscando {current}/{total} amigos…", en: "Searching {current}/{total} friends…" },
+    loadingFriends: { pt: "Carregando {current}/{total}", en: "Loading {current}/{total}" },
     filterTitle: { pt: "Filtrar", en: "Filter" },
     sortTitle: { pt: "Ordenar por", en: "Sort by" },
 

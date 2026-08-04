@@ -40,7 +40,13 @@ export default function GameList({ navigation, route }) {
     const isDark = colorScheme === "dark";
     const t = useTheme();
 
-    // cancellation ref used by loadGames and the effect
+    // geração da carga atual: quando uma nova carga começa (ou o componente
+    // desmonta), o número muda e execuções antigas param de escrever na UI/DB.
+    // Um simples boolean não serve — a nova carga rearmaria o flag e a execução
+    // antiga continuaria rodando em paralelo (progresso e lista "bugados").
+    const loadGenRef = useRef(0);
+
+    // cancellation ref usado pelo refreshRecentGames (cancela no unmount)
     const cancelledRef = useRef(false);
 
     // small helper
@@ -49,16 +55,20 @@ export default function GameList({ navigation, route }) {
     /**
      * Completa um jogo com toda a informação disponível:
      * schema, conquistas (com progresso) e detalhes da loja.
-     * Só busca o que ainda não foi cacheado.
+     * Só busca o que ainda não foi cacheado. Se uma busca falhar,
+     * mantém o dado antigo (fallback) e deixa o status "pending"
+     * para tentar de novo na próxima carga.
      */
-    const enrichGame = useCallback(async (baseGame, cached) => {
+    const enrichGame = useCallback(async (baseGame, cached, force = false) => {
         const lang = getLanguageStore();
-        const stale = cached ? cached.lang !== lang : false;
+        const stale = force || (cached ? cached.lang !== lang : false);
 
         let schema = stale ? null : (cached?.schema ?? null);
         let schemaStatus = stale ? "pending" : (cached?.schemaStatus || "pending");
         let achievements = stale ? null : (cached?.achievements ?? null);
         let achievementsStatus = stale ? "pending" : (cached?.achievementsStatus || "pending");
+        // Detalhes da loja: em troca de idioma ou long-press (stale/force) são
+        // zerados para serem re-adquiridos sob demanda pelo GameDetailsTab.
         let details = stale ? null : (cached?.details ?? null);
         let detailsStatus = stale ? "pending" : (cached?.detailsStatus || "pending");
 
@@ -68,16 +78,25 @@ export default function GameList({ navigation, route }) {
                 schemaStatus = "done";
             } catch (err) {
                 console.error("[GameList] Erro schema", baseGame.appid, err);
+                schema = cached?.schema ?? null;
                 schemaStatus = "pending";
             }
         }
 
         if (achievementsStatus === "pending") {
-            try {
-                achievements = await fetchAndMergeAchievements(baseGame.appid, steamId, schema);
-                achievementsStatus = "done";
-            } catch (err) {
-                console.error("[GameList] Erro achievements", baseGame.appid, err);
+            // Sem schema a lista de conquistas não é montável (o merge usa o schema
+            // para os nomes). Se o schema falhou, mantém o cache e tenta depois.
+            if (schemaStatus === "done") {
+                try {
+                    achievements = await fetchAndMergeAchievements(baseGame.appid, steamId, schema);
+                    achievementsStatus = "done";
+                } catch (err) {
+                    console.error("[GameList] Erro achievements", baseGame.appid, err);
+                    achievements = cached?.achievements ?? null;
+                    achievementsStatus = "pending";
+                }
+            } else {
+                achievements = cached?.achievements ?? null;
                 achievementsStatus = "pending";
             }
         }
@@ -99,18 +118,11 @@ export default function GameList({ navigation, route }) {
     }, [steamId]);
 
     /**
-     * Força refetch completo de um jogo (playtime, schema, conquistas),
-     * salva no DB e atualiza a lista.
+     * Força refetch completo de um jogo (playtime, schema, conquistas).
+     * `existing` (jogo atual da lista) serve de fallback se algo falhar.
      */
-    const forceRefreshGame = useCallback(async (baseGame) => {
-        const reset = {
-            ...baseGame,
-            schema: null,
-            schemaStatus: "pending",
-            achievements: null,
-            achievementsStatus: "pending",
-        };
-        const fresh = await enrichGame(baseGame, reset);
+    const forceRefreshGame = useCallback(async (baseGame, existing) => {
+        const fresh = await enrichGame(baseGame, existing, true);
 
         setGames(prev => prev.map(g => g.appid === fresh.appid ? fresh : g));
         await saveGame(steamId, fresh);
@@ -126,7 +138,7 @@ export default function GameList({ navigation, route }) {
             const baseGame = owned?.games?.find(g => g.appid === game.appid);
             if (!baseGame) throw new Error("game not in owned list");
 
-            await forceRefreshGame(baseGame);
+            await forceRefreshGame(baseGame, game);
             showToast(tr("gameRefreshed"), "success");
         } catch (err) {
             console.error("[GameList] refreshSingleGame failed", game.appid, err);
@@ -154,7 +166,8 @@ export default function GameList({ navigation, route }) {
 
             for (const baseGame of recent) {
                 if (cancelledRef.current) break;
-                await forceRefreshGame(baseGame);
+                const existing = games.find(g => g.appid === baseGame.appid);
+                await forceRefreshGame(baseGame, existing);
             }
 
             showToast(tr("gameRefreshed"), "success");
@@ -164,7 +177,7 @@ export default function GameList({ navigation, route }) {
         } finally {
             setRefreshingRecent(false);
         }
-    }, [steamId, forceRefreshGame, refreshingRecent, tr]);
+    }, [steamId, forceRefreshGame, refreshingRecent, tr, games]);
 
     // jogo "recente" = jogado nas últimas 2 semanas
     const isRecentGame = useCallback((g) => (g.playtime_2weeks || 0) > 0, []);
@@ -272,11 +285,13 @@ export default function GameList({ navigation, route }) {
     // ---------- load jogos ----------
     const loadGames = useCallback(async () => {
         if (!steamId) return;
+        const gen = ++loadGenRef.current;
         cancelledRef.current = false;
 
         try {
             // 1️⃣ Load games from DB
             const cachedGames = await getAllGames(steamId);
+            if (loadGenRef.current !== gen) return;
             let enrichedGames = [...cachedGames];
 
             if (cachedGames.length > 0) {
@@ -287,6 +302,7 @@ export default function GameList({ navigation, route }) {
 
             // 2️⃣ Fetch fresh games from Steam
             const fresh = await getOwnedGames(steamId);
+            if (loadGenRef.current !== gen) return;
             if (!fresh?.games) {
                 if (cachedGames.length === 0) setLoading(false);
                 return;
@@ -312,12 +328,13 @@ export default function GameList({ navigation, route }) {
             let batchToSave = [];
 
             for (let i = 0; i < freshGames.length; i++) {
-                if (cancelledRef.current) break;
+                if (loadGenRef.current !== gen) return;
 
                 const baseGame = freshGames[i];
                 const cachedEntry = cacheMap.get(baseGame.appid);
 
                 const enriched = await enrichGame(baseGame, cachedEntry);
+                if (loadGenRef.current !== gen) return;
 
                 const idx = enrichedGames.findIndex(g => g.appid === baseGame.appid);
                 let updated = false;
@@ -358,6 +375,7 @@ export default function GameList({ navigation, route }) {
             }
 
             // Finish sync: clear progress header even if nothing was updated
+            if (loadGenRef.current !== gen) return;
             setProgress({ current: total, total });
             setLoading(false);
         } catch (err) {
@@ -378,9 +396,12 @@ export default function GameList({ navigation, route }) {
 
     useEffect(() => {
         if (!steamId) return;
-        cancelledRef.current = false;
         loadGames();
         return () => {
+            // Cancela a carga em andamento (troca de idioma ou unmount):
+            // a execução antiga detecta a geração nova e para de escrever.
+            // eslint-disable-next-line react-hooks/exhaustive-deps -- incremento intencional do counter
+            loadGenRef.current++;
             cancelledRef.current = true;
         };
     }, [steamId, loadGames, language]);

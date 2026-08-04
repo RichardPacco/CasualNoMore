@@ -219,13 +219,13 @@ export default function Friends({ navigation }) {
                     )}
                 </View>
             ) : (
-                <PullToRefresh refreshing={refreshing} onRefresh={onRefresh}>
+                <PullToRefresh refreshing={refreshing} onRefresh={onRefresh} enabled={progress.current >= progress.total}>
                     <FlatList
                         data={filteredFriends}
                         keyExtractor={(item) => item.steamid}
                         contentContainerStyle={{ paddingBottom: 70 }}
                         ListHeaderComponent={
-                            progress.current < progress.total && (
+                            !refreshing && progress.current < progress.total && (
                                 <View className="py-4 items-center">
                                     <ActivityIndicator size="small" color={COLORS.accent} />
                                     <Text className={`${t.textSecondary} mt-2`}>

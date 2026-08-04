@@ -15,7 +15,7 @@ const HOLD_PULL = 54;
 
 // Custom pull-to-refresh: arrasta a lista para baixo revelando uma área
 // onde o spinner aparece em frente (por cima) da lista.
-export default function PullToRefresh({ refreshing, onRefresh, children, style }) {
+export default function PullToRefresh({ refreshing, onRefresh, children, style, enabled = true }) {
     const translateY = useSharedValue(0);
     const pulling = useSharedValue(false);
     const refreshShared = useSharedValue(refreshing);
@@ -30,7 +30,7 @@ export default function PullToRefresh({ refreshing, onRefresh, children, style }
     }, [refreshing, refreshShared, translateY, pulling]);
 
     const pan = Gesture.Pan()
-        .enabled(atTop && !refreshing)
+        .enabled(enabled && atTop && !refreshing)
         .activeOffsetY([-100000, 10])
         .failOffsetX([-10, 10])
         .maxPointers(1)

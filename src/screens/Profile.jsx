@@ -1,6 +1,7 @@
 import { getPlayerSummary } from "@/src/api/steam";
 import LanguageSelector from "@/src/components/LanguageSelector";
 import ProfileCard from "@/src/components/ProfileCard";
+import PullToRefresh from "@/src/components/PullToRefresh";
 import { AuthContext } from "@/src/context/AuthContext";
 import { getAllGames } from "@/src/database/db";
 import { useLanguage } from "@/src/i18n/LanguageContext";
@@ -72,8 +73,12 @@ export default function Profile() {
         if (!steamId) return;
         setRefreshingProfile(true);
         try {
-            const Profile = await getPlayerSummary(steamId);
+            const [Profile, cachedGames] = await Promise.all([
+                getPlayerSummary(steamId),
+                getAllGames(steamId),
+            ]);
             if (Profile) setProfile(Profile);
+            setCompletionStats(computeCompletionStats(cachedGames));
         } catch (err) {
             console.error("[Profile] Failed to refresh profile:", err);
         } finally {
@@ -106,10 +111,12 @@ export default function Profile() {
     const textSecondary = t.textSecondary;
 
     return (
-        <ScrollView className={`flex-1 p-4 ${t.pageBg}`} contentContainerStyle={{ paddingBottom: 70 }}>
-            {profile ? (
-                <>
-                    <ProfileCard data={profile} onRefresh={refreshProfile} refreshing={refreshingProfile} />
+        <View className={`flex-1 ${t.pageBg}`}>
+            <PullToRefresh refreshing={refreshingProfile} onRefresh={refreshProfile}>
+            <ScrollView className={`flex-1 p-4 ${t.pageBg}`} contentContainerStyle={{ paddingBottom: 70 }}>
+                {profile ? (
+                    <>
+                        <ProfileCard data={profile} />
 
                     {/* Completion stats */}
                     <View className="flex-row gap-3 mb-4">
@@ -166,6 +173,8 @@ export default function Profile() {
                     </Pressable>
                 </View>
             )}
-        </ScrollView>
+            </ScrollView>
+            </PullToRefresh>
+        </View>
     );
 }

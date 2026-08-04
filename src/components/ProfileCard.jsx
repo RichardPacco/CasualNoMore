@@ -2,11 +2,11 @@ import { AuthContext } from "@/src/context/AuthContext";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS } from "@/src/theme/colors";
 import { useTheme } from "@/src/theme/styles";
-import { formatDate } from "@/src/utils/formatDate";
+import { formatDateTime } from "@/src/utils/formatDate";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useContext } from "react";
-import { ActivityIndicator, Image, Linking, Text, TouchableOpacity, View } from "react-native";
+import { Image, Linking, Text, TouchableOpacity, View } from "react-native";
 
 function getStatus(statusCode, t) {
     switch (statusCode) {
@@ -21,7 +21,7 @@ function getStatus(statusCode, t) {
     }
 }
 
-export default function ProfileCard({ data, onRefresh, refreshing }) {
+export default function ProfileCard({ data }) {
     const t = useTheme();
     const { t: tr } = useLanguage();
     const status = getStatus(data.personastate, tr);
@@ -67,20 +67,6 @@ export default function ProfileCard({ data, onRefresh, refreshing }) {
                 />
                 <View className="absolute inset-0 bg-black/50" />
 
-                {/* Atualizar perfil */}
-                <TouchableOpacity
-                    onPress={onRefresh}
-                    disabled={refreshing}
-                    className="absolute top-3 right-3 w-9 h-9 rounded-full items-center justify-center bg-black/40"
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                    {refreshing ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                        <Ionicons name="refresh" size={16} color="#fff" />
-                    )}
-                </TouchableOpacity>
-
                 {/* Foto e nome */}
                 <View className="absolute bottom-0 left-0 right-0 flex-row items-end p-4">
                     <Image
@@ -117,7 +103,7 @@ export default function ProfileCard({ data, onRefresh, refreshing }) {
                 <View className="flex-row items-center">
                     <Ionicons name="time-outline" size={15} color={t.textInlineSecondary} />
                     <Text className={`${secondaryTextColor} text-sm ml-2`}>
-                        {tr("profileLastOnline", { date: formatDate(data.lastlogoff) })}
+                        {tr("profileLastOnline", { date: formatDateTime(data.lastlogoff) })}
                     </Text>
                 </View>
             </View>

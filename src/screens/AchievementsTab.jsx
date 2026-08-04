@@ -5,7 +5,7 @@ import useAchievements from "@/src/hooks/useAchievements";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS } from "@/src/theme/colors";
 import { useTheme } from "@/src/theme/styles";
-import { formatDate } from "@/src/utils/formatDate";
+import { formatDateTime } from "@/src/utils/formatDate";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as WebBrowser from "expo-web-browser";
@@ -48,7 +48,7 @@ function AchievementCardComponent({ item, game, onOpenMenu }) {
 
     const unlockLabel = useMemo(() => {
         if (!item.achieved || !item.unlocktime) return null;
-        return tr("unlockedAt", { date: formatDate(item.unlocktime) });
+        return tr("unlockedAt", { date: formatDateTime(item.unlocktime) });
     }, [item.achieved, item.unlocktime, tr]);
 
     const handlePressIn = () => {

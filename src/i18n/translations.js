@@ -135,6 +135,9 @@ export const translations = {
     gameRefreshFailed: { pt: "Falha ao atualizar o jogo.", en: "Failed to update the game." },
     gameRefreshHint: { pt: "Segure para atualizar", en: "Press and hold to refresh" },
 
+    // --- pull to refresh ---
+    pullToRefreshUpdating: { pt: "Atualizando...", en: "Updating..." },
+
     // --- recent games refresh ---
     refreshRecentGames: { pt: "Atualizar jogos recentes", en: "Refresh recent games" },
     noRecentGames: { pt: "Nenhum jogo jogado recentemente.", en: "No recently played games." },

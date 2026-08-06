@@ -1,21 +1,18 @@
-import { cloneElement, useEffect, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS } from "@/src/theme/colors";
-import Animated, {
-    runOnJS,
-    useAnimatedStyle,
-    useSharedValue,
-    withSpring,
-} from "react-native-reanimated";
+import { cloneElement, useEffect, useState } from "react";
+import { ActivityIndicator, Text, View } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, } from "react-native-reanimated";
 
-const MAX_PULL = 100;
+const MAX_PULL = 130;
 const TRIGGER_PULL = 60;
-const HOLD_PULL = 54;
+const HOLD_PULL = 76;
 
 // Custom pull-to-refresh: arrasta a lista para baixo revelando uma área
 // onde o spinner aparece em frente (por cima) da lista.
 export default function PullToRefresh({ refreshing, onRefresh, children, style, enabled = true }) {
+    const { t } = useLanguage();
     const translateY = useSharedValue(0);
     const pulling = useSharedValue(false);
     const refreshShared = useSharedValue(refreshing);
@@ -81,6 +78,9 @@ export default function PullToRefresh({ refreshing, onRefresh, children, style, 
                     ]}
                 >
                     <ActivityIndicator size="large" color={COLORS.accent} />
+                    <Text style={{ color: COLORS.accent, marginTop: 6, fontWeight: "600" }}>
+                        {t("pullToRefreshUpdating")}
+                    </Text>
                 </Animated.View>
                 <Animated.View style={[{ flex: 1 }, listStyle]}>
                     {cloneElement(children, {

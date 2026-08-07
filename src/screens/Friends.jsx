@@ -3,7 +3,7 @@ import ContextMenu from "@/src/components/ContextMenu";
 import PullToRefresh from "@/src/components/PullToRefresh";
 import SearchBar from "@/src/components/SearchBar";
 import { AuthContext } from "@/src/context/AuthContext";
-import { loadFriend, saveFriendProfile } from "@/src/database/db";
+import { loadFriend, saveFriendsBatch } from "@/src/database/db";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS } from "@/src/theme/colors";
 import { useTheme } from "@/src/theme/styles";
@@ -26,8 +26,19 @@ function friendChanged(prev, next) {
     return false;
 }
 
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+// Busca um amigo por completo (perfil + jogos + jogos em comum)
+async function fetchFriendData(id, myGames) {
+    const [friendProfile, games] = await Promise.all([
+        getPlayerSummary(id),
+        getOwnedGames(id),
+    ]);
+    if (!friendProfile || !games) return null;
+
+    const commonGames = myGames.filter(myGame =>
+        games.games?.some(friendGame => friendGame.appid === myGame.appid)
+    );
+
+    return { steamId: id, profile: friendProfile, games, commonGames };
 }
 
 export default function Friends({ navigation }) {
@@ -70,56 +81,76 @@ export default function Friends({ navigation }) {
         setMenu(null);
     };
 
-    // Busca progressiva dos dados frescos dos amigos (perfil + jogos + jogos em comum)
+    // Busca progressiva dos dados frescos dos amigos (perfil + jogos + jogos em comum).
+    // Busca em paralelo (poucos por vez) e atualiza a UI + persistência em lotes
+    // (reduz re-renders e I/O), espelhando o padrão da lista de jogos.
     const refreshFriends = useCallback(async (friendIds) => {
         if (cancelledRef.current) return;
         setLoading(true);
+
+        // Map steamid -> índice na lista: lookups O(1) no lugar do findIndex
+        const friendMap = new Map();
+        const friendList = [];
+        for (const f of friendsRef.current) {
+            if (!friendMap.has(f.steamid)) {
+                friendMap.set(f.steamid, friendList.length);
+                friendList.push(f);
+            }
+        }
+
+        const total = friendIds.length;
+        setProgress({ current: friendList.length, total });
+
+        const CONCURRENCY = 5; // quantos amigos são buscados ao mesmo tempo
+        const UI_BATCH = 5;    // a cada quantos amigos a lista é re-renderizada
+        let batchToSave = [];
+        let updatedAny = false;
+
         try {
-            for (let i = 0; i < friendIds.length; i++) {
-                if (cancelledRef.current) break;
-                const id = friendIds[i];
-                setProgress({ current: i + 1, total: friendIds.length });
+            for (let i = 0; i < friendIds.length; i += CONCURRENCY) {
+                if (cancelledRef.current) return;
 
-                try {
-                    const [friendProfile, games] = await Promise.all([
-                        getPlayerSummary(id),
-                        getOwnedGames(id),
-                    ]);
+                const chunk = friendIds.slice(i, i + CONCURRENCY);
+                const results = await Promise.all(chunk.map(async (id) => {
+                    try {
+                        const data = await fetchFriendData(id, myGamesRef.current);
+                        return data ? { steamid: id, ...data } : null;
+                    } catch (e) {
+                        console.warn(`[Friends] Friend ignored: ${id}`, e.message);
+                        return null;
+                    }
+                }));
+                if (cancelledRef.current) return;
 
-                    if (!friendProfile || !games) continue;
+                for (const friendData of results) {
+                    if (!friendData) continue;
+                    const idx = friendMap.get(friendData.steamid);
 
-                    const commonGames = myGamesRef.current.filter(myGame =>
-                        games.games?.some(friendGame => friendGame.appid === myGame.appid)
-                    );
-
-                    const friendData = { steamId: id, profile: friendProfile, games, commonGames };
-
-                    // Só atualiza se algo mudou (espelha o comportamento da lista de jogos)
-                    const existing = friendsRef.current.find(f => f.steamid === id);
-                    if (existing && !friendChanged(existing, friendData)) {
-                        continue; // nada de novo, pula persistência e state
+                    if (idx !== undefined) {
+                        const prev = friendList[idx];
+                        if (!friendChanged(prev, friendData)) continue;
+                        friendList[idx] = friendData;
+                    } else {
+                        friendMap.set(friendData.steamid, friendList.length);
+                        friendList.push(friendData);
                     }
 
-                    // Persist in DB
-                    await saveFriendProfile(steamId, friendData);
+                    updatedAny = true;
+                    batchToSave.push(friendData);
+                }
 
-                    // Update state progressively
-                    setFriends(prev => {
-                        const index = prev.findIndex(f => f.steamid === id);
-                        if (index !== -1) {
-                            const copy = [...prev];
-                            copy[index] = { steamid: id, ...friendData };
-                            return copy;
-                        } else {
-                            return [...prev, { steamid: id, ...friendData }];
-                        }
-                    });
+                setProgress({ current: Math.min(i + CONCURRENCY, total), total });
 
-                    await sleep(250); // throttle API calls
-                } catch (e) {
-                    console.warn(`[Friends] Friend ignored: ${id}`, e.message);
+                // Atualiza a lista e persiste em lotes, não a cada amigo
+                if (updatedAny && (batchToSave.length >= UI_BATCH || i + CONCURRENCY >= friendIds.length)) {
+                    setFriends([...friendList]);
+                    await saveFriendsBatch(steamId, batchToSave);
+                    batchToSave = [];
                 }
             }
+
+            // Garante o progresso final mesmo sem mudanças
+            setProgress({ current: total, total });
         } catch (err) {
             console.error("[Friends] Failed to refresh friends:", err);
         } finally {
@@ -139,10 +170,12 @@ export default function Friends({ navigation }) {
             setFriendListError(friendList === null);
             const friendIds = (friendList ?? []).map(f => f.steamid);
 
+            const cachedResults = await Promise.all(friendIds.map(id => loadFriend(steamId, id)));
             const cachedFriends = [];
-            for (const id of friendIds) {
-                const cached = await loadFriend(steamId, id);
+            for (let i = 0; i < friendIds.length; i++) {
+                const cached = cachedResults[i];
                 if (cached) {
+                    const id = friendIds[i];
                     cachedFriends.push({
                         steamid: id,
                         profile: cached.profile,

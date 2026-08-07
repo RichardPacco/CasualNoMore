@@ -251,6 +251,30 @@ export async function saveFriendProfile(steamId, friend) {
     }
 }
 
+// Save a batch of friend profiles into the friends table of the owner
+export async function saveFriendsBatch(steamId, friends) {
+    try {
+        const db = await openDB();
+        const tableName = await ensureTableFriends(steamId);
+
+        const insertPromises = friends.map(friend => {
+            const profileJson = friend.profile ? JSON.stringify(friend.profile) : null;
+            const gamesJson = friend.games ? JSON.stringify(friend.games) : null;
+            const commonJson = friend.commonGames ? JSON.stringify(friend.commonGames) : null;
+
+            return db.runAsync(
+                `INSERT OR REPLACE INTO ${tableName} (steamId, profile, games, commonGames) VALUES (?, ?, ?, ?)`,
+                [friend.steamId, profileJson, gamesJson, commonJson]
+            );
+        });
+
+        await Promise.all(insertPromises); // Run all inserts in parallel
+        console.log(`[db] ${friends.length} friend profiles saved`);
+    } catch (err) {
+        console.error("[db] Failed to save friends batch", err);
+    }
+}
+
 
 
 // Save full friend (profile + games) into the friends table of the owner

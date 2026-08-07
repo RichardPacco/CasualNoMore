@@ -49,9 +49,6 @@ export default function GameList({ navigation, route }) {
     // cancellation ref usado pelo refreshRecentGames (cancela no unmount)
     const cancelledRef = useRef(false);
 
-    // small helper
-    const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
-
     /**
      * Completa um jogo com toda a informação disponível:
      * schema, conquistas (com progresso) e detalhes da loja.
@@ -292,11 +289,20 @@ export default function GameList({ navigation, route }) {
             // 1️⃣ Load games from DB
             const cachedGames = await getAllGames(steamId);
             if (loadGenRef.current !== gen) return;
-            let enrichedGames = [...cachedGames];
 
-            if (cachedGames.length > 0) {
-                setGames(cachedGames);
-                setProgress({ current: cachedGames.length, total: cachedGames.length });
+            // Map appid -> índice na lista: lookups O(1) no lugar do findIndex
+            const gameMap = new Map();
+            const gamesList = [];
+            for (const g of cachedGames) {
+                if (!gameMap.has(g.appid)) {
+                    gameMap.set(g.appid, gamesList.length);
+                    gamesList.push(g);
+                }
+            }
+
+            if (gamesList.length > 0) {
+                setGames(gamesList);
+                setProgress({ current: gamesList.length, total: gamesList.length });
                 setLoading(false);
             }
 
@@ -304,12 +310,12 @@ export default function GameList({ navigation, route }) {
             const fresh = await getOwnedGames(steamId);
             if (loadGenRef.current !== gen) return;
             if (!fresh?.games) {
-                if (cachedGames.length === 0) setLoading(false);
+                if (gamesList.length === 0) setLoading(false);
                 return;
             }
 
             const total = fresh.games.length;
-            setProgress({ current: cachedGames.length, total });
+            setProgress({ current: gamesList.length, total });
 
             // Processa primeiro os jogos mais relevantes (mais jogados recentemente)
             // para que o topo da lista ganhe dados (progresso) antes do resto
@@ -323,54 +329,54 @@ export default function GameList({ navigation, route }) {
                 return (a.name || "").localeCompare(b.name || "");
             });
 
-            const cacheMap = new Map(cachedGames.map(g => [g.appid, g]));
-            const BATCH_SIZE = 5;
+            // Enriquecimento em paralelo (poucos por vez para não estourar a API)
+            // e atualização da UI + persistência em lotes (reduz re-renders e I/O).
+            const CONCURRENCY = 5;  // quantos jogos são enriquecidos ao mesmo tempo
+            const UI_BATCH = 10;    // a cada quantos jogos a lista é re-renderizada
             let batchToSave = [];
+            let updatedAny = false;
 
-            for (let i = 0; i < freshGames.length; i++) {
+            for (let i = 0; i < freshGames.length; i += CONCURRENCY) {
                 if (loadGenRef.current !== gen) return;
 
-                const baseGame = freshGames[i];
-                const cachedEntry = cacheMap.get(baseGame.appid);
-
-                const enriched = await enrichGame(baseGame, cachedEntry);
+                const chunk = freshGames.slice(i, i + CONCURRENCY);
+                const enrichedChunk = await Promise.all(chunk.map(baseGame => {
+                    const idx = gameMap.get(baseGame.appid);
+                    const cachedEntry = idx !== undefined ? gamesList[idx] : null;
+                    return enrichGame(baseGame, cachedEntry);
+                }));
                 if (loadGenRef.current !== gen) return;
 
-                const idx = enrichedGames.findIndex(g => g.appid === baseGame.appid);
-                let updated = false;
+                for (const enriched of enrichedChunk) {
+                    const idx = gameMap.get(enriched.appid);
 
-                if (idx >= 0) {
-                    const prev = enrichedGames[idx];
-                    if (prev.playtime_forever !== enriched.playtime_forever
-                        || prev.playtime_2weeks !== enriched.playtime_2weeks
-                        || !!prev.playtimeHidden !== !!enriched.playtimeHidden
-                        || prev.schemaStatus !== enriched.schemaStatus
-                        || prev.achievementsStatus !== enriched.achievementsStatus
-                        || prev.detailsStatus !== enriched.detailsStatus
-                        || prev.lang !== enriched.lang) {
-                        enrichedGames[idx] = enriched;
-                        updated = true;
+                    if (idx !== undefined) {
+                        const prev = gamesList[idx];
+                        const changed = prev.playtime_forever !== enriched.playtime_forever
+                            || prev.playtime_2weeks !== enriched.playtime_2weeks
+                            || !!prev.playtimeHidden !== !!enriched.playtimeHidden
+                            || prev.schemaStatus !== enriched.schemaStatus
+                            || prev.achievementsStatus !== enriched.achievementsStatus
+                            || prev.detailsStatus !== enriched.detailsStatus
+                            || prev.lang !== enriched.lang;
+                        if (!changed) continue;
+                        gamesList[idx] = enriched;
+                    } else {
+                        gameMap.set(enriched.appid, gamesList.length);
+                        gamesList.push(enriched);
                     }
-                } else {
-                    enrichedGames.push(enriched);
-                    updated = true;
+
+                    updatedAny = true;
+                    batchToSave.push(enriched);
                 }
 
-                if (updated) {
-                    batchToSave.push(enriched);
+                setProgress({ current: Math.min(i + CONCURRENCY, total), total });
 
-                    // Update UI immediately
-                    setGames([...enrichedGames]);
-                    setProgress({ current: enrichedGames.length, total });
-
-                    // Save batch if reached BATCH_SIZE or last item
-                    if (batchToSave.length >= BATCH_SIZE || i === freshGames.length - 1) {
-                        await saveGamesBatch(steamId, batchToSave);
-                        batchToSave = [];
-                    }
-
-                    // Optional small throttle so UI shows progress
-                    if (i < total - 1) await sleep(200);
+                // Atualiza a lista e persiste em lotes, não a cada jogo
+                if (updatedAny && (batchToSave.length >= UI_BATCH || i + CONCURRENCY >= freshGames.length)) {
+                    setGames([...gamesList]);
+                    await saveGamesBatch(steamId, batchToSave);
+                    batchToSave = [];
                 }
             }
 

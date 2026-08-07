@@ -7,7 +7,7 @@ export default ({ config }) => {
     slug: "CasualNoMore",
     version: "1.0.0",
     orientation: "portrait",
-    icon: "./assets/images/icon.png",
+    icon: "./assets/images/app_icon.png",
     scheme: "casualnomore",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
@@ -18,10 +18,10 @@ export default ({ config }) => {
       package: "com.richard.casualnomore",
       versionCode: 1,
       adaptiveIcon: {
-        foregroundImage: "./assets/images/adaptive-icon.png",
-        backgroundColor: "#ffffff",
+        foregroundImage: "./assets/images/app_icon.png",
+        backgroundColor: "#1E1E1E",
       },
-      edgeToEdgeEnabled: true,
+      edgeToEdgeEnabled: false,
     },
     web: {
       bundler: "metro",
@@ -30,13 +30,14 @@ export default ({ config }) => {
     },
     plugins: [
       "expo-router",
+      "expo-web-browser",
       [
         "expo-splash-screen",
         {
-          image: "./assets/images/splash-icon.png",
-          imageWidth: 200,
+          image: "./assets/images/app_icon.png",
+          imageWidth: 160,
           resizeMode: "contain",
-          backgroundColor: "#ffffff",
+          backgroundColor: "#030712",
         },
       ],
     ],

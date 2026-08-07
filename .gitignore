@@ -11,6 +11,8 @@ expo-env.d.ts
 
 # Native
 .kotlin/
+android/
+ios/
 *.orig.*
 *.jks
 *.p8
@@ -39,3 +41,6 @@ yarn-error.*
 app-example
 
 .env
+
+.idea/
+.vscode/

@@ -156,7 +156,7 @@ export default function GameList({ navigation, route }) {
     const refreshRecentGames = useCallback(async () => {
         if (refreshingRecent) return;
         setRefreshingRecent(true);
-        showToast(tr("gameRefreshing"), "info");
+        showToast(tr("gameRecentRefresh"), "info");
         try {
             const owned = await getOwnedGames(steamId);
             if (!owned?.games) throw new Error("no games");
@@ -173,7 +173,7 @@ export default function GameList({ navigation, route }) {
                 await forceRefreshGame(baseGame, existing);
             }
 
-            showToast(tr("gameRefreshed"), "success");
+            showToast(tr("gameRecentRefreshed"), "success");
         } catch (err) {
             console.error("[GameList] refreshRecentGames failed", err);
             showToast(tr("gameRefreshFailed"), "error");

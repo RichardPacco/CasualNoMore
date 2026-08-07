@@ -71,6 +71,8 @@ export const translations = {
     filterWithoutAchievements: { pt: "Sem Conquistas", en: "Without Achievements" },
     filterCompleted: { pt: "Completados", en: "Completed" },
     filterBacklog: { pt: "Backlog", en: "Backlog" },
+    gameRecentRefresh: { pt: "Atualizando jogos recentes...", en: "Updating most recent games..." },
+    gameRecentRefreshed: { pt: "Jogos atualizados!", en: "Recent games updated!" },
     sortRecent: { pt: "Mais recentes", en: "Most Recent" },
     sortPlaytime: { pt: "Tempo de Jogo", en: "Playtime" },
     sortName: { pt: "Nome", en: "Name" },
@@ -82,6 +84,7 @@ export const translations = {
     loadingFriends: { pt: "Carregando {current}/{total}", en: "Loading {current}/{total}" },
     filterTitle: { pt: "Filtrar", en: "Filter" },
     sortTitle: { pt: "Ordenar por", en: "Sort by" },
+
 
     // --- game card ---
     playtimeMinutes: { pt: "{minutes} minutos", en: "{minutes} minutes" },

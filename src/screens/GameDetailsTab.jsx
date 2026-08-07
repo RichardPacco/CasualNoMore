@@ -1,6 +1,6 @@
 import { getGameStoreDetails } from "@/src/api/steam";
 import { AuthContext } from "@/src/context/AuthContext";
-import { getGame, saveGame } from "@/src/database/db";
+import { getGame, parseJson, saveGame } from "@/src/database/db";
 import { getLanguageStore } from "@/src/i18n/langStore";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS } from "@/src/theme/colors";
@@ -13,7 +13,8 @@ import RenderHTML from 'react-native-render-html';
 export default function GameDetailsTab({ game }) {
     const { steamId } = useContext(AuthContext);
     const { t: tr, language } = useLanguage();
-    const [gameDetail, setGameDetail] = useState(game?.details ?? null);
+    const cachedDetails = parseJson(game?.details);
+    const [gameDetail, setGameDetail] = useState(cachedDetails);
     const { width } = useWindowDimensions();
 
     const t = useTheme();
@@ -25,12 +26,13 @@ export default function GameDetailsTab({ game }) {
 
         let cancelled = false;
         const currentLang = getLanguageStore();
-        const staleGameDetails = game.details && game.lang !== currentLang;
+        const details = parseJson(game?.details);
+        const staleGameDetails = details && game.lang !== currentLang;
 
         const loadDetails = async () => {
             // 1️⃣ Detalhes já no objeto do jogo
-            if (game.details && !staleGameDetails) {
-                setGameDetail(game.details);
+            if (details && !staleGameDetails) {
+                setGameDetail(details);
                 return;
             }
 

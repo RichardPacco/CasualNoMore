@@ -3,12 +3,12 @@ import GameCard from "@/src/components/GameCard";
 import PullToRefresh from "@/src/components/PullToRefresh";
 import RadioSheet from "@/src/components/RadioSheet";
 import { AuthContext } from "@/src/context/AuthContext";
-import { getAllGames, saveGame, saveGamesBatch } from "@/src/database/db";
+import { getAllGames, parseJson, saveGame, saveGamesBatch } from "@/src/database/db";
 import { getLanguageStore } from "@/src/i18n/langStore";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS } from "@/src/theme/colors";
 import { useTheme } from "@/src/theme/styles";
-import { fetchAndMergeAchievements } from "@/src/utils/achievements";
+import { computeProgress, fetchAndMergeAchievements, getGameCounts } from "@/src/utils/achievements";
 import { showToast } from "@/src/utils/toast";
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
@@ -60,14 +60,17 @@ export default function GameList({ navigation, route }) {
     const enrichGame = useCallback(async (baseGame, cached, force = false) => {
         const lang = getLanguageStore();
         const stale = force || (cached ? cached.lang !== lang : false);
+        const cachedSchema = parseJson(cached?.schema);
+        const cachedAchievements = parseJson(cached?.achievements);
+        const cachedDetails = parseJson(cached?.details);
 
-        let schema = stale ? null : (cached?.schema ?? null);
+        let schema = stale ? null : (cachedSchema ?? null);
         let schemaStatus = stale ? "pending" : (cached?.schemaStatus || "pending");
-        let achievements = stale ? null : (cached?.achievements ?? null);
+        let achievements = stale ? null : (cachedAchievements ?? null);
         let achievementsStatus = stale ? "pending" : (cached?.achievementsStatus || "pending");
         // Detalhes da loja: em troca de idioma ou long-press (stale/force) são
         // zerados para serem re-adquiridos sob demanda pelo GameDetailsTab.
-        let details = stale ? null : (cached?.details ?? null);
+        let details = stale ? null : (cachedDetails ?? null);
         let detailsStatus = stale ? "pending" : (cached?.detailsStatus || "pending");
 
         if (schemaStatus === "pending") {
@@ -76,7 +79,7 @@ export default function GameList({ navigation, route }) {
                 schemaStatus = "done";
             } catch (err) {
                 console.error("[GameList] Erro schema", baseGame.appid, err);
-                schema = cached?.schema ?? null;
+                schema = cachedSchema ?? null;
                 schemaStatus = "pending";
             }
         }
@@ -90,11 +93,11 @@ export default function GameList({ navigation, route }) {
                     achievementsStatus = "done";
                 } catch (err) {
                     console.error("[GameList] Erro achievements", baseGame.appid, err);
-                    achievements = cached?.achievements ?? null;
+                    achievements = cachedAchievements ?? null;
                     achievementsStatus = "pending";
                 }
             } else {
-                achievements = cached?.achievements ?? null;
+                achievements = cachedAchievements ?? null;
                 achievementsStatus = "pending";
             }
         }
@@ -105,11 +108,13 @@ export default function GameList({ navigation, route }) {
         const rawPlaytime = baseGame.playtime_forever || 0;
         const unlockedCount = (achievements || []).filter(a => a.achieved).length;
         const playtimeHidden = rawPlaytime === 0 && unlockedCount > 0;
+        const { unlocked, total } = computeProgress(achievements || []);
         return {
             ...baseGame,
             playtime_forever: rawPlaytime,
             playtime_2weeks: baseGame.playtime_2weeks || 0,
             playtimeHidden,
+            unlocked, totalAchievements: total,
             schema, schemaStatus, achievements, achievementsStatus, details, detailsStatus,
             lang,
         };
@@ -206,15 +211,15 @@ export default function GameList({ navigation, route }) {
             switch (value) {
                 case "played": return games.filter(g => g.playtime_forever > 0).length;
                 case "neverPlayed": return games.filter(g => g.playtime_forever === 0).length;
-                case "withAchievements": return games.filter(g => (g.achievements || []).length > 0).length;
-                case "withoutAchievements": return games.filter(g => (g.achievements || []).length === 0).length;
+                case "withAchievements": return games.filter(g => getGameCounts(g).total > 0).length;
+                case "withoutAchievements": return games.filter(g => getGameCounts(g).total === 0).length;
                 case "completed": return games.filter(g => {
-                    const list = g.achievements || [];
-                    return list.length > 0 && list.every(a => a.achieved);
+                    const { unlocked, total } = getGameCounts(g);
+                    return total > 0 && unlocked === total;
                 }).length;
                 case "progress": return games.filter(g => {
-                    const list = g.achievements || [];
-                    return list.length > 0 && !list.every(a => a.achieved) && list.some(a => a.achieved);
+                    const { unlocked, total } = getGameCounts(g);
+                    return total > 0 && unlocked > 0 && unlocked !== total;
                 }).length;
                 default: return games.length;
             }
@@ -231,15 +236,15 @@ export default function GameList({ navigation, route }) {
         switch (filter) {
             case "played": result = result.filter(g => g.playtime_forever > 0); break;
             case "neverPlayed": result = result.filter(g => g.playtime_forever === 0); break;
-            case "withAchievements": result = result.filter(g => (g.achievements || []).length > 0); break;
-            case "withoutAchievements": result = result.filter(g => (g.achievements || []).length === 0); break;
+            case "withAchievements": result = result.filter(g => getGameCounts(g).total > 0); break;
+            case "withoutAchievements": result = result.filter(g => getGameCounts(g).total === 0); break;
             case "completed": result = result.filter(g => {
-                const list = g.achievements || [];
-                return list.length > 0 && list.every(a => a.achieved);
+                const { unlocked, total } = getGameCounts(g);
+                return total > 0 && unlocked === total;
             }); break;
             case "progress": result = result.filter(g => {
-                const list = g.achievements || [];
-                return list.length > 0 && !list.every(a => a.achieved) && list.some(a => a.achieved);
+                const { unlocked, total } = getGameCounts(g);
+                return total > 0 && unlocked > 0 && unlocked !== total;
             }); break;
             default: break;
         }

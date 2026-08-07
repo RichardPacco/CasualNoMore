@@ -5,6 +5,7 @@ import PullToRefresh from "@/src/components/PullToRefresh";
 import { AuthContext } from "@/src/context/AuthContext";
 import { getAllGames } from "@/src/database/db";
 import { useLanguage } from "@/src/i18n/LanguageContext";
+import { getGameCounts } from "@/src/utils/achievements";
 import { COLORS } from "@/src/theme/colors";
 import { useTheme } from "@/src/theme/styles";
 import { useRouter } from "expo-router";
@@ -14,19 +15,17 @@ import { Ionicons } from "@expo/vector-icons";
 
 function computeCompletionStats(cachedGames) {
     const played = cachedGames.filter(g => {
-        const list = g.achievements || [];
-        const unlocked = list.filter(a => a.achieved).length;
+        const { unlocked } = getGameCounts(g);
         return (g.playtime_forever || 0) > 0 || unlocked > 0;
     });
 
-    const withAchievements = played.filter(g => (g.achievements || []).length > 0);
-    const perfected = withAchievements.filter(g => (g.achievements || []).every(a => a.achieved)).length;
+    const withAchievements = played.filter(g => getGameCounts(g).total > 0);
+    const perfected = withAchievements.filter(g => {
+        const { unlocked, total } = getGameCounts(g);
+        return unlocked === total;
+    }).length;
     const avgCompletion = withAchievements.length > 0
-        ? withAchievements.reduce((sum, g) => {
-            const list = g.achievements || [];
-            const unlocked = list.filter(a => a.achieved).length;
-            return sum + (unlocked / list.length) * 100;
-        }, 0) / withAchievements.length
+        ? withAchievements.reduce((sum, g) => sum + getGameCounts(g).percent, 0) / withAchievements.length
         : 0;
 
     return { perfected, avgCompletion };

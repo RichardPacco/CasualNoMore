@@ -82,3 +82,32 @@ export function computeProgress(achievements) {
     const percent = total > 0 ? (unlocked / total) * 100 : 0;
     return { unlocked, total, percent };
 }
+
+/**
+ * Progress info de um jogo usando os contadores pré-computados no cache
+ * (unlocked/totalAchievements). Se o jogo ainda não foi re-salvo, cai no
+ * fallback que percorre o array de conquistas.
+ */
+export function getGameCounts(game) {
+    const total = game?.totalAchievements;
+    const unlocked = game?.unlocked;
+    if (total != null && unlocked != null) {
+        const percent = total > 0 ? (unlocked / total) * 100 : 0;
+        return { unlocked, total, percent };
+    }
+
+    // Fallback para jogos antigos sem contadores: parseia o array salvo
+    let achievements = game?.achievements;
+    if (typeof achievements === "string") {
+        try {
+            achievements = JSON.parse(achievements);
+        } catch {
+            achievements = null;
+        }
+    }
+    if (!Array.isArray(achievements)) achievements = [];
+    const totalFallback = total ?? achievements.length;
+    const unlockedFallback = unlocked ?? achievements.filter(a => a.achieved).length;
+    const percent = totalFallback > 0 ? (unlockedFallback / totalFallback) * 100 : 0;
+    return { unlocked: unlockedFallback, total: totalFallback, percent };
+}

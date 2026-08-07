@@ -1,9 +1,10 @@
 import { GetSchemaForGame } from "@/src/api/steam";
 import { AuthContext } from "@/src/context/AuthContext";
+import { parseJson } from "@/src/database/db";
 import { getLanguageStore } from "@/src/i18n/langStore";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { computeProgress, fetchAndMergeAchievements } from "@/src/utils/achievements";
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 
 export default function useAchievements(game) {
     const { steamId } = useContext(AuthContext);
@@ -11,8 +12,8 @@ export default function useAchievements(game) {
 
     const appid = game?.appid;
     const gameName = game?.name;
-    const gameSchema = game?.schema;
-    const cachedAchievements = game?.achievements;
+    const gameSchema = useMemo(() => parseJson(game?.schema), [game?.schema]);
+    const cachedAchievements = useMemo(() => parseJson(game?.achievements), [game?.achievements]);
     const stale = cachedAchievements && game?.lang !== getLanguageStore();
 
     const [mergedCheevos, setMergedCheevos] = useState(!stale ? (cachedAchievements || []) : []);

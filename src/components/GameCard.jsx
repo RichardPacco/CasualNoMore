@@ -1,4 +1,4 @@
-import { computeProgress } from "@/src/utils/achievements";
+import { getGameCounts } from "@/src/utils/achievements";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { memo, useEffect, useState } from "react";
 import { Image, Text, TouchableOpacity, View } from "react-native";
@@ -15,7 +15,7 @@ function GameCardComponent({ game, navigation, onLongPress }) {
         setImgFailed(false);
     }, [game.appid]);
 
-    const { unlocked, total, percent } = computeProgress(game.achievements);
+    const { unlocked, total, percent } = getGameCounts(game);
 
     const playtimeText = game.playtimeHidden
         ? tr("playtimeHidden")

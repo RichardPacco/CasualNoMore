@@ -60,7 +60,7 @@ export default function CommonGames({ route, navigation }) {
             <FlashList
                 data={filteredGames}
                 keyExtractor={(item) => item.appid.toString()}
-                estimatedItemSize={112}
+                maintainVisibleContentPosition={{ disabled: true }}
                 contentContainerStyle={{ paddingTop: 12, paddingBottom: 70 }}
                 renderItem={({ item }) => (
                     <View className={`${t.cardBg} p-2 rounded-xl flex-row items-center mb-4`}>

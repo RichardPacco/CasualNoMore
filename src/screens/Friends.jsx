@@ -224,7 +224,7 @@ export default function Friends({ navigation }) {
                     <FlashList
                         data={filteredFriends}
                         keyExtractor={(item) => item.steamid}
-                        estimatedItemSize={80}
+                        maintainVisibleContentPosition={{ disabled: true }}
                         contentContainerStyle={{ paddingBottom: 70 }}
                         ListHeaderComponent={
                             !refreshing && progress.current < progress.total && (

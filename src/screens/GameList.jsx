@@ -459,7 +459,7 @@ export default function GameList({ navigation, route }) {
                     data={recentBlock ? recentBlock.rest : filteredGames}
                     keyExtractor={(item) => item.appid.toString()}
                     renderItem={renderGameCard}
-                    estimatedItemSize={130}
+                    maintainVisibleContentPosition={{ disabled: true }}
                     contentContainerStyle={{ paddingTop: 12, paddingBottom: 70 }}
                     onScroll={(e) => {
                         setShowTopButton(e.nativeEvent.contentOffset.y > 400);

@@ -316,7 +316,7 @@ export default function AchievementsTab({ game }) {
                         data={filteredCheevos}
                         keyExtractor={(item) => item.apiname}
                         renderItem={renderCard}
-                        estimatedItemSize={130}
+                        maintainVisibleContentPosition={{ disabled: true }}
                         contentContainerStyle={{ paddingHorizontal: 0, paddingBottom: 70 }}
                         onScroll={(e) => {
                             setShowTopButton(e.nativeEvent.contentOffset.y > 400);

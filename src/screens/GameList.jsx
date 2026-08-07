@@ -460,6 +460,7 @@ export default function GameList({ navigation, route }) {
 
             <PullToRefresh refreshing={refreshing} onRefresh={onRefresh} enabled={progress.current >= progress.total}>
                 <FlashList
+                    key={`${filter}-${sort}-${debouncedQuery}-${!!recentBlock}`}
                     ref={listRef}
                     data={recentBlock ? recentBlock.rest : filteredGames}
                     keyExtractor={(item) => item.appid.toString()}

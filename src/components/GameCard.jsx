@@ -28,10 +28,11 @@ function GameCardComponent({ game, navigation, onLongPress }) {
 
     return (
         <TouchableOpacity
-            className={`${t.cardBg} p-2 rounded-xl flex-row items-center mb-4`}
+            className={`${t.cardBg} p-2 rounded-xl flex-row items-center mb-3`}
             onPress={() => navigation.navigate("GameScreen", { game })}
             onLongPress={onLongPress ? () => onLongPress(game) : undefined}
             delayLongPress={400}
+            style={{ minHeight: 90 }}
         >
             <Image
                 source={stage >= 2

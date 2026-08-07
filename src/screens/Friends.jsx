@@ -8,7 +8,7 @@ import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS } from "@/src/theme/colors";
 import { useTheme } from "@/src/theme/styles";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Image, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, Text, Touchable, TouchableOpacity, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 
 function gamesSignature(games) {
@@ -270,7 +270,7 @@ export default function Friends({ navigation }) {
                             )
                         }
                         renderItem={({ item }) => (
-                            <Pressable
+                            <TouchableOpacity
                                 onPress={(e) => openContextMenu(e, item)}
                                 className={`flex-row items-center ${friendCardBg} ${friendCardBorder} border rounded-xl p-3 mb-2`}
                             >
@@ -289,7 +289,7 @@ export default function Friends({ navigation }) {
                                         {tr("profileCommonGamesCount", { count: item.commonGames?.length ?? 0 })}
                                     </Text>
                                 </View>
-                            </Pressable>
+                            </TouchableOpacity>
                         )}
                         ListEmptyComponent={
                             !loading && (

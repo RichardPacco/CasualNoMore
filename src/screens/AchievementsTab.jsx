@@ -7,10 +7,11 @@ import { COLORS } from "@/src/theme/colors";
 import { useTheme } from "@/src/theme/styles";
 import { formatDateTime } from "@/src/utils/formatDate";
 import { Ionicons } from "@expo/vector-icons";
+import { FlashList } from "@shopify/flash-list";
 import { LinearGradient } from "expo-linear-gradient";
 import * as WebBrowser from "expo-web-browser";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Dimensions, FlatList, Image, Keyboard, Text, TouchableOpacity, useColorScheme, View } from "react-native";
+import { ActivityIndicator, Animated, Dimensions, Image, Keyboard, Text, TouchableOpacity, useColorScheme, View } from "react-native";
 
 const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
 
@@ -310,14 +311,13 @@ export default function AchievementsTab({ game }) {
                         }}
                     />
 
-                    <FlatList
+                    <FlashList
                         ref={listRef}
                         data={filteredCheevos}
                         keyExtractor={(item) => item.apiname}
-                        contentContainerStyle={{ paddingHorizontal: 0, paddingBottom: 70 }}
                         renderItem={renderCard}
-                        initialNumToRender={10}
-                        windowSize={5}
+                        estimatedItemSize={130}
+                        contentContainerStyle={{ paddingHorizontal: 0, paddingBottom: 70 }}
                         onScroll={(e) => {
                             setShowTopButton(e.nativeEvent.contentOffset.y > 400);
                         }}

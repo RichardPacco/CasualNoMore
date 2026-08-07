@@ -8,7 +8,8 @@ import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS } from "@/src/theme/colors";
 import { useTheme } from "@/src/theme/styles";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, Text, View } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 
 function gamesSignature(games) {
     return (games?.games ?? [])
@@ -220,9 +221,10 @@ export default function Friends({ navigation }) {
                 </View>
             ) : (
                 <PullToRefresh refreshing={refreshing} onRefresh={onRefresh} enabled={progress.current >= progress.total}>
-                    <FlatList
+                    <FlashList
                         data={filteredFriends}
                         keyExtractor={(item) => item.steamid}
+                        estimatedItemSize={80}
                         contentContainerStyle={{ paddingBottom: 70 }}
                         ListHeaderComponent={
                             !refreshing && progress.current < progress.total && (

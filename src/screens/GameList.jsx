@@ -11,8 +11,9 @@ import { useTheme } from "@/src/theme/styles";
 import { fetchAndMergeAchievements } from "@/src/utils/achievements";
 import { showToast } from "@/src/utils/toast";
 import { Ionicons } from "@expo/vector-icons";
+import { FlashList } from "@shopify/flash-list";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Keyboard, Text, TouchableOpacity, useColorScheme, View } from "react-native";
+import { ActivityIndicator, Keyboard, Text, TouchableOpacity, useColorScheme, View } from "react-native";
 import SearchBar from "@/src/components/SearchBar";
 
 export default function GameList({ navigation, route }) {
@@ -453,13 +454,12 @@ export default function GameList({ navigation, route }) {
             />
 
             <PullToRefresh refreshing={refreshing} onRefresh={onRefresh} enabled={progress.current >= progress.total}>
-                <FlatList
+                <FlashList
                     ref={listRef}
                     data={recentBlock ? recentBlock.rest : filteredGames}
                     keyExtractor={(item) => item.appid.toString()}
                     renderItem={renderGameCard}
-                    initialNumToRender={10}
-                    windowSize={5}
+                    estimatedItemSize={130}
                     contentContainerStyle={{ paddingTop: 12, paddingBottom: 70 }}
                     onScroll={(e) => {
                         setShowTopButton(e.nativeEvent.contentOffset.y > 400);

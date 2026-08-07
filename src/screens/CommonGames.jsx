@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
+import { FlashList } from "@shopify/flash-list";
 import { useState } from "react";
-import { FlatList, Image, Text, TouchableOpacity, View } from "react-native";
+import { Image, Text, TouchableOpacity, View } from "react-native";
 import SearchBar from "@/src/components/SearchBar";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { useTheme } from "@/src/theme/styles";
@@ -56,9 +57,10 @@ export default function CommonGames({ route, navigation }) {
                 placeholder={tr("searchGamesPlaceholder")}
             />
 
-            <FlatList
+            <FlashList
                 data={filteredGames}
                 keyExtractor={(item) => item.appid.toString()}
+                estimatedItemSize={112}
                 contentContainerStyle={{ paddingTop: 12, paddingBottom: 70 }}
                 renderItem={({ item }) => (
                     <View className={`${t.cardBg} p-2 rounded-xl flex-row items-center mb-4`}>

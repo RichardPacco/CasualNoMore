@@ -1,6 +1,7 @@
 import { getGameStoreDetails } from "@/src/api/steam";
 import { AuthContext } from "@/src/context/AuthContext";
 import { getGame, parseJson, saveGame } from "@/src/database/db";
+import { useImageCdnFallback } from "@/src/hooks/useImageCdnFallback";
 import { getLanguageStore } from "@/src/i18n/langStore";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS } from "@/src/theme/colors";
@@ -8,6 +9,7 @@ import { useTheme } from "@/src/theme/styles";
 import { useContext, useEffect, useState } from 'react';
 import { Image, Linking, ScrollView, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import RenderHTML from 'react-native-render-html';
+import { headerUri } from "@/src/utils/cdn";
 
 
 export default function GameDetailsTab({ game }) {
@@ -20,6 +22,8 @@ export default function GameDetailsTab({ game }) {
     const t = useTheme();
 
     const [showFull, setShowFull] = useState(false);
+
+    const { stage, onError } = useImageCdnFallback(game?.appid);
 
     useEffect(() => {
         if (!game) return;
@@ -78,7 +82,8 @@ export default function GameDetailsTab({ game }) {
                 <TouchableOpacity onPress={openSteamPage}>
 
                     <Image
-                        source={{ uri: `https://steamcdn-a.akamaihd.net/steam/apps/${game.appid}/header.jpg` }}
+                        source={{ uri: headerUri(game.appid, stage === 1) }}
+                        onError={onError}
                         style={{
                             width: "100%",
                             aspectRatio: 460 / 215,

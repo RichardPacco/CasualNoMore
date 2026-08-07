@@ -1,11 +1,10 @@
 import { GetGlobalAchievementsPercentagesForApp, getGameAchievements, getPlayerAchievements } from "@/src/api/steam";
-
-const ICON_CDN = "https://shared.fastly.steamstatic.com/community_assets/images/apps/";
+import { achievementIconUri } from "@/src/utils/cdn";
 
 function iconUrl(uri, appid) {
     if (!uri || !appid) return uri;
     const filename = uri.split("/").pop();
-    return `${ICON_CDN}${appid}/${filename}`;
+    return achievementIconUri(appid, filename);
 }
 
 /**

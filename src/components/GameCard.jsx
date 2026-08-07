@@ -1,6 +1,8 @@
 import { getGameCounts } from "@/src/utils/achievements";
+import { capsuleUri } from "@/src/utils/cdn";
 import { useLanguage } from "@/src/i18n/LanguageContext";
-import { memo, useEffect, useState } from "react";
+import { useImageCdnFallback } from "@/src/hooks/useImageCdnFallback";
+import { memo } from "react";
 import { Image, Text, TouchableOpacity, View } from "react-native";
 import { useTheme } from "@/src/theme/styles";
 
@@ -9,11 +11,7 @@ const placeholderImage = require("../../assets/images/placeholder_gamelist.jpg")
 function GameCardComponent({ game, navigation, onLongPress }) {
     const t = useTheme();
     const { t: tr } = useLanguage();
-    const [imgFailed, setImgFailed] = useState(false);
-
-    useEffect(() => {
-        setImgFailed(false);
-    }, [game.appid]);
+    const { stage, onError } = useImageCdnFallback(game.appid);
 
     const { unlocked, total, percent } = getGameCounts(game);
 
@@ -36,12 +34,10 @@ function GameCardComponent({ game, navigation, onLongPress }) {
             delayLongPress={400}
         >
             <Image
-                source={imgFailed
+                source={stage >= 2
                     ? placeholderImage
-                    : {
-                        uri: `https://steamcdn-a.akamaihd.net/steam/apps/${game.appid}/capsule_231x87.jpg`,
-                    }}
-                onError={() => setImgFailed(true)}
+                    : { uri: capsuleUri(game.appid, stage === 1) }}
+                onError={onError}
                 className="w-40 h-20 rounded-md"
                 style={{ aspectRatio: 231 / 87 }}
                 resizeMode="cover"

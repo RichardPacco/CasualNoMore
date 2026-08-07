@@ -5,6 +5,7 @@ import useAchievements from "@/src/hooks/useAchievements";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS } from "@/src/theme/colors";
 import { useTheme } from "@/src/theme/styles";
+import { achievementIconUri } from "@/src/utils/cdn";
 import { formatDateTime } from "@/src/utils/formatDate";
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
@@ -29,12 +30,10 @@ function rarityColor(percent) {
     return COLORS.rarityPearlescent;                     // perolescente
 }
 
-const FALLBACK_ICON_CDN = "https://shared.fastly.steamstatic.com/community_assets/images/apps/";
-
 function iconFallbackUri(uri, appid) {
     if (!uri || !appid) return uri;
     const filename = uri.split("/").pop();
-    return `${FALLBACK_ICON_CDN}${appid}/${filename}`;
+    return achievementIconUri(appid, filename, true);
 }
 
 function AchievementCardComponent({ item, game, onOpenMenu }) {

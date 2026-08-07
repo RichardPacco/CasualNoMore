@@ -5,6 +5,9 @@ let dbInstance = null;
 // Tabelas já garantidas nesta sessão, para não recriar a cada acesso
 const createdTables = new Set();
 
+// Promises de criação em andamento, para não disparar CREATE TABLE em paralelo
+const tableCreationPromises = new Map();
+
 // Serializa para JSON sem duplicar strings já serializadas
 function toJson(value) {
     if (value === null || value === undefined) return null;
@@ -38,10 +41,12 @@ export async function openDB() {
 export async function ensureTable(steamId) {
     const tableName = `games_${steamId}`;
     if (createdTables.has(tableName)) return tableName;
+    if (tableCreationPromises.has(tableName)) return tableCreationPromises.get(tableName);
 
-    const db = await openDB();
-    console.log(`[db] Criando tabela se não existir: ${tableName}`);
-    await db.execAsync(`
+    const promise = (async () => {
+        const db = await openDB();
+        console.log(`[db] Criando tabela se não existir: ${tableName}`);
+        await db.execAsync(`
     CREATE TABLE IF NOT EXISTS ${tableName} (
       appid INTEGER PRIMARY KEY NOT NULL,
       name TEXT,
@@ -59,17 +64,24 @@ export async function ensureTable(steamId) {
       totalAchievements INTEGER
     );
   `);
-    createdTables.add(tableName);
-    return tableName;
+        createdTables.add(tableName);
+        tableCreationPromises.delete(tableName);
+        return tableName;
+    })();
+
+    tableCreationPromises.set(tableName, promise);
+    return promise;
 }
 
 export async function ensureTableFriends(steamId) {
     const tableName = `friends_${steamId}`;
     if (createdTables.has(tableName)) return tableName;
+    if (tableCreationPromises.has(tableName)) return tableCreationPromises.get(tableName);
 
-    const db = await openDB();
-    console.log(`[db] Criando tabela se não existir: ${tableName}`);
-    await db.execAsync(`
+    const promise = (async () => {
+        const db = await openDB();
+        console.log(`[db] Criando tabela se não existir: ${tableName}`);
+        await db.execAsync(`
         CREATE TABLE IF NOT EXISTS ${tableName} (
             steamId INTEGER PRIMARY KEY NOT NULL,
             profile TEXT,
@@ -77,8 +89,13 @@ export async function ensureTableFriends(steamId) {
             commonGames TEXT
         );
     `);
-    createdTables.add(tableName);
-    return tableName;
+        createdTables.add(tableName);
+        tableCreationPromises.delete(tableName);
+        return tableName;
+    })();
+
+    tableCreationPromises.set(tableName, promise);
+    return promise;
 }
 
 
@@ -222,6 +239,7 @@ export async function clearDB() {
         }
 
         createdTables.clear(); // as tabelas foram dropadas, precisam ser recriadas
+        tableCreationPromises.clear();
         console.log("[db] Banco de dados limpo!");
     } catch (err) {
         console.error("[db] Erro ao limpar DB", err);

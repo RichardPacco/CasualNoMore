@@ -3,8 +3,32 @@ import { FlashList } from "@shopify/flash-list";
 import { useState } from "react";
 import { Image, Text, TouchableOpacity, View } from "react-native";
 import SearchBar from "@/src/components/SearchBar";
+import { useImageCdnFallback } from "@/src/hooks/useImageCdnFallback";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { useTheme } from "@/src/theme/styles";
+import { capsuleUri } from "@/src/utils/cdn";
+
+function GameRow({ item, t }) {
+    const { stage, onError } = useImageCdnFallback(item.appid);
+
+    return (
+        <View className={`${t.cardBg} p-2 rounded-xl flex-row items-center mb-4`}>
+            <Image
+                source={{ uri: capsuleUri(item.appid, stage === 1) }}
+                onError={onError}
+                className="w-40 h-20 rounded-md"
+                style={{ aspectRatio: 231 / 87 }}
+                resizeMode="cover"
+            />
+
+            <View className="ml-4 flex-1">
+                <Text className={`${t.textPrimary} text-lg font-bold`} numberOfLines={1}>
+                    {item.name}
+                </Text>
+            </View>
+        </View>
+    );
+}
 
 export default function CommonGames({ route, navigation }) {
     const { friend, mode = "common" } = route.params;
@@ -62,24 +86,7 @@ export default function CommonGames({ route, navigation }) {
                 keyExtractor={(item) => item.appid.toString()}
                 maintainVisibleContentPosition={{ disabled: true }}
                 contentContainerStyle={{ paddingTop: 12, paddingBottom: 70 }}
-                renderItem={({ item }) => (
-                    <View className={`${t.cardBg} p-2 rounded-xl flex-row items-center mb-4`}>
-                        <Image
-                            source={{
-                                uri: `https://steamcdn-a.akamaihd.net/steam/apps/${item.appid}/capsule_231x87.jpg`,
-                            }}
-                            className="w-40 h-20 rounded-md"
-                            style={{ aspectRatio: 231 / 87 }}
-                            resizeMode="cover"
-                        />
-
-                        <View className="ml-4 flex-1">
-                            <Text className={`${t.textPrimary} text-lg font-bold`} numberOfLines={1}>
-                                {item.name}
-                            </Text>
-                        </View>
-                    </View>
-                )}
+                renderItem={({ item }) => <GameRow item={item} t={t} />}
                 ListEmptyComponent={
                     <Text className={`${t.textSecondary} text-center mt-8`}>
                         {isAll ? tr("noGames") : tr("noCommonGames")}

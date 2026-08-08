@@ -151,19 +151,20 @@ export default function GameList({ navigation, route }) {
 
     /**
      * Atualiza por completo apenas os jogos jogados nas últimas 2 semanas
-     * (playtime_2weeks > 0) — botão de refresh recentes.
+     * (playtime_2weeks > 0) — botão de refresh recentes. `silent` sem toasts
+     * (disparo automático ao abrir a lista).
      */
-    const refreshRecentGames = useCallback(async () => {
+    const refreshRecentGames = useCallback(async (silent = false) => {
         if (refreshingRecent) return;
         setRefreshingRecent(true);
-        showToast(tr("gameRecentRefresh"), "info");
+        if (!silent) showToast(tr("gameRecentRefresh"), "info");
         try {
             const owned = await getOwnedGames(steamId);
             if (!owned?.games) throw new Error("no games");
 
             const recent = owned.games.filter(g => (g.playtime_2weeks || 0) > 0);
             if (recent.length === 0) {
-                showToast(tr("noRecentGames"), "info");
+                if (!silent) showToast(tr("noRecentGames"), "info");
                 return;
             }
 
@@ -173,10 +174,10 @@ export default function GameList({ navigation, route }) {
                 await forceRefreshGame(baseGame, existing);
             }
 
-            showToast(tr("gameRecentRefreshed"), "success");
+            if (!silent) showToast(tr("gameRecentRefreshed"), "success");
         } catch (err) {
             console.error("[GameList] refreshRecentGames failed", err);
-            showToast(tr("gameRefreshFailed"), "error");
+            if (!silent) showToast(tr("gameRefreshFailed"), "error");
         } finally {
             setRefreshingRecent(false);
         }
@@ -184,6 +185,11 @@ export default function GameList({ navigation, route }) {
 
     // jogo "recente" = jogado nas últimas 2 semanas
     const isRecentGame = useCallback((g) => (g.playtime_2weeks || 0) > 0, []);
+
+    // Ref para disparar o refresh de recentes ao abrir a lista sem re-renderizar
+    // o useEffect (a identidade de refreshRecentGames muda com refreshingRecent/games).
+    const refreshRecentRef = useRef(null);
+    refreshRecentRef.current = refreshRecentGames;
 
     const renderGameCard = useCallback(
         ({ item }) => <GameCard game={item} navigation={navigation} onLongPress={refreshSingleGame} />,
@@ -409,6 +415,9 @@ export default function GameList({ navigation, route }) {
     useEffect(() => {
         if (!steamId) return;
         loadGames();
+        // Sempre que a lista abre, força refresh completo dos jogos recentes
+        // (playtime_2weeks > 0), independente de ter mudado algo.
+        refreshRecentRef.current?.(true);
         return () => {
             // Cancela a carga em andamento (troca de idioma ou unmount):
             // a execução antiga detecta a geração nova e para de escrever.

@@ -1,5 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as WebBrowser from "expo-web-browser";
 import { getPlayerSummary, resolveVanityURL } from "@/src/api/steam";
+import { loadApiKey, saveApiKeyStore } from "@/src/config/apiKeyStore";
 import LanguageSelector from "@/src/components/LanguageSelector";
 import ClearDbModal from "@/src/components/ClearDbModal";
 import RemoveAccountModal from "@/src/components/RemoveAccountModal";
@@ -10,7 +12,7 @@ import { showToast } from "@/src/utils/toast";
 import { COLORS } from "@/src/theme/colors";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Image, ImageBackground, SafeAreaView, StatusBar, Text, TouchableOpacity, View } from "react-native";
 import { TextInput } from "react-native-paper";
 
@@ -23,9 +25,43 @@ export default function Login() {
     const { t } = useLanguage();
 
     const [input, setInput] = useState("");
+    const [apiKey, setApiKey] = useState("");
+    const [keyInput, setKeyInput] = useState("");
+    const [showApiKey, setShowApiKey] = useState(false);
     const [loading, setLoading] = useState(false);
     const [confirmVisible, setConfirmVisible] = useState(false);
     const [accountToRemove, setAccountToRemove] = useState(null);
+
+    useEffect(() => {
+        (async () => {
+            const stored = await loadApiKey();
+            if (stored) {
+                setApiKey(stored);
+                setKeyInput(stored);
+            }
+        })();
+    }, []);
+
+    const openApiKeyPage = () => {
+        WebBrowser.openBrowserAsync("https://steamcommunity.com/dev/apikey");
+    };
+
+    const handleApiKeyChange = async (text) => {
+        setKeyInput(text);
+        const trimmed = text.trim();
+        if (/^[0-9A-Fa-f]{32}$/.test(trimmed)) {
+            await saveApiKeyStore(trimmed);
+            setApiKey(trimmed);
+            showToast(t("loginApiKeySaved"), "success");
+        }
+    };
+
+    const removeSavedApiKey = async () => {
+        await saveApiKeyStore("");
+        setApiKey("");
+        setKeyInput("");
+        showToast(t("loginApiKeyRemoved"), "info");
+    };
 
     const handleClearCache = async () => {
         try {
@@ -89,6 +125,11 @@ export default function Login() {
     };
 
     const handleQuickLogin = async (account) => {
+        if (!apiKey) {
+            showToast(t("loginApiKeyMissing"), "warning");
+            return;
+        }
+
         setLoading(true);
         await addSavedAccount(account);
         await setSteamId(account.steamId);
@@ -113,12 +154,18 @@ export default function Login() {
 
 
     const handleSubmit = async () => {
+        if (!apiKey) {
+            showToast(t("loginApiKeyMissing"), "warning");
+            return;
+        }
+
         if (!input.trim()) {
             showToast(t("loginEmptyInput"), "warning");
             return;
         }
 
         setLoading(true);
+
         console.log("[Login] submit:", input);
 
         const numeric = input.replace(/\s+/g, "");
@@ -245,36 +292,104 @@ export default function Login() {
                             </Text>
                         </View>
 
-                        {/* Input + submit arrow */}
+                        {/* API Key */}
                         <View className="mb-3">
-                            <TextInput
-                                label={t("loginSteamIdLabel")}
-                                value={input}
-                                onChangeText={setInput}
-                                mode="outlined"
-                                style={{ backgroundColor: "#222" }}
-                                theme={{
-                                    colors: {
-                                        primary: COLORS.accent,  // label / focus color
-                                    },
-                                }}
-                                textColor="#fff"
-                                onSubmitEditing={handleSubmit}
-                                right={
-                                    <TextInput.Icon
-                                        icon={() =>
-                                            loading ? (
-                                                <ActivityIndicator size="small" color={COLORS.accent} />
-                                            ) : (
-                                                <Ionicons name="arrow-forward" size={22} color={COLORS.accent} />
-                                            )
+                            {apiKey ? (
+                                <View className="bg-[#1e1e1e]/90 p-3 rounded-md border border-accent/40 flex-row items-center justify-between">
+                                    <View className="flex-row items-center gap-2 flex-1">
+                                        <Ionicons name="key" size={18} color={COLORS.accent} />
+                                        <Text className="text-white text-xs font-semibold" numberOfLines={1}>
+                                            {t("loginApiKeySavedLabel")}
+                                        </Text>
+                                    </View>
+                                    <TouchableOpacity
+                                        onPress={removeSavedApiKey}
+                                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                        className="flex-row items-center gap-1"
+                                    >
+                                        <Ionicons name="trash-outline" size={16} color={COLORS.danger} />
+                                        <Text className="text-danger text-xs font-medium">{t("loginRemoveApiKey")}</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            ) : (
+                                <>
+                                    <View className="flex-row justify-between items-center mb-1">
+                                        <Text className="text-gray-400 text-xs font-semibold">
+                                            {t("loginApiKeyLabel")}
+                                        </Text>
+                                        <TouchableOpacity
+                                            onPress={openApiKeyPage}
+                                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                            className="flex-row items-center gap-1"
+                                        >
+                                            <Ionicons name="key-outline" size={14} color={COLORS.accent} />
+                                            <Text className="text-accent text-xs font-medium">{t("loginGetApiKey")}</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                    <TextInput
+                                        label={t("loginApiKeyLabel")}
+                                        value={keyInput}
+                                        onChangeText={handleApiKeyChange}
+                                        mode="outlined"
+                                        secureTextEntry={!showApiKey}
+                                        autoCapitalize="none"
+                                        autoCorrect={false}
+                                        style={{ backgroundColor: "#222" }}
+                                        theme={{
+                                            colors: {
+                                                primary: COLORS.accent,  // label / focus color
+                                            },
+                                        }}
+                                        textColor="#fff"
+                                        right={
+                                            <TextInput.Icon
+                                                icon={() => (
+                                                    <Ionicons
+                                                        name={showApiKey ? "eye-off-outline" : "eye-outline"}
+                                                        size={20}
+                                                        color="#9ca3af"
+                                                    />
+                                                )}
+                                                onPress={() => setShowApiKey(v => !v)}
+                                            />
                                         }
-                                        onPress={handleSubmit}
-                                        disabled={loading}
                                     />
-                                }
-                            />
+                                </>
+                            )}
                         </View>
+
+                        {/* Input + submit arrow */}
+                        {apiKey && (
+                            <View className="mb-3">
+                                <TextInput
+                                    label={t("loginSteamIdLabel")}
+                                    value={input}
+                                    onChangeText={setInput}
+                                    mode="outlined"
+                                    style={{ backgroundColor: "#222" }}
+                                    theme={{
+                                        colors: {
+                                            primary: COLORS.accent,  // label / focus color
+                                        },
+                                    }}
+                                    textColor="#fff"
+                                    onSubmitEditing={handleSubmit}
+                                    right={
+                                        <TextInput.Icon
+                                            icon={() =>
+                                                loading ? (
+                                                    <ActivityIndicator size="small" color={COLORS.accent} />
+                                                ) : (
+                                                    <Ionicons name="arrow-forward" size={22} color={COLORS.accent} />
+                                                )
+                                            }
+                                            onPress={handleSubmit}
+                                            disabled={loading}
+                                        />
+                                    }
+                                />
+                            </View>
+                        )}
                     </View>
                 </View>
             </ImageBackground>

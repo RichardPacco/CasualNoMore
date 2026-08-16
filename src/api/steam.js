@@ -1,6 +1,14 @@
-import config from "@/src/config/config";
+import { getApiKeyStore } from "@/src/config/apiKeyStore";
 import { steamLangCode } from "@/src/i18n/langStore";
 const BASE_URL = "https://api.steampowered.com";
+
+function getApiKey() {
+    const key = getApiKeyStore();
+    if (!key) {
+        throw new Error("API key da Steam não configurada — informe sua chave na tela de login");
+    }
+    return key;
+}
 
 async function fetchJson(url) {
     const res = await fetch(url);
@@ -23,7 +31,7 @@ export async function GetSchemaForGame(appId, steamId, lang = steamLangCode()) {
     if (!steamId) throw new Error("GetSchemaForGame: steamId é obrigatório");
 
     const url = `${BASE_URL}/ISteamUserStats/GetSchemaForGame/v2/?key=${encodeURIComponent(
-        config.apiKey
+        getApiKey()
     )}&appid=${encodeURIComponent(
         appId
     )}&l=${encodeURIComponent(lang)}&format=json`
@@ -34,7 +42,7 @@ export async function GetSchemaForGame(appId, steamId, lang = steamLangCode()) {
 export async function resolveVanityURL(vanity) {
     if (!vanity) return null;
     const url = `${BASE_URL}/ISteamUser/ResolveVanityURL/v1/?key=${encodeURIComponent(
-        config.apiKey
+        getApiKey()
     )}&vanityurl=${encodeURIComponent(vanity)}`;
     const json = await fetchJson(url);
     return json?.response ?? null; // { success, steamid, message }
@@ -43,7 +51,7 @@ export async function resolveVanityURL(vanity) {
 export async function getPlayerSummary(steamId) {
     if (!steamId) throw new Error("getPlayerSummary: steamId é obrigatório");
     const url = `${BASE_URL}/ISteamUser/GetPlayerSummaries/v0002/?key=${encodeURIComponent(
-        config.apiKey
+        getApiKey()
     )}&steamids=${encodeURIComponent(steamId)}`;
     const json = await fetchJson(url);
     return json?.response?.players?.[0] ?? null;
@@ -53,7 +61,7 @@ export async function getOwnedGames(steamId) {
     if (!steamId) throw new Error("getOwnedGames: steamId é obrigatório");
 
     const url = `${BASE_URL}/IPlayerService/GetOwnedGames/v0001/?key=${encodeURIComponent(
-        config.apiKey
+        getApiKey()
     )}&steamid=${encodeURIComponent(
         steamId
     )}&include_appinfo=1&include_played_free_games=1&format=json`;
@@ -80,7 +88,7 @@ export async function getPlayerAchievements(appId, steamId, lang = steamLangCode
     if (!steamId) throw new Error("getPlayerAchievements: steamId é obrigatório");
     const url = `${BASE_URL}/ISteamUserStats/GetPlayerAchievements/v0001/?appid=${encodeURIComponent(
         appId
-    )}&key=${encodeURIComponent(config.apiKey)}&steamid=${encodeURIComponent(
+    )}&key=${encodeURIComponent(getApiKey())}&steamid=${encodeURIComponent(
         steamId
     )}&l=${encodeURIComponent(lang)}`;
     const json = await fetchJson(url);
@@ -112,7 +120,7 @@ export async function getGameStoreDetails(appId) {
 export async function getFriendList(steamId, relationship = "all") {
     if (!steamId) throw new Error("getFriendlist: steamId é obrigatório");
     const url = `${BASE_URL}/ISteamUser/GetFriendList/v1/?key=${encodeURIComponent(
-        config.apiKey
+        getApiKey()
     )}&steamid=${encodeURIComponent(
         steamId
     )}&relationship=${encodeURIComponent(relationship)}`

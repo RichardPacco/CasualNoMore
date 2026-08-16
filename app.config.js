@@ -1,5 +1,3 @@
-import 'dotenv/config';
-
 export default ({ config }) => {
   return {
     ...config,
@@ -45,8 +43,6 @@ export default ({ config }) => {
       typedRoutes: true,
     },
     extra: {
-      STEAM_ID: process.env.EXPO_STEAM_ID ?? "dev-steamid",
-      API_KEY: process.env.EXPO_API_KEY ?? "dev-key",
       eas: {
         projectId: "895beb33-b8f7-4b89-87fa-2e967f04b60d",
       },

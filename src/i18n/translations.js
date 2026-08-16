@@ -30,6 +30,13 @@ export const translations = {
     loginRemoveAccountTitle: { pt: "Remover conta?", en: "Remove account?" },
     loginRemoveAccountMessage: { pt: "Remover {name} das contas salvas?", en: "Remove {name} from saved accounts?" },
     loginRemove: { pt: "Remover", en: "Remove" },
+    loginApiKeyLabel: { pt: "Chave da API Steam", en: "Steam Web API Key" },
+    loginGetApiKey: { pt: "Obter chave", en: "Get key" },
+    loginApiKeyMissing: { pt: "Informe sua chave de API Steam.", en: "Enter your Steam Web API key." },
+    loginApiKeySaved: { pt: "Chave de API salva!", en: "API key saved!" },
+    loginApiKeySavedLabel: { pt: "Chave de API salva", en: "API key saved" },
+    loginRemoveApiKey: { pt: "Remover chave", en: "Remove key" },
+    loginApiKeyRemoved: { pt: "Chave de API removida!", en: "API key removed!" },
 
     // --- language ---
     languageLabel: { pt: "Idioma", en: "Language" },

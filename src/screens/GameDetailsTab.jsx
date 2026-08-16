@@ -12,6 +12,10 @@ import RenderHTML from 'react-native-render-html';
 import { headerUri } from "@/src/utils/cdn";
 
 
+/**
+ * Aba com os detalhes do jogo vindos da loja Steam
+ * (descrição, gênero, lançamento, MetaCritic e link para a loja).
+ */
 export default function GameDetailsTab({ game }) {
     const { steamId } = useContext(AuthContext);
     const { t: tr, language } = useLanguage();
@@ -33,6 +37,10 @@ export default function GameDetailsTab({ game }) {
         const details = parseJson(game?.details);
         const staleGameDetails = details && game.lang !== currentLang;
 
+        /**
+         * Carrega os detalhes da loja: do objeto do jogo, do cache do banco
+         * ou da API da Steam, persistindo o resultado após a busca.
+         */
         const loadDetails = async () => {
             // 1️⃣ Detalhes já no objeto do jogo
             if (details && !staleGameDetails) {
@@ -71,6 +79,7 @@ export default function GameDetailsTab({ game }) {
     }, [game, steamId, language]);
 
 
+    /** Abre no navegador a página do jogo na Steam Store. */
     const openSteamPage = () => {
         const steamUrl = `https://store.steampowered.com/app/${game.appid}`;
         Linking.openURL(steamUrl).catch(err => console.error("Failed to open URL:", err));

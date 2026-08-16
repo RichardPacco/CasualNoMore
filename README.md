@@ -75,10 +75,15 @@ npm install -g eas-cli
 # 2. Log in to your Expo account
 eas login
 
-# 3. Build an internal-testing APK (profile "preview")
+# 3. Link the project to YOUR Expo account (creates your own EAS project id)
+eas init
+
+# 4. Build an internal-testing APK (profile "preview")
 npm run build:preview
 # equivalent to: eas build --platform android --profile preview
 ```
+
+> `eas init` is required — the repo intentionally does not ship a project id, so your builds are linked to your own Expo account, not anyone else's.
 
 When the build finishes, you get a download link. The `.apk` is installable directly on Android devices.
 
@@ -109,6 +114,8 @@ cd android
 On Windows use `.\gradlew.bat assembleRelease` instead.
 
 The APK is written to `android/app/build/outputs/apk/release/app-release.apk`.
+
+> The Android application id (`com.casualnomore.app`) is set in `app.config.js`. Change it there before publishing under your own identity.
 
 ## Project structure
 
@@ -147,7 +154,7 @@ eas.json             # EAS build profiles
 
 ## License
 
-Private project. All rights reserved.
+Copyright © 2026 Richard Pacco. All rights reserved.
 
 ---
 
@@ -228,10 +235,15 @@ npm install -g eas-cli
 # 2. Entre na sua conta Expo
 eas login
 
-# 3. Gere um APK de teste interno (perfil "preview")
+# 3. Vincule o projeto à SUA conta Expo (cria o seu próprio project id)
+eas init
+
+# 4. Gere um APK de teste interno (perfil "preview")
 npm run build:preview
 # equivalente a: eas build --platform android --profile preview
 ```
+
+> O `eas init` é obrigatório — o repositório não inclui um project id de propósito, para que seus builds fiquem vinculados à sua própria conta Expo, e não à de outra pessoa.
 
 Quando o build terminar, você recebe um link de download. O `.apk` pode ser instalado diretamente em aparelhos Android.
 
@@ -262,6 +274,8 @@ cd android
 No Windows use `.\gradlew.bat assembleRelease` no lugar.
 
 O APK será gravado em `android/app/build/outputs/apk/release/app-release.apk`.
+
+> O application id do Android (`com.casualnomore.app`) está definido no `app.config.js`. Altere-o lá antes de publicar com a sua identidade.
 
 ## Estrutura do projeto
 
@@ -300,4 +314,4 @@ eas.json             # perfis de build EAS
 
 ## Licença
 
-Projeto privado. Todos os direitos reservados.
+Copyright © 2026 Richard Pacco. Todos os direitos reservados.

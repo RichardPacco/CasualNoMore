@@ -8,6 +8,7 @@ import { useLanguage } from "@/src/i18n/LanguageContext";
 import { useTheme } from "@/src/theme/styles";
 import { capsuleUri } from "@/src/utils/cdn";
 
+/** Linha de um jogo com imagem (cápsula) e nome. */
 function GameRow({ item, t }) {
     const { stage, onError } = useImageCdnFallback(item.appid);
 
@@ -30,6 +31,10 @@ function GameRow({ item, t }) {
     );
 }
 
+/**
+ * Tela com os jogos do amigo (todos ou apenas os em comum, conforme o modo),
+ * com busca por nome.
+ */
 export default function CommonGames({ route, navigation }) {
     const { friend, mode = "common" } = route.params;
     const t = useTheme();

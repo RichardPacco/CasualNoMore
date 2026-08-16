@@ -3,6 +3,10 @@ import { Animated, Pressable, Text, useColorScheme, View } from "react-native";
 import { setOverlayOpen } from "@/src/utils/overlayBar";
 import { COLORS } from "@/src/theme/colors";
 
+/**
+ * Bottom sheet de seleção única (radio) com animação de entrada e saída.
+ * Props: visible, onClose, title, options, selected, onSelect, counts.
+ */
 export default function RadioSheet({ visible, onClose, title, options, selected, onSelect, counts }) {
     const colorScheme = useColorScheme();
     const isDark = colorScheme === "dark";
@@ -23,6 +27,9 @@ export default function RadioSheet({ visible, onClose, title, options, selected,
         }
     }, [visible, anim]);
 
+    /**
+     * Fecha o sheet com animação de saída e chama onClose ao terminar.
+     */
     const close = () => {
         if (closingRef.current) return;
         closingRef.current = true;

@@ -11,6 +11,7 @@ const LanguageContext = createContext({
     t: (key) => key,
 });
 
+/** Provider do contexto de idioma: carrega o idioma salvo e fornece a função de tradução `t`. */
 export function LanguageProvider({ children }) {
     const [language, setLanguageState] = useState("en");
 
@@ -31,6 +32,7 @@ export function LanguageProvider({ children }) {
         return () => { mounted = false; };
     }, []);
 
+    /** Define o idioma atual e o persiste no AsyncStorage. */
     const setLanguage = async (lang) => {
         if (!SUPPORTED_LANGUAGES.includes(lang)) return;
         setLanguageState(lang);
@@ -42,6 +44,7 @@ export function LanguageProvider({ children }) {
         }
     };
 
+    /** Traduz uma chave para o idioma atual, aplicando parâmetros opcionais. */
     const t = (key, params) => {
         const entry = translations[key];
         let str = entry ? (entry[language] ?? entry.pt) : key;
@@ -60,6 +63,7 @@ export function LanguageProvider({ children }) {
     );
 }
 
+/** Hook que expõe o idioma atual, `setLanguage` e a função de tradução `t`. */
 export function useLanguage() {
     return useContext(LanguageContext);
 }

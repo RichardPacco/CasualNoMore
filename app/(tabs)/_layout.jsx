@@ -9,6 +9,7 @@ import { COLORS } from "@/src/theme/colors";
 import { theme } from "@/src/theme/styles";
 import { getOverlayOpen, subscribeOverlay } from "@/src/utils/overlayBar";
 
+/** Botão personalizado da tab bar, com destaque do item selecionado e efeito de toque. */
 function TabBarButton({ children, style, onPress, onLongPress, accessibilityState }) {
     const colorScheme = useColorScheme();
     const isDark = colorScheme === "dark";
@@ -38,6 +39,10 @@ function TabBarButton({ children, style, onPress, onLongPress, accessibilityStat
     );
 }
 
+/**
+ * Layout de abas: define GameStack, FriendsStack e ProfileStack com tema claro/escuro
+ * e barra de abas flutuante.
+ */
 export default function TabsLayout() {
     const colorScheme = useColorScheme();
     const isDark = colorScheme === "dark";

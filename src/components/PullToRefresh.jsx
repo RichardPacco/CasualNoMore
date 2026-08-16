@@ -9,8 +9,11 @@ const MAX_PULL = 130;
 const TRIGGER_PULL = 60;
 const HOLD_PULL = 76;
 
-// Custom pull-to-refresh: arrasta a lista para baixo revelando uma área
-// onde o spinner aparece em frente (por cima) da lista.
+/**
+ * Wrapper de pull-to-refresh com gesto customizado: arrasta a lista para baixo,
+ * revelando uma área onde o spinner aparece em frente (por cima) da lista.
+ * Props: refreshing, onRefresh, children, style, enabled.
+ */
 export default function PullToRefresh({ refreshing, onRefresh, children, style, enabled = true }) {
     const { t } = useLanguage();
     const translateY = useSharedValue(0);
@@ -26,6 +29,9 @@ export default function PullToRefresh({ refreshing, onRefresh, children, style, 
         }
     }, [refreshing, refreshShared, translateY, pulling]);
 
+    /**
+     * Gesto de pan que controla o arrasto da lista e dispara onRefresh ao soltar acima do limite.
+     */
     const pan = Gesture.Pan()
         .enabled(enabled && atTop && !refreshing)
         .activeOffsetY([-100000, 10])

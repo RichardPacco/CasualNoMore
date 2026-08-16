@@ -8,6 +8,10 @@ import { useTheme } from "@/src/theme/styles";
 
 const placeholderImage = require("../../assets/images/placeholder_gamelist.jpg");
 
+/**
+ * Card de um jogo na lista: mostra imagem, nome, tempo jogado e progresso de conquistas.
+ * Props: game, navigation, onLongPress.
+ */
 function GameCardComponent({ game, navigation, onLongPress }) {
     const t = useTheme();
     const { t: tr } = useLanguage();
@@ -79,6 +83,9 @@ function GameCardComponent({ game, navigation, onLongPress }) {
     );
 }
 
+/**
+ * Exporta o GameCard com memo para evitar re-renderizações quando as props não mudam.
+ */
 export default memo(GameCardComponent, (prevProps, nextProps) => {
     return prevProps.game === nextProps.game
         && prevProps.navigation === nextProps.navigation

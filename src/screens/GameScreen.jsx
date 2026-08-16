@@ -10,6 +10,10 @@ import { useTheme } from "@/src/theme/styles";
 
 const Tab = createMaterialTopTabNavigator();
 
+/**
+ * Tela de detalhes de um jogo com abas (Detalhes e Conquistas)
+ * e menu de links da comunidade Steam.
+ */
 export default function GameScreen({ route, navigation }) {
     const { game } = route.params;
     const { t: tr } = useLanguage();
@@ -21,10 +25,12 @@ export default function GameScreen({ route, navigation }) {
     const guidesUrl = `https://steamcommunity.com/app/${game.appid}/guides/`;
     const discussionsUrl = `https://steamcommunity.com/app/${game.appid}/discussions/`;
 
+    /** Abre no navegador o guia do jogo no Steam Community. */
     const openGuides = () => {
         Linking.openURL(guidesUrl).catch(err => console.error("Failed to open guides URL:", err));
     };
 
+    /** Abre no navegador as discussões do jogo no Steam Community. */
     const openDiscussions = () => {
         Linking.openURL(discussionsUrl).catch(err => console.error("Failed to open discussions URL:", err));
     };

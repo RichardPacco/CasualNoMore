@@ -7,6 +7,9 @@ const OPTIONS = [
     { code: "en", label: "EN", flag: require("../../assets/images/Flag_of_the_United_States.png") },
 ];
 
+/**
+ * Seletor de idioma (PT/EN) com bandeiras dos países. Prop: overlay (modo sobreposto).
+ */
 export default function LanguageSelector({ overlay = false }) {
     const { language, setLanguage } = useLanguage();
     const colorScheme = useColorScheme();

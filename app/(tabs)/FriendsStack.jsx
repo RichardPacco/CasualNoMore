@@ -4,6 +4,7 @@ import CommonGames from "@/src/screens/CommonGames";
 
 const Stack = createNativeStackNavigator();
 
+/** Stack de amigos: navegação entre Friends e CommonGames sem header. */
 export default function FriendsStack() {
     return (
         <Stack.Navigator screenOptions={{ headerShown: false }}>

@@ -4,6 +4,7 @@ import GameScreen from "@/src/screens/GameScreen";
 
 const Stack = createNativeStackNavigator();
 
+/** Stack de jogos: navegação entre GameList e GameScreen sem header. */
 export default function GameStack() {
     return (
         <Stack.Navigator screenOptions={{ headerShown: false }}>

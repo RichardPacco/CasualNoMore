@@ -13,6 +13,10 @@ import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+/**
+ * Calcula as estatísticas de progresso: jogos perfeitos (100% de conquistas)
+ * e a média de progresso entre os jogos com conquistas.
+ */
 function computeCompletionStats(cachedGames) {
     const played = cachedGames.filter(g => {
         const { unlocked } = getGameCounts(g);
@@ -31,6 +35,10 @@ function computeCompletionStats(cachedGames) {
     return { perfected, avgCompletion };
 }
 
+/**
+ * Tela de perfil do usuário com resumo de progresso de conquistas,
+ * seletor de idioma e atualização por pull-to-refresh.
+ */
 export default function Profile() {
     const router = useRouter();
     const { steamId } = useContext(AuthContext);
@@ -48,6 +56,10 @@ export default function Profile() {
         cancelledRef.current = !steamId;
     }, [steamId]);
 
+    /**
+     * Carrega o perfil do usuário na Steam e os jogos em cache para
+     * calcular as estatísticas de progresso.
+     */
     const loadProfile = useCallback(async () => {
         if (!steamId) return;
         setLoading(true);
@@ -68,6 +80,7 @@ export default function Profile() {
         }
     }, [steamId]);
 
+    /** Atualiza o perfil e as estatísticas ao puxar para atualizar (pull-to-refresh). */
     const refreshProfile = useCallback(async () => {
         if (!steamId) return;
         setRefreshingProfile(true);

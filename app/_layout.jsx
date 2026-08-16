@@ -8,6 +8,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useEffect } from "react";
 import './globals.css';
 
+/**
+ * Layout raiz: providers (Language, Auth) + Stack de telas (index, tabs, login).
+ * Carrega a API key salva ao montar.
+ */
 export default function RootLayout() {
   useEffect(() => {
     loadApiKey();

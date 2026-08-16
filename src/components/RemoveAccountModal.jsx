@@ -3,6 +3,10 @@ import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS } from "@/src/theme/colors";
 import { Modal, Text, TouchableOpacity, View } from "react-native";
 
+/**
+ * Modal de confirmação para remover uma conta salva.
+ * Props: visible, account, onClose, onConfirm.
+ */
 export default function RemoveAccountModal({ visible, account, onClose, onConfirm }) {
     const { t } = useLanguage();
 

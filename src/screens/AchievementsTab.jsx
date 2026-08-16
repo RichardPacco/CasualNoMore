@@ -20,7 +20,7 @@ const { width: WINDOW_W, height: WINDOW_H } = Dimensions.get("window");
 
 const RAINBOW = ["#ff0000", "#ff8c00", "#ffe600", "#33cc33", "#3399ff", "#9933ff", "#ff0000"];
 
-// Cor da borda por raridade (baseada no % global de desbloqueio)
+/** Retorna a cor da borda conforme a raridade global (percentual de desbloqueio). */
 function rarityColor(percent) {
     if (percent > 50) return COLORS.rarityCommon;      // comum
     if (percent > 25) return COLORS.rarityUncommon;    // incomum
@@ -30,12 +30,17 @@ function rarityColor(percent) {
     return COLORS.rarityPearlescent;                     // perolescente
 }
 
+/** Gera a URI de fallback (CDN alternativa) do ícone da conquista. */
 function iconFallbackUri(uri, appid) {
     if (!uri || !appid) return uri;
     const filename = uri.split("/").pop();
     return achievementIconUri(appid, filename, true);
 }
 
+/**
+ * Card individual de uma conquista com ícone, percentual de raridade
+ * e animações de toque (pressionar/soltar/longo).
+ */
 function AchievementCardComponent({ item, game, onOpenMenu }) {
     const t = useTheme();
     const { t: tr } = useLanguage();
@@ -51,6 +56,7 @@ function AchievementCardComponent({ item, game, onOpenMenu }) {
         return tr("unlockedAt", { date: formatDateTime(item.unlocktime) });
     }, [item.achieved, item.unlocktime, tr]);
 
+    /** Anima o card ao pressionar (escala para 0.96). */
     const handlePressIn = () => {
         Animated.spring(scaleAnim, {
             toValue: 0.96,
@@ -60,6 +66,7 @@ function AchievementCardComponent({ item, game, onOpenMenu }) {
         }).start();
     };
 
+    /** Restaura a escala do card ao soltar o toque. */
     const handlePressOut = () => {
         Animated.spring(scaleAnim, {
             toValue: 1,
@@ -69,6 +76,7 @@ function AchievementCardComponent({ item, game, onOpenMenu }) {
         }).start();
     };
 
+    /** Anima o card e abre o menu de contexto na posição do toque longo. */
     const handleLongPress = (e) => {
         Animated.sequence([
             Animated.timing(scaleAnim, { toValue: 0.92, duration: 120, useNativeDriver: true }),
@@ -152,6 +160,10 @@ function AchievementCardComponent({ item, game, onOpenMenu }) {
 
 const AchievementCard = memo(AchievementCardComponent);
 
+/**
+ * Aba com a lista de conquistas do jogo, com busca, filtro, ordenação
+ * e menu de guias (Google/ChatGPT).
+ */
 export default function AchievementsTab({ game }) {
     const { mergedCheevos, loading } = useAchievements(game);
 
@@ -188,6 +200,7 @@ export default function AchievementsTab({ game }) {
     ], [tr]);
 
     const filterCounts = useMemo(() => {
+        /** Conta as conquistas de cada opção de filtro (desbloqueadas/bloqueadas). */
         const countFor = (value) => {
             switch (value) {
                 case "unlocked": return mergedCheevos.filter(a => a.achieved).length;
@@ -242,6 +255,7 @@ export default function AchievementsTab({ game }) {
         return () => clearTimeout(t);
     }, [searchQuery]);
 
+    /** Abre o menu de guias, convertendo as coordenadas da janela para o container. */
     const openGuideMenu = useCallback((item, pageX, pageY) => {
         // Converte coordenadas da janela (pageX/pageY) para o sistema do
         // container (leva em conta safe area / status bar).
@@ -250,20 +264,24 @@ export default function AchievementsTab({ game }) {
         });
     }, []);
 
+    /** Renderiza um card de conquista na lista (FlashList). */
     const renderCard = useCallback(
         ({ item }) => <AchievementCard item={item} game={game} onOpenMenu={openGuideMenu} />,
         [game, openGuideMenu]
     );
 
+    /** Monta a query de busca pelo guia da conquista (nome do jogo + conquista). */
     const guideQuery = useCallback((item) => {
         return encodeURIComponent(`${game.name} ${item.name} Guide`);
     }, [game]);
 
+    /** Abre o navegador pesquisando o guia da conquista no Google. */
     const searchGoogle = useCallback((item) => {
         WebBrowser.openBrowserAsync(`https://www.google.com/search?q=${guideQuery(item)}`)
             .catch(err => console.error("Failed to open browser:", err));
     }, [guideQuery]);
 
+    /** Abre o navegador pesquisando o guia da conquista no ChatGPT. */
     const searchChatGPT = useCallback((item) => {
         WebBrowser.openBrowserAsync(`https://chatgpt.com/?q=${guideQuery(item)}`)
             .catch(err => console.error("Failed to open browser:", err));

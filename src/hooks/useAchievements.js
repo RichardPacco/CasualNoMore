@@ -6,6 +6,10 @@ import { useLanguage } from "@/src/i18n/LanguageContext";
 import { computeProgress, fetchAndMergeAchievements } from "@/src/utils/achievements";
 import { useContext, useEffect, useMemo, useState } from "react";
 
+/**
+ * Hook que carrega e mescla as conquistas de um jogo (cache, schema e API),
+ * retornando `mergedCheevos`, `loading` e o progresso (desbloqueadas/total/%).
+ */
 export default function useAchievements(game) {
     const { steamId } = useContext(AuthContext);
     const { language } = useLanguage();
@@ -32,6 +36,7 @@ export default function useAchievements(game) {
         let cancelled = false;
         setLoading(true);
 
+        /** Busca schema e conquistas da API e mescla os resultados. */
         async function fetchAll() {
             try {
                 // Quando o idioma mudou, o schema cacheado está no idioma antigo:

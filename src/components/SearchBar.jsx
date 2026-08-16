@@ -3,6 +3,10 @@ import { COLORS } from "@/src/theme/colors";
 import { useTheme } from "@/src/theme/styles";
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
 
+/**
+ * Barra de busca com campo de texto e botão para limpar o conteúdo.
+ * Props: value, onChangeText, onClear, placeholder, style, inputProps.
+ */
 export default function SearchBar({ value, onChangeText, onClear, placeholder, style, inputProps = {} }) {
     const t = useTheme();
     const { t: tr } = useLanguage();

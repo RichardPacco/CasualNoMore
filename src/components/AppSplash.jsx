@@ -4,6 +4,9 @@ import { useLanguage } from "@/src/i18n/LanguageContext";
 
 const appIcon = require("../../assets/images/app_icon.png");
 
+/**
+ * Tela de abertura do app: exibe ícone, nome e uma barra de carregamento animada.
+ */
 export default function AppSplash() {
     const { t } = useLanguage();
     const barAnim = useRef(new Animated.Value(0)).current;

@@ -5,6 +5,7 @@ import { loadApiKey, saveApiKeyStore } from "@/src/config/apiKeyStore";
 import LanguageSelector from "@/src/components/LanguageSelector";
 import ClearDbModal from "@/src/components/ClearDbModal";
 import RemoveAccountModal from "@/src/components/RemoveAccountModal";
+import AboutModal from "@/src/components/AboutModal";
 import { AuthContext } from "@/src/context/AuthContext";
 import { clearDB } from "@/src/database/db";
 import { useLanguage } from "@/src/i18n/LanguageContext";
@@ -19,6 +20,9 @@ import { TextInput } from "react-native-paper";
 const loginBackground = require("../../assets/images/login_background.png");
 
 
+/**
+ * Tela de login: entrada de SteamID/vanity e API key, com contas salvas para login rápido.
+ */
 export default function Login() {
     const { setSteamId, savedAccounts, addSavedAccount, removeSavedAccount } = useContext(AuthContext);
     const router = useRouter();
@@ -31,7 +35,9 @@ export default function Login() {
     const [loading, setLoading] = useState(false);
     const [confirmVisible, setConfirmVisible] = useState(false);
     const [accountToRemove, setAccountToRemove] = useState(null);
+    const [aboutVisible, setAboutVisible] = useState(false);
 
+    /** Carrega a API key salva do armazenamento na montagem. */
     useEffect(() => {
         (async () => {
             const stored = await loadApiKey();
@@ -42,10 +48,12 @@ export default function Login() {
         })();
     }, []);
 
+    /** Abre a página da Steam para obter uma API key (disparado pelo link "Obter API Key"). */
     const openApiKeyPage = () => {
         WebBrowser.openBrowserAsync("https://steamcommunity.com/dev/apikey");
     };
 
+    /** Salva a API key quando o texto digitado corresponde a uma chave válida (32 hex). */
     const handleApiKeyChange = async (text) => {
         setKeyInput(text);
         const trimmed = text.trim();
@@ -56,6 +64,7 @@ export default function Login() {
         }
     };
 
+    /** Remove a API key salva e limpa os campos. */
     const removeSavedApiKey = async () => {
         await saveApiKeyStore("");
         setApiKey("");
@@ -63,6 +72,7 @@ export default function Login() {
         showToast(t("loginApiKeyRemoved"), "info");
     };
 
+    /** Limpa o cache (AsyncStorage), disparado pelo botão de limpar cache. */
     const handleClearCache = async () => {
         try {
             await AsyncStorage.clear();
@@ -73,6 +83,7 @@ export default function Login() {
         }
     };
 
+    /** Confirma e executa a limpeza total do banco local (disparado pelo modal de confirmação). */
     const confirmClearDB = async () => {
         setConfirmVisible(false);
         try {
@@ -85,6 +96,10 @@ export default function Login() {
     };
 
 
+    /**
+     * Valida o perfil Steam: busca o resumo do jogador e exige perfil público.
+     * Retorna o playerSummary se válido, senão null.
+     */
     async function validateSteamProfile(steamid) {
         try {
             const playerSummary = await getPlayerSummary(steamid);
@@ -116,6 +131,7 @@ export default function Login() {
     }
 
 
+    /** Salva uma conta na lista de contas salvas. */
     const saveAccount = async (playerSummary, steamid) => {
         await addSavedAccount({
             steamId: steamid,
@@ -124,6 +140,7 @@ export default function Login() {
         });
     };
 
+    /** Login rápido com uma conta salva (toque no avatar): define o steamId e vai para as tabs. */
     const handleQuickLogin = async (account) => {
         if (!apiKey) {
             showToast(t("loginApiKeyMissing"), "warning");
@@ -136,10 +153,12 @@ export default function Login() {
         router.replace("/(tabs)/GameStack");
     };
 
+    /** Marca a conta para remoção (disparado pelo toque longo no avatar). */
     const confirmRemoveAccount = (account) => {
         setAccountToRemove(account);
     };
 
+    /** Remove a conta salva selecionada (confirmado no modal de remoção). */
     const doRemoveAccount = async () => {
         if (!accountToRemove) return;
         const id = accountToRemove.steamId;
@@ -153,6 +172,10 @@ export default function Login() {
     };
 
 
+    /**
+     * Envia o SteamID64 ou vanity digitado: valida o perfil, salva a conta e navega para as tabs.
+     * Disparado pelo botão de envio ou submit do teclado.
+     */
     const handleSubmit = async () => {
         if (!apiKey) {
             showToast(t("loginApiKeyMissing"), "warning");
@@ -173,7 +196,7 @@ export default function Login() {
 
         try {
             if (isSteam64) {
-                const playerSummary = await validateSteamProfile(numeric); // ✅ await aqui
+                const playerSummary = await validateSteamProfile(numeric);
                 if (!playerSummary) return;
 
                 console.log("[Login] detectado SteamID64, salvando direto:", numeric);
@@ -193,7 +216,7 @@ export default function Login() {
                 return;
             }
 
-            const playerSummary = await validateSteamProfile(res.steamid); // ✅ await aqui
+            const playerSummary = await validateSteamProfile(res.steamid);
             if (!playerSummary) return;
 
             // se for público, segue normalmente
@@ -337,7 +360,7 @@ export default function Login() {
                                         style={{ backgroundColor: "#222" }}
                                         theme={{
                                             colors: {
-                                                primary: COLORS.accent,  // label / focus color
+                                                primary: COLORS.accent,
                                             },
                                         }}
                                         textColor="#fff"
@@ -369,11 +392,11 @@ export default function Login() {
                                     style={{ backgroundColor: "#222" }}
                                     theme={{
                                         colors: {
-                                            primary: COLORS.accent,  // label / focus color
-                                        },
-                                    }}
-                                    textColor="#fff"
-                                    onSubmitEditing={handleSubmit}
+                                        primary: COLORS.accent,
+                                    },
+                                }}
+                                textColor="#fff"
+                                onSubmitEditing={handleSubmit}
                                     right={
                                         <TextInput.Icon
                                             icon={() =>
@@ -390,6 +413,17 @@ export default function Login() {
                                 />
                             </View>
                         )}
+
+                        <TouchableOpacity
+                            onPress={() => setAboutVisible(true)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            className="flex-row items-center justify-center gap-1"
+                        >
+                            <Ionicons name="information-circle-outline" size={14} color="#9ca3af" />
+                            <Text className="text-gray-400 text-[10px] text-center mb-0.5">
+                                © 2026 Richard Pacco
+                            </Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
             </ImageBackground>
@@ -407,6 +441,12 @@ export default function Login() {
                 account={accountToRemove}
                 onClose={() => setAccountToRemove(null)}
                 onConfirm={doRemoveAccount}
+            />
+
+            {/* Sobre o app */}
+            <AboutModal
+                visible={aboutVisible}
+                onClose={() => setAboutVisible(false)}
             />
         </SafeAreaView>
     );

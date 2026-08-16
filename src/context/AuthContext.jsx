@@ -14,11 +14,13 @@ export const AuthContext = createContext({
     removeSavedAccount: () => { },
 });
 
+/** Provider do contexto de autenticação: gerencia o steamId atual, estado de loading e contas salvas. */
 export function AuthProvider({ children }) {
     const [steamId, setSteamIdState] = useState(null);
     const [loading, setLoading] = useState(true);
     const [savedAccounts, setSavedAccounts] = useState([]);
 
+    /** Persiste a lista de contas salvas no AsyncStorage. */
     const persistSavedAccounts = async (accounts) => {
         try {
             await AsyncStorage.setItem(SAVED_ACCOUNTS_KEY, JSON.stringify(accounts));
@@ -58,6 +60,7 @@ export function AuthProvider({ children }) {
         return () => { mounted = false; };
     }, []);
 
+    /** Define o steamId atual e o persiste no AsyncStorage. */
     const setSteamId = async (id) => {
         try {
             await AsyncStorage.setItem("@steam_id", id);
@@ -67,6 +70,7 @@ export function AuthProvider({ children }) {
         }
     };
 
+    /** Limpa o steamId atual e remove do AsyncStorage. */
     const clearSteamId = async () => {
         try {
             await AsyncStorage.removeItem("@steam_id");
@@ -76,6 +80,7 @@ export function AuthProvider({ children }) {
         }
     };
 
+    /** Adiciona uma conta à lista salva (sem duplicatas, limitada). */
     const addSavedAccount = async (account) => {
         if (!account?.steamId) return;
         const next = [
@@ -86,6 +91,7 @@ export function AuthProvider({ children }) {
         await persistSavedAccounts(next);
     };
 
+    /** Remove uma conta salva pelo steamId. */
     const removeSavedAccount = async (steamId) => {
         const next = savedAccounts.filter(a => a.steamId !== steamId);
         setSavedAccounts(next);

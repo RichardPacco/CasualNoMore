@@ -1,16 +1,14 @@
 import { GetGlobalAchievementsPercentagesForApp, getGameAchievements, getPlayerAchievements } from "@/src/api/steam";
 import { achievementIconUri } from "@/src/utils/cdn";
 
+/** Converte a URI do ícone para a URL completa do CDN (ou retorna como está). */
 function iconUrl(uri, appid) {
     if (!uri || !appid) return uri;
     const filename = uri.split("/").pop();
     return achievementIconUri(appid, filename);
 }
 
-/**
- * Merge schema, player stats and global percentages into a single
- * array of achievements, ready to be displayed anywhere.
- */
+/** Une schema, stats do jogador e porcentagens globais em um array único de conquistas. */
 export function mergeAchievements(schema, playerAchievements, globalPerc, fullDescriptions, appid) {
     const achievementsMap = {};
     const unlockMap = {};
@@ -36,7 +34,7 @@ export function mergeAchievements(schema, playerAchievements, globalPerc, fullDe
 }
 
 /**
- * Fetch player achievements + global percentages and merge with the schema.
+ * Busca conquistas do jogador, porcentagens globais e descrições e mescla com o schema.
  * Fontes secundárias falham silenciosamente; mas se o estado de desbloqueio
  * (getPlayerAchievements) falhar, lança erro — senão o merge mostraria tudo
  * como "não conquistado" e o caller gravaria esse dado falso como "done".
@@ -71,9 +69,7 @@ export async function fetchAndMergeAchievements(appid, steamId, schema) {
     );
 }
 
-/**
- * Compute progress info from a merged achievements array.
- */
+/** Calcula o progresso (desbloqueadas, total, percentual) de um array de conquistas. */
 export function computeProgress(achievements) {
     const list = achievements || [];
     const total = list.length;
@@ -83,7 +79,7 @@ export function computeProgress(achievements) {
 }
 
 /**
- * Progress info de um jogo usando os contadores pré-computados no cache
+ * Progresso de um jogo usando os contadores pré-computados no cache
  * (unlocked/totalAchievements). Se o jogo ainda não foi re-salvo, cai no
  * fallback que percorre o array de conquistas.
  */

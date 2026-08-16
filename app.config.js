@@ -13,7 +13,7 @@ export default ({ config }) => {
       supportsTablet: true,
     },
     android: {
-      package: "com.richard.casualnomore",
+      package: "com.casualnomore.app",
       versionCode: 1,
       adaptiveIcon: {
         foregroundImage: "./assets/images/app_icon.png",
@@ -42,11 +42,6 @@ export default ({ config }) => {
     experiments: {
       typedRoutes: true,
     },
-    extra: {
-      eas: {
-        projectId: "895beb33-b8f7-4b89-87fa-2e967f04b60d",
-      },
-      router: {},
-    },
+    
   };
 };

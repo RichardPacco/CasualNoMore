@@ -41,6 +41,10 @@ export const translations = {
     // --- language ---
     languageLabel: { pt: "Idioma", en: "Language" },
 
+    // --- about ---
+    aboutMadeBy: { pt: "Feito por {name}", en: "Made by {name}" },
+    aboutGitHub: { pt: "GitHub", en: "GitHub" },
+
     // --- profile ---
     profileFriendsTitle: { pt: "Amigos (Lista de Jogos Pública)", en: "Friends (Public Games List)" },
     searchFriendsPlaceholder: { pt: "Pesquisar amigos...", en: "Search friends..." },

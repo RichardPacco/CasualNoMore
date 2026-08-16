@@ -4,14 +4,17 @@ const API_KEY_STORAGE_KEY = "@api_key";
 
 let currentApiKey = null;
 
+/** Retorna a API key atual em memória. */
 export function getApiKeyStore() {
     return currentApiKey;
 }
 
+/** Define a API key em memória (sem persistir), normalizando espaços. */
 export function setApiKeyStore(key) {
     currentApiKey = key && String(key).trim() ? String(key).trim() : null;
 }
 
+/** Carrega a API key salva do AsyncStorage para a memória. */
 export async function loadApiKey() {
     try {
         const stored = await AsyncStorage.getItem(API_KEY_STORAGE_KEY);
@@ -25,6 +28,7 @@ export async function loadApiKey() {
     return null;
 }
 
+/** Salva (ou remove) a API key no AsyncStorage e em memória. */
 export async function saveApiKeyStore(key) {
     const trimmed = key ? String(key).trim() : "";
     currentApiKey = trimmed || null;

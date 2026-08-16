@@ -58,6 +58,10 @@ const s = StyleSheet.create({
     },
 });
 
+/**
+ * Menu de contexto flutuante posicionado próximo ao ponto de toque, com fade de entrada.
+ * Props: visible, x, y, bounds, title, options, onClose.
+ */
 export default function ContextMenu({ visible, x, y, bounds, title, options, onClose, }) {
     const t = useTheme();
     const isDark = t.isDark;

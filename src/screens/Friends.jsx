@@ -11,6 +11,7 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "r
 import { ActivityIndicator, Image, Pressable, Text, Touchable, TouchableOpacity, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 
+/** Gera uma assinatura (appids ordenados) dos jogos para detectar mudanças na lista. */
 function gamesSignature(games) {
     return (games?.games ?? [])
         .map(g => g.appid)
@@ -18,6 +19,7 @@ function gamesSignature(games) {
         .join(",");
 }
 
+/** Verifica se os dados do amigo mudaram (perfil, contagem ou lista de jogos). */
 function friendChanged(prev, next) {
     if (prev.profile?.personaname !== next.profile?.personaname) return true;
     if (prev.profile?.avatarfull !== next.profile?.avatarfull) return true;
@@ -26,7 +28,10 @@ function friendChanged(prev, next) {
     return false;
 }
 
-// Busca um amigo por completo (perfil + jogos + jogos em comum)
+/**
+ * Busca perfil e jogos do amigo na Steam e calcula os jogos em comum;
+ * retorna null se alguma busca falhar.
+ */
 async function fetchFriendData(id, myGames) {
     const [friendProfile, games] = await Promise.all([
         getPlayerSummary(id),
@@ -41,6 +46,10 @@ async function fetchFriendData(id, myGames) {
     return { steamId: id, profile: friendProfile, games, commonGames };
 }
 
+/**
+ * Tela com a lista de amigos do usuário, mostrando perfil, quantidade
+ * de jogos e jogos em comum (com menu de contexto por amigo).
+ */
 export default function Friends({ navigation }) {
     const { steamId } = useContext(AuthContext);
     const { t: tr } = useLanguage();
@@ -68,6 +77,7 @@ export default function Friends({ navigation }) {
         cancelledRef.current = !steamId;
     }, [steamId]);
 
+    /** Abre o menu de contexto do amigo na posição do toque (convertida para o container). */
     const openContextMenu = (e, item) => {
         const { pageX, pageY } = e.nativeEvent;
         // Converte coordenadas da janela (pageX/pageY) para o sistema de
@@ -77,13 +87,16 @@ export default function Friends({ navigation }) {
         });
     };
 
+    /** Fecha o menu de contexto do amigo. */
     const closeContextMenu = () => {
         setMenu(null);
     };
 
-    // Busca progressiva dos dados frescos dos amigos (perfil + jogos + jogos em comum).
-    // Busca em paralelo (poucos por vez) e atualiza a UI + persistência em lotes
-    // (reduz re-renders e I/O), espelhando o padrão da lista de jogos.
+    /**
+     * Busca progressivamente dados frescos dos amigos (perfil + jogos + comuns),
+     * em paralelo (poucos por vez para não estourar a API), atualizando a UI e
+     * persistindo em lotes (reduz re-renders e I/O).
+     */
     const refreshFriends = useCallback(async (friendIds) => {
         if (cancelledRef.current) return;
         setLoading(true);
@@ -158,6 +171,10 @@ export default function Friends({ navigation }) {
         }
     }, [steamId]);
 
+    /**
+     * Carrega a lista de amigos: cache do banco exibido na hora e, se não
+     * houver cache, busca completa na Steam.
+     */
     const loadFriends = useCallback(async () => {
         if (!steamId) return;
         setLoading(true);
@@ -197,7 +214,7 @@ export default function Friends({ navigation }) {
         }
     }, [steamId, refreshFriends]);
 
-    // Pull-to-refresh: re-fetcha amigos (jogos + comuns)
+    /** Re-fetcha a lista de amigos ao puxar para atualizar (pull-to-refresh). */
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
         try {

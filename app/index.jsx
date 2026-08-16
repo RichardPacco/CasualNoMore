@@ -3,6 +3,9 @@ import { useContext, useEffect } from "react";
 import AppSplash from "@/src/components/AppSplash";
 import { AuthContext } from "@/src/context/AuthContext";
 
+/**
+ * Tela inicial (splash): redireciona para as tabs se já logado, senão para o login.
+ */
 export default function Index() {
     const { steamId, loading } = useContext(AuthContext);
     const router = useRouter();

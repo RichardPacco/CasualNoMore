@@ -16,6 +16,10 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "r
 import { ActivityIndicator, Keyboard, Text, TouchableOpacity, useColorScheme, View } from "react-native";
 import SearchBar from "@/src/components/SearchBar";
 
+/**
+ * Tela principal com a lista de jogos do usuário, incluindo busca,
+ * filtro, ordenação e progresso de conquistas.
+ */
 export default function GameList({ navigation, route }) {
     const { steamId } = useContext(AuthContext);
     const { t: tr, language } = useLanguage();
@@ -183,7 +187,9 @@ export default function GameList({ navigation, route }) {
         }
     }, [steamId, forceRefreshGame, refreshingRecent, tr, games]);
 
-    // jogo "recente" = jogado nas últimas 2 semanas
+    /**
+     * Verifica se o jogo foi jogado nas últimas 2 semanas (playtime_2weeks > 0).
+     */
     const isRecentGame = useCallback((g) => (g.playtime_2weeks || 0) > 0, []);
 
     // Ref para disparar o refresh de recentes ao abrir a lista sem re-renderizar
@@ -191,6 +197,9 @@ export default function GameList({ navigation, route }) {
     const refreshRecentRef = useRef(null);
     refreshRecentRef.current = refreshRecentGames;
 
+    /**
+     * Renderiza um card de jogo na lista virtualizada (FlashList).
+     */
     const renderGameCard = useCallback(
         ({ item }) => <GameCard game={item} navigation={navigation} onLongPress={refreshSingleGame} />,
         [navigation, refreshSingleGame]
@@ -213,6 +222,9 @@ export default function GameList({ navigation, route }) {
     ], [tr]);
 
     const filterCounts = useMemo(() => {
+        /**
+         * Conta quantos jogos se encaixam em cada opção de filtro.
+         */
         const countFor = (value) => {
             switch (value) {
                 case "played": return games.filter(g => g.playtime_forever > 0).length;
@@ -292,6 +304,10 @@ export default function GameList({ navigation, route }) {
     }, [filteredGames, sort, isRecentGame]);
 
     // ---------- load jogos ----------
+    /**
+     * Carrega os jogos do banco e sincroniza com a Steam, enriquecendo
+     * cada jogo com schema, conquistas e progresso (com cache e lotes).
+     */
     const loadGames = useCallback(async () => {
         if (!steamId) return;
         const gen = ++loadGenRef.current;
@@ -402,6 +418,9 @@ export default function GameList({ navigation, route }) {
         }
     }, [steamId, enrichGame]);
 
+    /**
+     * Dispara o reload completo da lista ao puxar para atualizar (pull-to-refresh).
+     */
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
         try {

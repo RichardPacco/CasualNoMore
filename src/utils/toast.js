@@ -3,6 +3,7 @@ import { COLORS } from "@/src/theme/colors";
 
 let activeToast = null;
 
+/** Exibe um toast, substituindo o anterior; a cor varia pelo tipo (info/success/error/warning). */
 export function showToast(message, type = "info") {
 
 

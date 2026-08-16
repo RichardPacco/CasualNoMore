@@ -8,6 +8,9 @@ import { useRouter } from "expo-router";
 import { useContext } from "react";
 import { Image, Linking, Text, TouchableOpacity, View } from "react-native";
 
+/**
+ * Retorna o texto e a cor do status do jogador com base no código numérico da Steam.
+ */
 function getStatus(statusCode, t) {
     switch (statusCode) {
         case 0: return { text: t("statusOffline"), overlayColor: "#9ca3af" };
@@ -21,6 +24,10 @@ function getStatus(statusCode, t) {
     }
 }
 
+/**
+ * Card do perfil Steam: capa com avatar desfocado, nome, status e botões de ação.
+ * Props: data.
+ */
 export default function ProfileCard({ data }) {
     const t = useTheme();
     const { t: tr } = useLanguage();
@@ -30,10 +37,16 @@ export default function ProfileCard({ data }) {
     const borderColor = t.avatarBorder;
     const secondaryTextColor = t.textSecondary;
 
+    /**
+     * Botão de logout: limpa o steamId no contexto e navega para a tela de login.
+     */
     function LogoutButton() {
         const { clearSteamId } = useContext(AuthContext);
         const router = useRouter();
 
+        /**
+         * Handler do toque no botão de logout; desloga e redireciona para /(auth)/login.
+         */
         const handleLogout = async () => {
             try {
                 await clearSteamId?.();

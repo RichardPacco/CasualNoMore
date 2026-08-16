@@ -3,6 +3,10 @@ import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS } from "@/src/theme/colors";
 import { Modal, Text, TouchableOpacity, View } from "react-native";
 
+/**
+ * Modal de confirmação para limpar o banco de dados local.
+ * Props: visible, onClose, onConfirm.
+ */
 export default function ClearDbModal({ visible, onClose, onConfirm }) {
     const { t } = useLanguage();
 

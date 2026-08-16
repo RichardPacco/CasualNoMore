@@ -8,14 +8,14 @@ const createdTables = new Set();
 // Promises de criação em andamento, para não disparar CREATE TABLE em paralelo
 const tableCreationPromises = new Map();
 
-// Serializa para JSON sem duplicar strings já serializadas
+/** Serializa um valor para JSON sem duplicar strings já serializadas. */
 function toJson(value) {
     if (value === null || value === undefined) return null;
     if (typeof value === "string") return value;
     return JSON.stringify(value);
 }
 
-// Parsa um campo JSON armazenado (string ou null), retornando o objeto/array
+/** Faz parse de um campo JSON armazenado, retornando objeto/array ou null. */
 export function parseJson(value) {
     if (value === null || value === undefined) return null;
     if (typeof value !== "string") return value;
@@ -27,6 +27,7 @@ export function parseJson(value) {
     }
 }
 
+/** Abre (uma única vez) e retorna a instância do banco SQLite. */
 export async function openDB() {
     if (!dbInstance) {
         console.log("[db] Abrindo banco de dados...");
@@ -35,9 +36,7 @@ export async function openDB() {
     return dbInstance;
 }
 
-/**
- * Garante que exista uma tabela para o steamId
- */
+/** Garante que exista a tabela de jogos do steamId e retorna o nome dela. */
 export async function ensureTable(steamId) {
     const tableName = `games_${steamId}`;
     if (createdTables.has(tableName)) return tableName;
@@ -73,6 +72,7 @@ export async function ensureTable(steamId) {
     return promise;
 }
 
+/** Garante que exista a tabela de amigos do steamId e retorna o nome dela. */
 export async function ensureTableFriends(steamId) {
     const tableName = `friends_${steamId}`;
     if (createdTables.has(tableName)) return tableName;
@@ -100,9 +100,7 @@ export async function ensureTableFriends(steamId) {
 
 
 
-/**
- * Salva ou atualiza um jogo na tabela do steamId
- */
+/** Salva ou atualiza um jogo na tabela do steamId. */
 export async function saveGame(steamId, game) {
     try {
         const db = await openDB();
@@ -130,9 +128,7 @@ export async function saveGame(steamId, game) {
     }
 }
 
-/**
- * Retorna todos os jogos de um steamId
- */
+/** Retorna todos os jogos de um steamId. */
 export async function getAllGames(steamId) {
     try {
         const db = await openDB();
@@ -146,9 +142,7 @@ export async function getAllGames(steamId) {
     }
 }
 
-/**
- * Retorna um único jogo cacheado do steamId
- */
+/** Retorna um único jogo cacheado do steamId, com campos JSON já parseados. */
 export async function getGame(steamId, appid) {
     try {
         const db = await openDB();
@@ -168,6 +162,7 @@ export async function getGame(steamId, appid) {
 }
 
 
+/** Salva vários jogos de uma vez na tabela do steamId (inserções em paralelo). */
 export async function saveGamesBatch(steamId, games) {
     try {
         const db = await openDB();
@@ -197,16 +192,14 @@ export async function saveGamesBatch(steamId, games) {
             });
         });
 
-        await Promise.all(insertPromises); // Run all inserts in parallel
+        await Promise.all(insertPromises);
     } catch (err) {
         console.error("[db] Failed to save games batch", err);
     }
 }
 
 
-/**
- * Retorna a contagem de jogos de um steamId
- */
+/** Retorna a contagem de jogos de um steamId. */
 export async function getGamesCount(steamId) {
     try {
         const db = await openDB();
@@ -220,9 +213,7 @@ export async function getGamesCount(steamId) {
 }
 
 
-/**
- * DEBUG: limpa todas as tabelas do banco
- */
+/** DEBUG: remove todas as tabelas do banco e reinicia os caches. */
 export async function clearDB() {
     try {
         const db = await openDB();
@@ -248,7 +239,7 @@ export async function clearDB() {
 
 
 
-// Save the profile of a friend
+/** Salva o perfil de um amigo na tabela do dono. */
 export async function saveFriendProfile(steamId, friend) {
     try {
         const db = await openDB();
@@ -269,7 +260,7 @@ export async function saveFriendProfile(steamId, friend) {
     }
 }
 
-// Save a batch of friend profiles into the friends table of the owner
+/** Salva vários perfis de amigos de uma vez na tabela do dono. */
 export async function saveFriendsBatch(steamId, friends) {
     try {
         const db = await openDB();
@@ -286,7 +277,7 @@ export async function saveFriendsBatch(steamId, friends) {
             );
         });
 
-        await Promise.all(insertPromises); // Run all inserts in parallel
+        await Promise.all(insertPromises);
         console.log(`[db] ${friends.length} friend profiles saved`);
     } catch (err) {
         console.error("[db] Failed to save friends batch", err);
@@ -295,12 +286,12 @@ export async function saveFriendsBatch(steamId, friends) {
 
 
 
-// Save full friend (profile + games) into the friends table of the owner
+/** Salva um amigo completo (perfil) na tabela do dono. */
 export async function saveFriend(steamId, friend) {
     await saveFriendProfile(steamId, friend);
 }
 
-// Load full friend
+/** Carrega um amigo completo (perfil, jogos e comuns) do banco. */
 export async function loadFriend(ownSteamId, friendSteamId) {
     try {
         const db = await openDB();

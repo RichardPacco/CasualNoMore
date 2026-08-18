@@ -4,7 +4,7 @@ import { parseJson } from "@/src/database/db";
 import { getLanguageStore } from "@/src/i18n/langStore";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { computeProgress, fetchAndMergeAchievements } from "@/src/utils/achievements";
-import { useContext, useEffect, useMemo, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 /**
  * Hook que carrega e mescla as conquistas de um jogo (cache, schema e API),
@@ -22,6 +22,27 @@ export default function useAchievements(game) {
 
     const [mergedCheevos, setMergedCheevos] = useState(!stale ? (cachedAchievements || []) : []);
     const [loading, setLoading] = useState(!cachedAchievements || stale);
+
+    const loadGenRef = useRef(0);
+
+    /** Força re-fetch completo das conquistas da API (ignora cache). */
+    const refresh = useCallback(async () => {
+        if (!appid) return;
+        const gen = ++loadGenRef.current;
+        try {
+            let schema = gameSchema;
+            if (!schema) {
+                schema = await GetSchemaForGame(appid, steamId).catch(() => null);
+            }
+            const merged = await fetchAndMergeAchievements(appid, steamId, schema || []);
+            if (loadGenRef.current !== gen) return merged;
+            setMergedCheevos(merged);
+            return merged;
+        } catch (err) {
+            console.error("Error refreshing achievements for", gameName, err);
+            return null;
+        }
+    }, [appid, gameName, gameSchema, steamId]);
 
     useEffect(() => {
         if (!appid) return;
@@ -62,5 +83,5 @@ export default function useAchievements(game) {
 
     const { unlocked, total, percent } = computeProgress(mergedCheevos);
 
-    return { mergedCheevos, loading, unlocked, total, percent };
+    return { mergedCheevos, loading, unlocked, total, percent, refresh };
 }

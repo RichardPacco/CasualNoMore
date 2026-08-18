@@ -7,12 +7,15 @@ import { COLORS } from "@/src/theme/colors";
 import { useTheme } from "@/src/theme/styles";
 import { achievementIconUri } from "@/src/utils/cdn";
 import { formatDateTime } from "@/src/utils/formatDate";
+import { showToast } from "@/src/utils/toast";
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import { LinearGradient } from "expo-linear-gradient";
 import * as WebBrowser from "expo-web-browser";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Dimensions, Image, Keyboard, Text, TouchableOpacity, useColorScheme, View } from "react-native";
+import { AuthContext } from "@/src/context/AuthContext";
+import { saveGame } from "@/src/database/db";
 
 const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
 
@@ -165,7 +168,8 @@ const AchievementCard = memo(AchievementCardComponent);
  * e menu de guias (Google/ChatGPT).
  */
 export default function AchievementsTab({ game }) {
-    const { mergedCheevos, loading } = useAchievements(game);
+    const { steamId } = useContext(AuthContext);
+    const { mergedCheevos, loading, refresh } = useAchievements(game);
 
     const t = useTheme();
     const { t: tr } = useLanguage();
@@ -180,11 +184,34 @@ export default function AchievementsTab({ game }) {
     const [searchQuery, setSearchQuery] = useState("");
     const [debouncedQuery, setDebouncedQuery] = useState("");
     const [guideMenu, setGuideMenu] = useState(null);
+    const [refreshing, setRefreshing] = useState(false);
     const listRef = useRef(null);
     const containerRef = useRef(null);
 
     const colorScheme = useColorScheme();
     const isDark = colorScheme === "dark";
+
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        try {
+            const merged = await refresh();
+            if (merged && steamId) {
+                await saveGame(steamId, {
+                    ...game,
+                    achievements: merged,
+                    achievementsStatus: "done",
+                    unlocked: merged.filter(a => a.achieved).length,
+                    totalAchievements: merged.length,
+                    lang: game?.lang,
+                });
+            }
+        } catch (err) {
+            console.error("[AchievementsTab] refresh failed", err);
+            showToast(tr("gameRefreshFailed"), "error");
+        } finally {
+            setRefreshing(false);
+        }
+    }, [refresh, steamId, game, tr]);
 
     const filterOptions = useMemo(() => [
         { label: tr("filterAll"), value: "all" },
@@ -347,8 +374,28 @@ export default function AchievementsTab({ game }) {
                         }
                     />
 
-                    {/* floating buttons: filter + sort + scroll to top */}
+                    {/* floating buttons: refresh + filter + sort + scroll to top */}
                     <View className="absolute bottom-24 right-6 gap-3">
+                        <TouchableOpacity
+                            onPress={onRefresh}
+                            disabled={refreshing}
+                            activeOpacity={0.8}
+                            className={`w-12 h-12 rounded-xl items-center justify-center border ${t.elevatedCardBg} ${t.cardBorder}`}
+                            style={{
+                                elevation: 6,
+                                shadowColor: "#000",
+                                shadowOpacity: 0.25,
+                                shadowRadius: 6,
+                                shadowOffset: { width: 0, height: 3 },
+                            }}
+                        >
+                            {refreshing ? (
+                                <ActivityIndicator size="small" color={COLORS.accent} />
+                            ) : (
+                                <Ionicons name="refresh" size={22} color={COLORS.accent} />
+                            )}
+                        </TouchableOpacity>
+
                         <TouchableOpacity
                             onPress={() => setFilterVisible(true)}
                             activeOpacity={0.8}

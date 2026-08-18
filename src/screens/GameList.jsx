@@ -207,11 +207,12 @@ export default function GameList({ navigation, route }) {
 
     const filterOptions = useMemo(() => [
         { label: tr("filterAll"), value: "all" },
-        { label: tr("filterNeverPlayed"), value: "neverPlayed" },
         { label: tr("filterPlayed"), value: "played" },
+        { label: tr("filterNeverPlayed"), value: "neverPlayed" },
         { label: tr("filterWithAchievements"), value: "withAchievements" },
         { label: tr("filterWithoutAchievements"), value: "withoutAchievements" },
         { label: tr("filterCompleted"), value: "completed" },
+        { label: tr("filterNotCompleted"), value: "notCompleted" },
         { label: tr("filterBacklog"), value: "progress" },
     ], [tr]);
 
@@ -219,6 +220,7 @@ export default function GameList({ navigation, route }) {
         { label: tr("sortRecent"), value: "recentPlaytime" },
         { label: tr("sortPlaytime"), value: "totalPlaytime" },
         { label: tr("sortName"), value: "name" },
+        { label: tr("sortProgress"), value: "progress" },
     ], [tr]);
 
     const filterCounts = useMemo(() => {
@@ -234,6 +236,10 @@ export default function GameList({ navigation, route }) {
                 case "completed": return games.filter(g => {
                     const { unlocked, total } = getGameCounts(g);
                     return total > 0 && unlocked === total;
+                }).length;
+                case "notCompleted": return games.filter(g => {
+                    const { unlocked, total } = getGameCounts(g);
+                    return total > 0 && unlocked !== total;
                 }).length;
                 case "progress": return games.filter(g => {
                     const { unlocked, total } = getGameCounts(g);
@@ -259,6 +265,10 @@ export default function GameList({ navigation, route }) {
             case "completed": result = result.filter(g => {
                 const { unlocked, total } = getGameCounts(g);
                 return total > 0 && unlocked === total;
+            }); break;
+            case "notCompleted": result = result.filter(g => {
+                const { unlocked, total } = getGameCounts(g);
+                return total > 0 && unlocked !== total;
             }); break;
             case "progress": result = result.filter(g => {
                 const { unlocked, total } = getGameCounts(g);
@@ -287,6 +297,16 @@ export default function GameList({ navigation, route }) {
                 break;
             case "name":
                 result = [...result].sort((a, b) => a.name.localeCompare(b.name));
+                break;
+            case "progress":
+                result = [...result].sort((a, b) => {
+                    const aP = getGameCounts(a);
+                    const bP = getGameCounts(b);
+                    const aHas = aP.total > 0 ? 1 : 0;
+                    const bHas = bP.total > 0 ? 1 : 0;
+                    if (aHas !== bHas) return bHas - aHas;
+                    return bP.percent - aP.percent;
+                });
                 break;
             default: break;
         }

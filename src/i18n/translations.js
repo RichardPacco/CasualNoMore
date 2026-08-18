@@ -87,6 +87,7 @@ export const translations = {
     sortRecent: { pt: "Mais recentes", en: "Most Recent" },
     sortPlaytime: { pt: "Tempo de Jogo", en: "Playtime" },
     sortName: { pt: "Nome", en: "Name" },
+    sortProgress: { pt: "Progresso", en: "Progress" },
     searchingGames: { pt: "Buscando {current}/{total} jogos…", en: "Searching {current}/{total} games…" },
     searchGamesPlaceholder: { pt: "Pesquisar jogos...", en: "Search games..." },
     clear: { pt: "Limpar", en: "Clear" },

@@ -81,6 +81,7 @@ export const translations = {
     filterWithAchievements: { pt: "Com Conquistas", en: "With Achievements" },
     filterWithoutAchievements: { pt: "Sem Conquistas", en: "Without Achievements" },
     filterCompleted: { pt: "Completados", en: "Completed" },
+    filterNotCompleted: { pt: "Não Completados", en: "Not Completed" },
     filterBacklog: { pt: "Backlog", en: "Backlog" },
     gameRecentRefresh: { pt: "Atualizando jogos recentes...", en: "Updating most recent games..." },
     gameRecentRefreshed: { pt: "Jogos atualizados!", en: "Recent games updated!" },

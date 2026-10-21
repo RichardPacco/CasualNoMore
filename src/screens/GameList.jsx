@@ -3,7 +3,7 @@ import GameCard from "@/src/components/GameCard";
 import PullToRefresh from "@/src/components/PullToRefresh";
 import RadioSheet from "@/src/components/RadioSheet";
 import { AuthContext } from "@/src/context/AuthContext";
-import { getAllGames, parseJson, saveGame, saveGamesBatch } from "@/src/database/db";
+import { getAllGames, parseJson, saveGame, saveGamesBatch, togglePin as dbTogglePin, getPinnedAppIds } from "@/src/database/db";
 import { getLanguageStore } from "@/src/i18n/langStore";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS } from "@/src/theme/colors";
@@ -61,7 +61,7 @@ export default function GameList({ navigation, route }) {
      * mantém o dado antigo (fallback) e deixa o status "pending"
      * para tentar de novo na próxima carga.
      */
-    const enrichGame = useCallback(async (baseGame, cached, force = false) => {
+    const enrichGame = useCallback(async (baseGame, cached, force = false, pinnedIds = null) => {
         const lang = getLanguageStore();
         const stale = force || (cached ? cached.lang !== lang : false);
         const cachedSchema = parseJson(cached?.schema);
@@ -121,6 +121,7 @@ export default function GameList({ navigation, route }) {
             unlocked, totalAchievements: total,
             schema, schemaStatus, achievements, achievementsStatus, details, detailsStatus,
             lang,
+            pinned: cached?.pinned || (pinnedIds?.has(baseGame.appid) ? 1 : 0),
         };
     }, [steamId]);
 
@@ -128,8 +129,8 @@ export default function GameList({ navigation, route }) {
      * Força refetch completo de um jogo (playtime, schema, conquistas).
      * `existing` (jogo atual da lista) serve de fallback se algo falhar.
      */
-    const forceRefreshGame = useCallback(async (baseGame, existing) => {
-        const fresh = await enrichGame(baseGame, existing, true);
+    const forceRefreshGame = useCallback(async (baseGame, existing, pinnedIds = null) => {
+        const fresh = await enrichGame(baseGame, existing, true, pinnedIds);
 
         setGames(prev => prev.map(g => g.appid === fresh.appid ? fresh : g));
         await saveGame(steamId, fresh);
@@ -154,9 +155,20 @@ export default function GameList({ navigation, route }) {
     }, [steamId, forceRefreshGame, tr]);
 
     /**
-     * Atualiza por completo apenas os jogos jogados nas últimas 2 semanas
-     * (playtime_2weeks > 0) — botão de refresh recentes. `silent` sem toasts
-     * (disparo automático ao abrir a lista).
+     * Alterna o estado pinned de um jogo (fixar/desfixar).
+     */
+    const togglePinGame = useCallback(async (game) => {
+        const newPinned = await dbTogglePin(steamId, game.appid);
+        setGames(prev => prev.map(g =>
+            g.appid === game.appid ? { ...g, pinned: newPinned } : g
+        ));
+        showToast(newPinned ? tr("gamePinned") : tr("gameUnpinned"), "success");
+    }, [steamId, tr]);
+
+    /**
+     * Atualiza por completo os jogos jogados nas últimas 2 semanas
+     * (playtime_2weeks > 0) e todos os jogos fixados.
+     * `silent` sem toasts (disparo automático ao abrir a lista).
      */
     const refreshRecentGames = useCallback(async (silent = false) => {
         if (refreshingRecent) return;
@@ -166,16 +178,20 @@ export default function GameList({ navigation, route }) {
             const owned = await getOwnedGames(steamId);
             if (!owned?.games) throw new Error("no games");
 
-            const recent = owned.games.filter(g => (g.playtime_2weeks || 0) > 0);
-            if (recent.length === 0) {
+            const pinnedIds = new Set(await getPinnedAppIds(steamId));
+
+            const toRefresh = owned.games.filter(g =>
+                (g.playtime_2weeks || 0) > 0 || pinnedIds.has(g.appid)
+            );
+            if (toRefresh.length === 0) {
                 if (!silent) showToast(tr("noRecentGames"), "info");
                 return;
             }
 
-            for (const baseGame of recent) {
+            for (const baseGame of toRefresh) {
                 if (cancelledRef.current) break;
                 const existing = games.find(g => g.appid === baseGame.appid);
-                await forceRefreshGame(baseGame, existing);
+                await forceRefreshGame(baseGame, existing, pinnedIds);
             }
 
             if (!silent) showToast(tr("gameRecentRefreshed"), "success");
@@ -201,8 +217,15 @@ export default function GameList({ navigation, route }) {
      * Renderiza um card de jogo na lista virtualizada (FlashList).
      */
     const renderGameCard = useCallback(
-        ({ item }) => <GameCard game={item} navigation={navigation} onLongPress={refreshSingleGame} />,
-        [navigation, refreshSingleGame]
+        ({ item }) => (
+            <GameCard
+                game={item}
+                navigation={navigation}
+                onLongPress={refreshSingleGame}
+                onTogglePin={togglePinGame}
+            />
+        ),
+        [navigation, refreshSingleGame, togglePinGame]
     );
 
     const filterOptions = useMemo(() => [
@@ -214,6 +237,7 @@ export default function GameList({ navigation, route }) {
         { label: tr("filterCompleted"), value: "completed" },
         { label: tr("filterNotCompleted"), value: "notCompleted" },
         { label: tr("filterBacklog"), value: "progress" },
+        { label: tr("filterPinned"), value: "pinned" },
     ], [tr]);
 
     const sortOptions = useMemo(() => [
@@ -245,6 +269,7 @@ export default function GameList({ navigation, route }) {
                     const { unlocked, total } = getGameCounts(g);
                     return total > 0 && unlocked > 0 && unlocked !== total;
                 }).length;
+                case "pinned": return games.filter(g => g.pinned).length;
                 default: return games.length;
             }
         };
@@ -274,6 +299,7 @@ export default function GameList({ navigation, route }) {
                 const { unlocked, total } = getGameCounts(g);
                 return total > 0 && unlocked > 0 && unlocked !== total;
             }); break;
+            case "pinned": result = result.filter(g => g.pinned); break;
             default: break;
         }
 
@@ -322,6 +348,13 @@ export default function GameList({ navigation, route }) {
         const rest = filteredGames.filter(g => !isRecentGame(g));
         return { recent, rest };
     }, [filteredGames, sort, isRecentGame]);
+
+    // Separa os fixados (vão num card com borda no cabeçalho) do restante.
+    const pinnedBlock = useMemo(() => {
+        const pinned = filteredGames.filter(g => g.pinned);
+        const rest = filteredGames.filter(g => !g.pinned);
+        return { pinned, rest };
+    }, [filteredGames]);
 
     // ---------- load jogos ----------
     /**
@@ -455,7 +488,7 @@ export default function GameList({ navigation, route }) {
         if (!steamId) return;
         loadGames();
         // Sempre que a lista abre, força refresh completo dos jogos recentes
-        // (playtime_2weeks > 0), independente de ter mudado algo.
+        // e fixados, independente de ter mudado algo.
         refreshRecentRef.current?.(true);
         return () => {
             // Cancela a carga em andamento (troca de idioma ou unmount):
@@ -508,9 +541,9 @@ export default function GameList({ navigation, route }) {
 
             <PullToRefresh refreshing={refreshing} onRefresh={onRefresh} enabled={progress.current >= progress.total}>
                 <FlashList
-                    key={`${filter}-${sort}-${debouncedQuery}-${!!recentBlock}`}
+                    key={`${filter}-${sort}-${debouncedQuery}-${!!recentBlock}-${pinnedBlock.pinned.length}`}
                     ref={listRef}
-                    data={recentBlock ? recentBlock.rest : filteredGames}
+                    data={recentBlock ? recentBlock.rest.filter(g => !g.pinned) : pinnedBlock.rest}
                     keyExtractor={(item) => item.appid.toString()}
                     renderItem={renderGameCard}
                     maintainVisibleContentPosition={{ disabled: true }}
@@ -529,6 +562,31 @@ export default function GameList({ navigation, route }) {
                                 </View>
                             )}
 
+                            {pinnedBlock.pinned.length > 0 && (
+                                <View
+                                    className={`rounded-xl ${t.elevatedCardBg} p-2 mb-4`}
+                                    style={{ borderWidth: 1, borderColor: COLORS.warning }}
+                                >
+                                    <View className="flex-row items-center gap-2 px-2 pb-1">
+                                        <Ionicons name="pin" size={12} color={COLORS.warning} />
+                                        <Text className="text-xs font-semibold uppercase tracking-wide"
+                                            style={{ color: COLORS.warning }}>
+                                            {tr("pinnedSeparator")}
+                                        </Text>
+                                        <View className="flex-1 h-px" style={{ backgroundColor: COLORS.warning }} />
+                                    </View>
+                                    {pinnedBlock.pinned.map(g => (
+                                        <GameCard
+                                            key={g.appid}
+                                            game={g}
+                                            navigation={navigation}
+                                            onLongPress={refreshSingleGame}
+                                            onTogglePin={togglePinGame}
+                                        />
+                                    ))}
+                                </View>
+                            )}
+
                             {recentBlock && recentBlock.recent.length > 0 && (
                                 <View
                                     className={`rounded-xl ${t.elevatedCardBg} p-2 mb-4`}
@@ -541,12 +599,13 @@ export default function GameList({ navigation, route }) {
                                         </Text>
                                         <View className="flex-1 h-px" style={{ backgroundColor: COLORS.accent }} />
                                     </View>
-                                    {recentBlock.recent.map(g => (
+                                    {recentBlock.recent.filter(g => !g.pinned).map(g => (
                                         <GameCard
                                             key={g.appid}
                                             game={g}
                                             navigation={navigation}
                                             onLongPress={refreshSingleGame}
+                                            onTogglePin={togglePinGame}
                                         />
                                     ))}
                                 </View>

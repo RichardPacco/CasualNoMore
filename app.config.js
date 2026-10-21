@@ -3,7 +3,7 @@ export default ({ config }) => {
     ...config,
     name: "CasualNoMore",
     slug: "CasualNoMore",
-    version: "1.2.0",
+    version: "1.3.0",
     orientation: "portrait",
     icon: "./assets/images/app_icon.png",
     scheme: "casualnomore",
@@ -42,6 +42,11 @@ export default ({ config }) => {
     experiments: {
       typedRoutes: true,
     },
-
+    extra: {
+      router: {},
+      eas: {
+        projectId: "895beb33-b8f7-4b89-87fa-2e967f04b60d",
+      },
+    },
   };
 };

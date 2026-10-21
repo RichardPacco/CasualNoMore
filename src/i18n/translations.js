@@ -83,6 +83,7 @@ export const translations = {
     filterCompleted: { pt: "Completados", en: "Completed" },
     filterNotCompleted: { pt: "Não Completados", en: "Not Completed" },
     filterBacklog: { pt: "Backlog", en: "Backlog" },
+    filterPinned: { pt: "Fixados", en: "Pinned" },
     gameRecentRefresh: { pt: "Atualizando jogos recentes...", en: "Updating most recent games..." },
     gameRecentRefreshed: { pt: "Jogos atualizados!", en: "Recent games updated!" },
     sortRecent: { pt: "Mais recentes", en: "Most Recent" },
@@ -162,4 +163,7 @@ export const translations = {
 
     // --- list separators ---
     recentGamesSeparator: { pt: "Jogados Recentemente", en: "Recently Played" },
+    pinnedSeparator: { pt: "Fixados", en: "Pinned" },
+    gamePinned: { pt: "Jogo fixado!", en: "Game pinned!" },
+    gameUnpinned: { pt: "Jogo desfixado!", en: "Game unpinned!" },
 };

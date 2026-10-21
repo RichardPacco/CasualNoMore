@@ -5,14 +5,16 @@ import { useImageCdnFallback } from "@/src/hooks/useImageCdnFallback";
 import { memo } from "react";
 import { Image, Text, TouchableOpacity, View } from "react-native";
 import { useTheme } from "@/src/theme/styles";
+import { Ionicons } from "@expo/vector-icons";
+import { COLORS } from "@/src/theme/colors";
 
 const placeholderImage = require("../../assets/images/placeholder_gamelist.jpg");
 
 /**
  * Card de um jogo na lista: mostra imagem, nome, tempo jogado e progresso de conquistas.
- * Props: game, navigation, onLongPress.
+ * Props: game, navigation, onLongPress, onTogglePin.
  */
-function GameCardComponent({ game, navigation, onLongPress }) {
+function GameCardComponent({ game, navigation, onLongPress, onTogglePin }) {
     const t = useTheme();
     const { t: tr } = useLanguage();
     const { stage, onError } = useImageCdnFallback(game.appid);
@@ -60,6 +62,22 @@ function GameCardComponent({ game, navigation, onLongPress }) {
                             resizeMode="contain"
                         />
                     )}
+                    {onTogglePin && (
+                        <TouchableOpacity
+                            onPress={(e) => {
+                                e.stopPropagation?.();
+                                onTogglePin(game);
+                            }}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            style={{ marginLeft: 6, padding: 2 }}
+                        >
+                            <Ionicons
+                                name={game.pinned ? "pin" : "pin-outline"}
+                                size={18}
+                                color={game.pinned ? COLORS.warning : COLORS.accent}
+                            />
+                        </TouchableOpacity>
+                    )}
                 </View>
                 <Text className={`${t.textSecondary} text-sm mt-1`}>
                     {playtimeText}
@@ -89,5 +107,6 @@ function GameCardComponent({ game, navigation, onLongPress }) {
 export default memo(GameCardComponent, (prevProps, nextProps) => {
     return prevProps.game === nextProps.game
         && prevProps.navigation === nextProps.navigation
-        && prevProps.onLongPress === nextProps.onLongPress;
+        && prevProps.onLongPress === nextProps.onLongPress
+        && prevProps.onTogglePin === nextProps.onTogglePin;
 });

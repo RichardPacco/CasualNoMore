@@ -60,7 +60,8 @@ export async function ensureTable(steamId) {
       detailsStatus TEXT,
       lang TEXT,
       unlocked INTEGER,
-      totalAchievements INTEGER
+      totalAchievements INTEGER,
+      pinned INTEGER DEFAULT 0
     );
   `);
         createdTables.add(tableName);
@@ -115,12 +116,13 @@ export async function saveGame(steamId, game) {
         const achievementsList = Array.isArray(game.achievements) ? game.achievements : [];
         const totalAchievements = game.totalAchievements ?? achievementsList.length;
         const unlocked = game.unlocked ?? achievementsList.filter(a => a.achieved).length;
+        const pinned = game.pinned ? 1 : 0;
 
         console.log(`[db] Salvando jogo: ${game.name || game.appid} na tabela ${tableName}`);
         await db.runAsync(
-            `INSERT OR REPLACE INTO ${tableName} (appid, name, playtime_forever, playtime_2weeks, playtimeHidden, schema, schemaStatus, achievements, achievementsStatus, details, detailsStatus, lang, unlocked, totalAchievements)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [game.appid, game.name, game.playtime_forever || 0, game.playtime_2weeks || 0, playtimeHidden, schemaString, schemaStatus, achievementsString, achievementsStatus, detailsString, detailsStatus, game.lang || null, unlocked, totalAchievements]
+            `INSERT OR REPLACE INTO ${tableName} (appid, name, playtime_forever, playtime_2weeks, playtimeHidden, schema, schemaStatus, achievements, achievementsStatus, details, detailsStatus, lang, unlocked, totalAchievements, pinned)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [game.appid, game.name, game.playtime_forever || 0, game.playtime_2weeks || 0, playtimeHidden, schemaString, schemaStatus, achievementsString, achievementsStatus, detailsString, detailsStatus, game.lang || null, unlocked, totalAchievements, pinned]
         );
         console.log(`[db] Jogo salvo: ${game.name || game.appid}`);
     } catch (err) {
@@ -180,13 +182,14 @@ export async function saveGamesBatch(steamId, games) {
             const achievementsList = Array.isArray(game.achievements) ? game.achievements : [];
             const totalAchievements = game.totalAchievements ?? achievementsList.length;
             const unlocked = game.unlocked ?? achievementsList.filter(a => a.achieved).length;
+            const pinned = game.pinned ? 1 : 0;
 
             console.log(`[db] Salvando jogo: ${game.name || game.appid} na tabela ${tableName}`);
             return db.runAsync(
                 `INSERT OR REPLACE INTO ${tableName} 
-                (appid, name, playtime_forever, playtime_2weeks, playtimeHidden, schema, schemaStatus, achievements, achievementsStatus, details, detailsStatus, lang, unlocked, totalAchievements)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [game.appid, game.name, game.playtime_forever || 0, game.playtime_2weeks || 0, playtimeHidden, schemaString, schemaStatus, achievementsString, achievementsStatus, detailsString, detailsStatus, game.lang || null, unlocked, totalAchievements]
+                (appid, name, playtime_forever, playtime_2weeks, playtimeHidden, schema, schemaStatus, achievements, achievementsStatus, details, detailsStatus, lang, unlocked, totalAchievements, pinned)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [game.appid, game.name, game.playtime_forever || 0, game.playtime_2weeks || 0, playtimeHidden, schemaString, schemaStatus, achievementsString, achievementsStatus, detailsString, detailsStatus, game.lang || null, unlocked, totalAchievements, pinned]
             ).then(() => {
                 console.log(`[db] Jogo salvo: ${game.name || game.appid}`);
             });
@@ -198,6 +201,34 @@ export async function saveGamesBatch(steamId, games) {
     }
 }
 
+
+/** Alterna o estado pinned de um jogo. Retorna o novo valor (0 ou 1). */
+export async function togglePin(steamId, appid) {
+    try {
+        const db = await openDB();
+        const tableName = await ensureTable(steamId);
+        const row = await db.getFirstAsync(`SELECT pinned FROM ${tableName} WHERE appid = ?`, [appid]);
+        const newPinned = (row?.pinned || 0) === 0 ? 1 : 0;
+        await db.runAsync(`UPDATE ${tableName} SET pinned = ? WHERE appid = ?`, [newPinned, appid]);
+        return newPinned;
+    } catch (err) {
+        console.error("[db] togglePin failed", appid, err);
+        return 0;
+    }
+}
+
+/** Retorna os appids dos jogos fixados de um steamId. */
+export async function getPinnedAppIds(steamId) {
+    try {
+        const db = await openDB();
+        const tableName = await ensureTable(steamId);
+        const rows = await db.getAllAsync(`SELECT appid FROM ${tableName} WHERE pinned = 1`);
+        return rows.map(r => r.appid);
+    } catch (err) {
+        console.error("[db] getPinnedAppIds failed", err);
+        return [];
+    }
+}
 
 /** Retorna a contagem de jogos de um steamId. */
 export async function getGamesCount(steamId) {

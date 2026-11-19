@@ -16,6 +16,37 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "r
 import { ActivityIndicator, Keyboard, Text, TouchableOpacity, useColorScheme, View } from "react-native";
 import SearchBar from "@/src/components/SearchBar";
 
+/** Jogo tem conquistas e todas foram desbloqueadas. */
+function isCompleted(g) {
+    const { unlocked, total } = getGameCounts(g);
+    return total > 0 && unlocked === total;
+}
+
+/**
+ * Definição única de cada filtro da lista (valor -> regra). Usada tanto para
+ * filtrar quanto para contar, então os números do menu sempre batem com a
+ * lista exibida. Para um filtro novo: a regra aqui + a opção em filterOptions.
+ */
+const GAME_FILTERS = {
+    all: () => true,
+    played: g => g.playtime_forever > 0,
+    neverPlayed: g => g.playtime_forever === 0,
+    withAchievements: g => getGameCounts(g).total > 0,
+    withoutAchievements: g => getGameCounts(g).total === 0,
+    completed: isCompleted,
+    notCompleted: g => getGameCounts(g).total > 0 && !isCompleted(g),
+    progress: g => {
+        const { unlocked, total } = getGameCounts(g);
+        return total > 0 && unlocked > 0 && unlocked !== total;
+    },
+    pinned: g => !!g.pinned,
+};
+
+/** Regra do filtro pelo valor; valor desconhecido = sem filtro. */
+function filterRule(value) {
+    return GAME_FILTERS[value] ?? GAME_FILTERS.all;
+}
+
 /**
  * Tela principal com a lista de jogos do usuário, incluindo busca,
  * filtro, ordenação e progresso de conquistas.
@@ -303,61 +334,16 @@ export default function GameList({ navigation, route }) {
         { label: tr("sortProgress"), value: "progress" },
     ], [tr]);
 
+    // Quantos jogos se encaixam em cada opção de filtro (mesma regra da lista)
     const filterCounts = useMemo(() => {
-        /**
-         * Conta quantos jogos se encaixam em cada opção de filtro.
-         */
-        const countFor = (value) => {
-            switch (value) {
-                case "played": return games.filter(g => g.playtime_forever > 0).length;
-                case "neverPlayed": return games.filter(g => g.playtime_forever === 0).length;
-                case "withAchievements": return games.filter(g => getGameCounts(g).total > 0).length;
-                case "withoutAchievements": return games.filter(g => getGameCounts(g).total === 0).length;
-                case "completed": return games.filter(g => {
-                    const { unlocked, total } = getGameCounts(g);
-                    return total > 0 && unlocked === total;
-                }).length;
-                case "notCompleted": return games.filter(g => {
-                    const { unlocked, total } = getGameCounts(g);
-                    return total > 0 && unlocked !== total;
-                }).length;
-                case "progress": return games.filter(g => {
-                    const { unlocked, total } = getGameCounts(g);
-                    return total > 0 && unlocked > 0 && unlocked !== total;
-                }).length;
-                case "pinned": return games.filter(g => g.pinned).length;
-                default: return games.length;
-            }
-        };
         return filterOptions.reduce((acc, opt) => {
-            acc[opt.value] = countFor(opt.value);
+            acc[opt.value] = games.filter(filterRule(opt.value)).length;
             return acc;
         }, {});
     }, [games, filterOptions]);
 
     const filteredGames = useMemo(() => {
-        let result = games;
-
-        switch (filter) {
-            case "played": result = result.filter(g => g.playtime_forever > 0); break;
-            case "neverPlayed": result = result.filter(g => g.playtime_forever === 0); break;
-            case "withAchievements": result = result.filter(g => getGameCounts(g).total > 0); break;
-            case "withoutAchievements": result = result.filter(g => getGameCounts(g).total === 0); break;
-            case "completed": result = result.filter(g => {
-                const { unlocked, total } = getGameCounts(g);
-                return total > 0 && unlocked === total;
-            }); break;
-            case "notCompleted": result = result.filter(g => {
-                const { unlocked, total } = getGameCounts(g);
-                return total > 0 && unlocked !== total;
-            }); break;
-            case "progress": result = result.filter(g => {
-                const { unlocked, total } = getGameCounts(g);
-                return total > 0 && unlocked > 0 && unlocked !== total;
-            }); break;
-            case "pinned": result = result.filter(g => g.pinned); break;
-            default: break;
-        }
+        let result = filter === "all" ? games : games.filter(filterRule(filter));
 
         // apply search by name (debounced)
         if (debouncedQuery && debouncedQuery.trim().length > 0) {

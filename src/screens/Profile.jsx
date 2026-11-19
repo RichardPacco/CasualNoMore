@@ -11,7 +11,8 @@ import { getGameCounts } from "@/src/utils/achievements";
 import { COLORS, FONTS } from "@/src/theme/colors";
 import { useRouter } from "expo-router";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import Pressable from "@/src/components/ui/Pressable";
 import { Ionicons } from "@expo/vector-icons";
 
 /**

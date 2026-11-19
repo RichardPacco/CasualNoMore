@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import { memo, useContext, useEffect, useMemo, useState } from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
+import Pressable from "@/src/components/ui/Pressable";
 import { getStoreAssets } from "@/src/api/steam";
 import { AppText, ProgressBar, TextField } from "@/src/components/ui";
 import { AuthContext } from "@/src/context/AuthContext";

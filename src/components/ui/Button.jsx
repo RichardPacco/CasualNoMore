@@ -1,4 +1,5 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import Pressable from "./Pressable";
 import { COLORS, FONTS } from "@/src/theme/colors";
 
 const VARIANTS = {

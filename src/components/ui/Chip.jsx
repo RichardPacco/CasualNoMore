@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, Text } from "react-native";
+import { StyleSheet, Text } from "react-native";
+import Pressable from "./Pressable";
 import { COLORS, FONTS } from "@/src/theme/colors";
 
 /**

@@ -1,4 +1,5 @@
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
+import Pressable from "@/src/components/ui/Pressable";
 import { ProgressRing } from "@/src/components/ui";
 import { useImageCdnFallback } from "@/src/hooks/useImageCdnFallback";
 import { useLanguage } from "@/src/i18n/LanguageContext";
@@ -49,7 +50,7 @@ export default function ContinueHuntingCard({ game, onOpen, onLongPress }) {
             <View style={styles.footer}>
                 <View style={styles.texts}>
                     <Text style={styles.name} numberOfLines={1}>{game.name}</Text>
-                    <Text style={styles.meta} numberOfLines={1}>{parts.join(" · ")}</Text>
+                    <Text style={styles.meta} numberOfLines={2}>{parts.join(" · ")}</Text>
                 </View>
                 {total > 0 && <ProgressRing value={percent} size={52} stroke={5} />}
             </View>

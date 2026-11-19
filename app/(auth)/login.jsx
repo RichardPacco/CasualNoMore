@@ -22,13 +22,13 @@ import {
     Image,
     KeyboardAvoidingView,
     Platform,
-    Pressable,
     ScrollView,
     StatusBar,
     StyleSheet,
     Text,
     View,
 } from "react-native";
+import Pressable from "@/src/components/ui/Pressable";
 
 // Mesmo limite do AuthContext (MAX_SAVED_ACCOUNTS): espaços na grade de contas
 const MAX_ACCOUNT_SLOTS = 3;

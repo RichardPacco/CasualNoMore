@@ -15,7 +15,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import * as WebBrowser from "expo-web-browser";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Keyboard, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Keyboard, ScrollView, StyleSheet, View } from "react-native";
+import Pressable from "@/src/components/ui/Pressable";
 
 // Configurações de privacidade do perfil na Steam (para deixar os jogos públicos)
 const STEAM_PRIVACY_URL = "https://steamcommunity.com/my/edit/settings";
@@ -881,9 +882,10 @@ const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: COLORS.bg },
     header: { paddingHorizontal: 20, paddingTop: 20, gap: 14 },
     titleRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+    // 48 px: mesma altura do campo de busca, para ficarem alinhados
     iconButton: {
-        width: 44,
-        height: 44,
+        width: 48,
+        height: 48,
         borderRadius: 14,
         borderWidth: 1,
         borderColor: COLORS.borderSubtle,

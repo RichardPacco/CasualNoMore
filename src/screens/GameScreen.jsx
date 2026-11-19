@@ -2,7 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { LinearGradient } from "expo-linear-gradient";
 import { useContext, useEffect, useState } from "react";
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
+import Pressable from "@/src/components/ui/Pressable";
 import AchievementsTab from './AchievementsTab';
 import GameDetailsTab from './GameDetailsTab';
 import { AppText } from "@/src/components/ui";
@@ -118,10 +119,11 @@ export default function GameScreen({ route, navigation }) {
                     resizeMode="cover"
                 />
                 <LinearGradient
+                    // no modo compacto o nome fica sobre a capa: escurece bem mais
                     colors={compact
-                        ? ["rgba(10,14,21,0.15)", COLORS.bg]
+                        ? ["rgba(10,14,21,0.6)", "rgba(10,14,21,0.75)", COLORS.bg]
                         : ["rgba(10,14,21,0)", "rgba(10,14,21,0)", COLORS.bg]}
-                    locations={compact ? [0, 1] : [0, 0.45, 1]}
+                    locations={compact ? [0, 0.6, 1] : [0, 0.45, 1]}
                     style={StyleSheet.absoluteFill}
                 />
                 <View style={styles.heroButtons}>
@@ -207,7 +209,14 @@ const styles = StyleSheet.create({
     hero: { height: 200, backgroundColor: COLORS.surface2, justifyContent: "space-between" },
     heroCompact: { height: 120 },
     heroButtons: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, padding: 16 },
-    compactTitle: { flex: 1, fontSize: 20 },
+    // sombra no texto para ler sobre qualquer capa
+    compactTitle: {
+        flex: 1,
+        fontSize: 20,
+        textShadowColor: "rgba(0, 0, 0, 0.8)",
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 6,
+    },
     roundButton: {
         width: 44,
         height: 44,
@@ -217,7 +226,12 @@ const styles = StyleSheet.create({
         justifyContent: "center",
     },
     heroTexts: { paddingHorizontal: 20, paddingBottom: 6, gap: 2 },
-    heroTitle: { fontSize: 28 },
+    heroTitle: {
+        fontSize: 28,
+        textShadowColor: "rgba(0, 0, 0, 0.7)",
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 6,
+    },
     heroMeta: { fontFamily: FONTS.body, fontSize: 13, color: COLORS.textSoft },
     segmentWrap: { paddingHorizontal: 20, paddingTop: 14, backgroundColor: COLORS.bg },
     segment: { flexDirection: "row", gap: 4, padding: 4, borderRadius: 14, backgroundColor: COLORS.surface },

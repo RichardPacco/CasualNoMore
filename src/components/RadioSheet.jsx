@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef } from "react";
-import { Animated, BackHandler, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, BackHandler, StyleSheet, Text, View } from "react-native";
+import Pressable from "@/src/components/ui/Pressable";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText } from "@/src/components/ui";
 import { useLanguage } from "@/src/i18n/LanguageContext";

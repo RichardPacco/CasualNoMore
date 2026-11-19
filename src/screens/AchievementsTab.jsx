@@ -11,7 +11,8 @@ import { showToast } from "@/src/utils/toast";
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import { memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Image, Keyboard, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, Keyboard, StyleSheet, Text, View } from "react-native";
+import Pressable from "@/src/components/ui/Pressable";
 import { AuthContext } from "@/src/context/AuthContext";
 import { updateGameAchievements } from "@/src/database/db";
 

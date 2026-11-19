@@ -8,7 +8,8 @@ import { COLORS, FONTS } from "@/src/theme/colors";
 import { personaStatus } from "@/src/utils/personaStatus";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
+import Pressable from "@/src/components/ui/Pressable";
 import { FlashList } from "@shopify/flash-list";
 
 /** Gera uma assinatura (appids ordenados) dos jogos para detectar mudanças na lista. */

@@ -1,22 +1,26 @@
+import { Ionicons } from "@expo/vector-icons";
+import { memo } from "react";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { ProgressBar } from "@/src/components/ui";
+import { useImageCdnFallback } from "@/src/hooks/useImageCdnFallback";
+import { useLanguage } from "@/src/i18n/LanguageContext";
+import { COLORS, FONTS } from "@/src/theme/colors";
 import { getGameCounts } from "@/src/utils/achievements";
 import { capsuleUri, imageCandidates } from "@/src/utils/cdn";
-import { useLanguage } from "@/src/i18n/LanguageContext";
-import { useImageCdnFallback } from "@/src/hooks/useImageCdnFallback";
-import { memo } from "react";
-import { Image, Text, TouchableOpacity, View } from "react-native";
-import { useTheme } from "@/src/theme/styles";
-import { Ionicons } from "@expo/vector-icons";
-import { COLORS } from "@/src/theme/colors";
+import { playtimeLine } from "@/src/utils/playtime";
 
 const placeholderImage = require("../../assets/images/placeholder_gamelist.jpg");
 
 /**
- * Card de um jogo na lista: mostra imagem, nome, tempo jogado e progresso de conquistas.
- * Props: game, navigation, onOpen (opcional; senão navega direto com o appid), onLongPress, onTogglePin.
+ * Linha de um jogo na biblioteca (redesign, prancheta 04): cápsula, nome,
+ * percentual, barra de progresso e tempo de jogo. Jogos fixados ganham borda
+ * dourada. Toque abre o jogo; toque longo atualiza; o alfinete fixa/desfixa.
+ * Props: game, navigation, onOpen (opcional; senão navega com o appid),
+ * onLongPress, onTogglePin.
  */
 function GameCardComponent({ game, navigation, onOpen, onLongPress, onTogglePin }) {
-    const t = useTheme();
     const { t: tr } = useLanguage();
+
     // URL da loja (com hash, funciona para jogos novos) primeiro; depois os
     // CDNs antigos montados pelo appid; todas falharam -> placeholder.
     const candidates = imageCandidates(game.capsuleUrl, fb => capsuleUri(game.appid, fb));
@@ -26,88 +30,86 @@ function GameCardComponent({ game, navigation, onOpen, onLongPress, onTogglePin 
     );
 
     const { unlocked, total, percent } = getGameCounts(game);
-
-    const playtimeText = game.playtimeHidden
-        ? tr("playtimeHidden")
-        : game.playtime_forever > 0
-            ? (game.playtime_forever < 60
-                ? tr("playtimeMinutes", { minutes: game.playtime_forever })
-                : tr("playtimeHours", {
-                    hours: Math.floor(game.playtime_forever / 60),
-                    minutes: game.playtime_forever % 60,
-                }))
-            : tr("playtimeNeverPlayed");
+    const hasAchievements = total > 0;
+    const complete = hasAchievements && unlocked === total;
 
     return (
-        <TouchableOpacity
-            className={`${t.cardBg} p-2 rounded-xl flex-row items-center mb-3`}
+        <Pressable
             onPress={() => onOpen
                 ? onOpen(game)
                 : navigation.navigate("GameScreen", { appid: game.appid })}
             onLongPress={onLongPress ? () => onLongPress(game) : undefined}
             delayLongPress={400}
-            style={{ minHeight: 90 }}
+            accessibilityRole="button"
+            accessibilityLabel={game.name}
+            accessibilityHint={tr("gameRefreshHint")}
+            style={({ pressed }) => [
+                styles.row,
+                game.pinned && styles.rowPinned,
+                { opacity: pressed ? 0.85 : 1 },
+            ]}
         >
             <Image
-                source={stage >= candidates.length
-                    ? placeholderImage
-                    : { uri: candidates[stage] }}
+                source={stage >= candidates.length ? placeholderImage : { uri: candidates[stage] }}
                 onError={onError}
-                className="w-40 h-20 rounded-md"
-                style={{ aspectRatio: 231 / 87 }}
+                style={styles.capsule}
                 resizeMode="cover"
             />
 
-            <View className="ml-4 flex-1">
-                <View className="flex-row items-center">
-                    <Text className={`${t.textPrimary} text-lg font-bold flex-1`} numberOfLines={1}>
-                        {game.name}
-                    </Text>
-                    {total > 0 && unlocked === total && (
-                        <Image
-                            source={require("../../assets/images/completion_icon.png")}
-                            className="w-6 h-6 ml-2"
-                            resizeMode="contain"
-                        />
-                    )}
-                    {onTogglePin && (
-                        <TouchableOpacity
-                            onPress={(e) => {
-                                e.stopPropagation?.();
-                                onTogglePin(game);
-                            }}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                            style={{ marginLeft: 6, padding: 2 }}
-                        >
-                            <Ionicons
-                                name={game.pinned ? "pin" : "pin-outline"}
-                                size={18}
-                                color={game.pinned ? COLORS.warning : COLORS.accent}
-                            />
-                        </TouchableOpacity>
+            <View style={styles.body}>
+                <View style={styles.titleRow}>
+                    <Text style={styles.name} numberOfLines={1}>{game.name}</Text>
+                    {hasAchievements && (
+                        <Text style={[styles.pct, complete && { color: COLORS.gold }]}>
+                            {Math.round(percent)}%
+                        </Text>
                     )}
                 </View>
-                <Text className={`${t.textSecondary} text-sm mt-1`}>
-                    {playtimeText}
-                </Text>
-
-                {total > 0 && (
-                    <>
-                        <View className={`w-full ${t.progressTrack} rounded-full h-2 mt-2`}>
-                            <View
-                                className={`${unlocked === total ? "bg-warning" : "bg-accent"} h-2 rounded-full`}
-                                style={{ width: `${percent}%` }}
-                            />
-                        </View>
-                        <Text className={`${t.textSecondary} text-xs mt-1`}>
-                            {tr("achievementsCount", { unlocked, total, percent: percent.toFixed(1) })}
-                        </Text>
-                    </>
-                )}
+                {hasAchievements && <ProgressBar value={percent} />}
+                <Text style={styles.meta} numberOfLines={1}>{playtimeLine(game, tr)}</Text>
             </View>
-        </TouchableOpacity>
+
+            {onTogglePin && (
+                <Pressable
+                    onPress={() => onTogglePin(game)}
+                    accessibilityRole="button"
+                    accessibilityLabel={game.pinned ? tr("unpinGame") : tr("pinGame")}
+                    accessibilityState={{ selected: !!game.pinned }}
+                    style={styles.pinButton}
+                >
+                    <Ionicons
+                        name={game.pinned ? "pin" : "pin-outline"}
+                        size={18}
+                        color={game.pinned ? COLORS.gold : COLORS.textMuted}
+                    />
+                </Pressable>
+            )}
+        </Pressable>
     );
 }
+
+const styles = StyleSheet.create({
+    row: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        padding: 10,
+        paddingRight: 4,
+        marginBottom: 8,
+        borderRadius: 16,
+        backgroundColor: COLORS.surface,
+        borderWidth: 1,
+        borderColor: "transparent",
+    },
+    rowPinned: { borderColor: "rgba(255, 179, 0, 0.35)" },
+    capsule: { width: 92, height: 34, borderRadius: 8, backgroundColor: COLORS.surface2 },
+    body: { flex: 1, minWidth: 0, gap: 6 },
+    titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+    name: { flex: 1, fontFamily: FONTS.bodySemibold, fontSize: 15, color: COLORS.text },
+    pct: { fontFamily: FONTS.bodyMedium, fontSize: 12, color: COLORS.textMuted },
+    meta: { fontFamily: FONTS.body, fontSize: 12, color: COLORS.textMuted },
+    pinButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+});
 
 /**
  * Exporta o GameCard com memo para evitar re-renderizações quando as props não mudam.

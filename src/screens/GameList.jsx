@@ -1,5 +1,7 @@
 import { getOwnedGames, GetSchemaForGame, getStoreAssets } from "@/src/api/steam";
+import ContinueHuntingCard from "@/src/components/ContinueHuntingCard";
 import GameCard from "@/src/components/GameCard";
+import { AppText, Chip, ProgressBar, TextField } from "@/src/components/ui";
 import PullToRefresh from "@/src/components/PullToRefresh";
 import RadioSheet from "@/src/components/RadioSheet";
 import { AuthContext } from "@/src/context/AuthContext";
@@ -13,8 +15,7 @@ import { showToast } from "@/src/utils/toast";
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Keyboard, Text, TouchableOpacity, useColorScheme, View } from "react-native";
-import SearchBar from "@/src/components/SearchBar";
+import { ActivityIndicator, Keyboard, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 /** Jogo tem conquistas e todas foram desbloqueadas. */
 function isCompleted(g) {
@@ -48,8 +49,9 @@ function filterRule(value) {
 }
 
 /**
- * Tela principal com a lista de jogos do usuário, incluindo busca,
- * filtro, ordenação e progresso de conquistas.
+ * Biblioteca (redesign, prancheta 04): lista de jogos do usuário com busca,
+ * chips de filtro, ordenação, destaque "Continuar caçando", fixados,
+ * recentes e progresso de conquistas.
  */
 export default function GameList({ navigation, route }) {
     const { steamId } = useContext(AuthContext);
@@ -72,8 +74,6 @@ export default function GameList({ navigation, route }) {
     const [searchQuery, setSearchQuery] = useState("");
     const [debouncedQuery, setDebouncedQuery] = useState("");
 
-    const colorScheme = useColorScheme();
-    const isDark = colorScheme === "dark";
     const t = useTheme();
 
     // geração da carga atual: quando uma nova carga começa (ou o componente
@@ -610,229 +610,208 @@ export default function GameList({ navigation, route }) {
         );
     }
 
-    return (
-        <View
-            className={`flex-1 p-4 ${t.pageBg}`}
-        >
-            {/* search input */}
-            <SearchBar
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                onClear={() => {
-                    setSearchQuery("");
-                    setDebouncedQuery("");
-                }}
-                placeholder={tr("searchGamesPlaceholder")}
-                inputProps={{
-                    returnKeyType: "search",
-                    onSubmitEditing: () => Keyboard.dismiss(),
-                }}
-            />
+    // ---------- blocos do topo da lista (redesign, prancheta 04) ----------
+    const syncing = progress.current < progress.total;
 
-            <PullToRefresh refreshing={refreshing} onRefresh={onRefresh} enabled={progress.current >= progress.total}>
+    // "Continuar caçando": o jogo mais jogado nas últimas 2 semanas, só na
+    // ordenação padrão e sem busca ativa.
+    const heroGame = sort === "recentPlaytime" && !debouncedQuery.trim() && recentBlock?.recent.length
+        ? recentBlock.recent[0]
+        : null;
+    const pinnedRows = pinnedBlock.pinned.filter(g => g !== heroGame);
+    const recentRows = recentBlock ? recentBlock.recent.filter(g => !g.pinned && g !== heroGame) : [];
+    const listData = recentBlock ? recentBlock.rest.filter(g => !g.pinned) : pinnedBlock.rest;
+    const hasTopBlocks = !!heroGame || pinnedRows.length > 0 || recentRows.length > 0;
+
+    // Chips rápidos; os outros filtros ficam em "Mais filtros"
+    const QUICK_FILTERS = ["all", "progress", "completed"];
+    const moreSelected = !QUICK_FILTERS.includes(filter);
+    const filterLabel = (value) => filterOptions.find(o => o.value === value)?.label ?? value;
+    const sortLabel = sortOptions.find(o => o.value === sort)?.label ?? "";
+
+    const renderRow = (g) => (
+        <GameCard
+            key={g.appid}
+            game={g}
+            navigation={navigation}
+            onOpen={openGame}
+            onLongPress={refreshSingleGame}
+            onTogglePin={togglePinGame}
+        />
+    );
+
+    return (
+        <View style={styles.screen}>
+            {/* Cabeçalho fixo: título, atualizar recentes, busca, ordenação e chips */}
+            <View style={styles.header}>
+                <View style={styles.titleRow}>
+                    <View style={{ flex: 1, gap: 2 }}>
+                        <AppText variant="title">{tr("libraryTitle")}</AppText>
+                        <AppText variant="muted">
+                            {tr("librarySubtitle", { count: games.length, completed: filterCounts.completed ?? 0 })}
+                        </AppText>
+                    </View>
+                    <Pressable
+                        onPress={() => refreshRecentGames(false)}
+                        // desativado durante a sincronização completa, que já
+                        // atualiza tudo (inclusive os recentes)
+                        disabled={refreshingRecent || syncing}
+                        accessibilityRole="button"
+                        accessibilityLabel={tr("refreshRecentGames")}
+                        accessibilityState={{ disabled: refreshingRecent || syncing, busy: refreshingRecent }}
+                        style={({ pressed }) => [
+                            styles.iconButton,
+                            { opacity: !refreshingRecent && syncing ? 0.5 : pressed ? 0.8 : 1 },
+                        ]}
+                    >
+                        {refreshingRecent ? (
+                            <ActivityIndicator size="small" color={COLORS.accent} />
+                        ) : (
+                            <Ionicons name="refresh" size={20} color={COLORS.accent} />
+                        )}
+                    </Pressable>
+                </View>
+
+                <View style={styles.searchRow}>
+                    <TextField
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        placeholder={tr("searchGamesPlaceholder")}
+                        accessibilityLabel={tr("searchGamesPlaceholder")}
+                        returnKeyType="search"
+                        onSubmitEditing={() => Keyboard.dismiss()}
+                        containerStyle={{ flex: 1 }}
+                        left={<Ionicons name="search" size={18} color={COLORS.textMuted} />}
+                        right={searchQuery ? (
+                            <Pressable
+                                onPress={() => { setSearchQuery(""); setDebouncedQuery(""); }}
+                                accessibilityRole="button"
+                                accessibilityLabel={tr("clearSearch")}
+                                style={styles.clearButton}
+                            >
+                                <Ionicons name="close-circle" size={18} color={COLORS.textMuted} />
+                            </Pressable>
+                        ) : null}
+                    />
+                    <Pressable
+                        onPress={() => setSortVisible(true)}
+                        accessibilityRole="button"
+                        accessibilityLabel={tr("sortButton", { sort: sortLabel })}
+                        style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.8 : 1 }]}
+                    >
+                        <Ionicons name="swap-vertical" size={20} color={COLORS.textSoft} />
+                        {sort !== "recentPlaytime" && <View style={styles.dot} />}
+                    </Pressable>
+                </View>
+
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.chips}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    {QUICK_FILTERS.map(value => (
+                        <Chip
+                            key={value}
+                            label={filterLabel(value)}
+                            count={filterCounts[value]}
+                            selected={filter === value}
+                            onPress={() => setFilter(value)}
+                        />
+                    ))}
+                    <Chip
+                        label={moreSelected ? filterLabel(filter) : tr("moreFilters")}
+                        count={moreSelected ? filterCounts[filter] : undefined}
+                        selected={moreSelected}
+                        onPress={() => setFilterVisible(true)}
+                    />
+                </ScrollView>
+            </View>
+
+            <PullToRefresh refreshing={refreshing} onRefresh={onRefresh} enabled={!syncing}>
                 <FlashList
                     key={`${filter}-${sort}-${debouncedQuery}-${!!recentBlock}-${pinnedBlock.pinned.length}`}
                     ref={listRef}
-                    data={recentBlock ? recentBlock.rest.filter(g => !g.pinned) : pinnedBlock.rest}
+                    data={listData}
                     keyExtractor={(item) => item.appid.toString()}
                     renderItem={renderGameCard}
                     maintainVisibleContentPosition={{ disabled: true }}
-                    contentContainerStyle={{ paddingTop: 12, paddingBottom: 70 }}
+                    contentContainerStyle={styles.listContent}
+                    keyboardShouldPersistTaps="handled"
                     onScroll={(e) => {
                         setShowTopButton(e.nativeEvent.contentOffset.y > 400);
                     }}
                     ListHeaderComponent={
-                        <>
-                            {!refreshing && progress.current < progress.total && (
-                                <View className="py-4 items-center">
-                                    <ActivityIndicator size="small" color={COLORS.accent} />
-                                    <Text className={`${t.textSecondary} mt-2`}>
-                                        {tr("loadingGames", { current: progress.current, total: progress.total })}
-                                    </Text>
+                        <View style={styles.blocks}>
+                            {!refreshing && syncing && (
+                                <View style={styles.syncCard} accessibilityRole="progressbar">
+                                    <View style={styles.syncTop}>
+                                        <ActivityIndicator size="small" color={COLORS.accent} />
+                                        <AppText variant="muted" style={{ flex: 1 }}>
+                                            {tr("loadingGames", { current: progress.current, total: progress.total })}
+                                        </AppText>
+                                    </View>
+                                    <ProgressBar value={progress.total ? (progress.current / progress.total) * 100 : 0} />
                                 </View>
                             )}
 
-                            {pinnedBlock.pinned.length > 0 && (
-                                <View
-                                    className={`rounded-xl ${t.elevatedCardBg} p-2 mb-4`}
-                                    style={{ borderWidth: 1, borderColor: COLORS.warning }}
-                                >
-                                    <View className="flex-row items-center gap-2 px-2 pb-1">
-                                        <Ionicons name="pin" size={12} color={COLORS.warning} />
-                                        <Text className="text-xs font-semibold uppercase tracking-wide"
-                                            style={{ color: COLORS.warning }}>
-                                            {tr("pinnedSeparator")}
-                                        </Text>
-                                        <View className="flex-1 h-px" style={{ backgroundColor: COLORS.warning }} />
-                                    </View>
-                                    {pinnedBlock.pinned.map(g => (
-                                        <GameCard
-                                            key={g.appid}
-                                            game={g}
-                                            navigation={navigation}
-                                            onOpen={openGame}
-                                            onLongPress={refreshSingleGame}
-                                            onTogglePin={togglePinGame}
-                                        />
-                                    ))}
+                            {heroGame && (
+                                <View style={styles.section}>
+                                    <AppText variant="label">{tr("continueHunting")}</AppText>
+                                    <ContinueHuntingCard
+                                        game={heroGame}
+                                        onOpen={openGame}
+                                        onLongPress={refreshSingleGame}
+                                    />
                                 </View>
                             )}
 
-                            {recentBlock && recentBlock.recent.length > 0 && (
-                                <View
-                                    className={`rounded-xl ${t.elevatedCardBg} p-2 mb-4`}
-                                    style={{ borderWidth: 1, borderColor: COLORS.accent }}
-                                >
-                                    <View className="flex-row items-center gap-2 px-2 pb-1">
-                                        <Text className="text-xs font-semibold uppercase tracking-wide"
-                                            style={{ color: COLORS.accent }}>
-                                            {tr("recentGamesSeparator")}
-                                        </Text>
-                                        <View className="flex-1 h-px" style={{ backgroundColor: COLORS.accent }} />
-                                    </View>
-                                    {recentBlock.recent.filter(g => !g.pinned).map(g => (
-                                        <GameCard
-                                            key={g.appid}
-                                            game={g}
-                                            navigation={navigation}
-                                            onOpen={openGame}
-                                            onLongPress={refreshSingleGame}
-                                            onTogglePin={togglePinGame}
-                                        />
-                                    ))}
+                            {pinnedRows.length > 0 && (
+                                <View style={styles.section}>
+                                    <AppText variant="label" color={COLORS.gold}>{tr("pinnedSeparator")}</AppText>
+                                    <View>{pinnedRows.map(renderRow)}</View>
                                 </View>
                             )}
-                        </>
+
+                            {recentRows.length > 0 && (
+                                <View style={styles.section}>
+                                    <AppText variant="label">{tr("recentGamesSeparator")}</AppText>
+                                    <View>{recentRows.map(renderRow)}</View>
+                                </View>
+                            )}
+
+                            {hasTopBlocks && listData.length > 0 && (
+                                <AppText variant="label" style={{ marginBottom: 10 }}>{tr("allGamesSeparator")}</AppText>
+                            )}
+                        </View>
                     }
                     ListEmptyComponent={
                         games.length === 0 ? (
-                            <View className="items-center justify-center py-20 px-6">
-                                <View className="w-16 h-16 rounded-full bg-accent/15 items-center justify-center mb-4">
+                            <View style={styles.empty}>
+                                <View style={styles.emptyIcon}>
                                     <Ionicons name="game-controller-outline" size={30} color={COLORS.accent} />
                                 </View>
-                                <Text className="text-white text-lg font-bold text-center">
-                                    {tr("noGamesTitle")}
-                                </Text>
-                                <Text className={`${t.textSecondary} text-sm text-center mt-2`}>
+                                <AppText variant="subtitle" style={{ textAlign: "center" }}>{tr("noGamesTitle")}</AppText>
+                                <AppText variant="muted" style={{ textAlign: "center", fontSize: 14, lineHeight: 21 }}>
                                     {tr("noGamesMessage")}
-                                </Text>
+                                </AppText>
                             </View>
                         ) : null
                     }
                 />
             </PullToRefresh>
 
-            {/* floating buttons: refresh recent + filter + sort + scroll to top */}
-            <View className="absolute bottom-24 right-6 gap-3">
-                <TouchableOpacity
-                    onPress={() => refreshRecentGames(false)}
-                    // desativado também durante a sincronização completa, que já
-                    // atualiza tudo (inclusive os recentes)
-                    disabled={refreshingRecent || progress.current < progress.total}
-                    activeOpacity={0.8}
-                    accessibilityLabel={tr("refreshRecentGames")}
-                    className={`w-12 h-12 rounded-xl items-center justify-center border ${t.elevatedCardBg} ${t.cardBorder}`}
-                    style={{
-                        opacity: !refreshingRecent && progress.current < progress.total ? 0.5 : 1,
-                        elevation: 6,
-                        shadowColor: "#000",
-                        shadowOpacity: 0.25,
-                        shadowRadius: 6,
-                        shadowOffset: { width: 0, height: 3 },
-                    }}
+            {/* Voltar ao topo: aparece depois de rolar, acima da tab bar */}
+            {showTopButton && (
+                <Pressable
+                    onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })}
+                    accessibilityRole="button"
+                    accessibilityLabel={tr("scrollToTop")}
+                    style={({ pressed }) => [styles.topButton, { opacity: pressed ? 0.8 : 1 }]}
                 >
-                    {refreshingRecent ? (
-                        <ActivityIndicator size="small" color={COLORS.accent} />
-                    ) : (
-                        <Ionicons name="refresh" size={22} color={COLORS.accent} />
-                    )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    onPress={() => setFilterVisible(true)}
-                    activeOpacity={0.8}
-                    className={`w-12 h-12 rounded-xl items-center justify-center border ${t.elevatedCardBg} ${t.cardBorder}`}
-                    style={{
-                        elevation: 6,
-                        shadowColor: "#000",
-                        shadowOpacity: 0.25,
-                        shadowRadius: 6,
-                        shadowOffset: { width: 0, height: 3 },
-                    }}
-                >
-                    <Ionicons
-                        name={filter === "all" ? "funnel-outline" : "funnel"}
-                        size={22}
-                        color={COLORS.accent}
-                    />
-                    {filter !== "all" && (
-                        <View
-                            style={{
-                                position: "absolute",
-                                top: 8,
-                                right: 8,
-                                width: 8,
-                                height: 8,
-                                borderRadius: 4,
-                                backgroundColor: COLORS.warning,
-                                borderWidth: 1,
-                                borderColor: isDark ? "#111827" : "#ffffff",
-                            }}
-                        />
-                    )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    onPress={() => setSortVisible(true)}
-                    activeOpacity={0.8}
-                    className={`w-12 h-12 rounded-xl items-center justify-center border ${t.elevatedCardBg} ${t.cardBorder}`}
-                    style={{
-                        elevation: 6,
-                        shadowColor: "#000",
-                        shadowOpacity: 0.25,
-                        shadowRadius: 6,
-                        shadowOffset: { width: 0, height: 3 },
-                    }}
-                >
-                    <Ionicons
-                        name={sort === "recentPlaytime" ? "swap-vertical-outline" : "swap-vertical"}
-                        size={22}
-                        color={COLORS.accent}
-                    />
-                    {sort !== "recentPlaytime" && (
-                        <View
-                            style={{
-                                position: "absolute",
-                                top: 8,
-                                right: 8,
-                                width: 8,
-                                height: 8,
-                                borderRadius: 4,
-                                backgroundColor: COLORS.warning,
-                                borderWidth: 1,
-                                borderColor: isDark ? "#111827" : "#ffffff",
-                            }}
-                        />
-                    )}
-                </TouchableOpacity>
-
-                {showTopButton && (
-                    <TouchableOpacity
-                        onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })}
-                        activeOpacity={0.8}
-                        className={`w-12 h-12 rounded-xl items-center justify-center border ${t.elevatedCardBg} ${t.cardBorder}`}
-                        style={{
-                            elevation: 6,
-                            shadowColor: "#000",
-                            shadowOpacity: 0.25,
-                            shadowRadius: 6,
-                            shadowOffset: { width: 0, height: 3 },
-                        }}
-                    >
-                        <Ionicons name="chevron-up-outline" size={24} color={COLORS.accent} />
-                    </TouchableOpacity>
-                )}
-            </View>
+                    <Ionicons name="chevron-up" size={22} color={COLORS.accent} />
+                </Pressable>
+            )}
 
             <RadioSheet
                 visible={filterVisible}
@@ -855,3 +834,74 @@ export default function GameList({ navigation, route }) {
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    screen: { flex: 1, backgroundColor: COLORS.bg },
+    header: { paddingHorizontal: 20, paddingTop: 20, gap: 14 },
+    titleRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+    iconButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: COLORS.borderSubtle,
+        backgroundColor: COLORS.surface,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    dot: {
+        position: "absolute",
+        top: 9,
+        right: 9,
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: COLORS.gold,
+        borderWidth: 1,
+        borderColor: COLORS.surface,
+    },
+    searchRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
+    clearButton: { width: 36, height: 44, marginRight: -10, alignItems: "center", justifyContent: "center" },
+    chips: { gap: 8, paddingVertical: 5, paddingRight: 20 },
+    // espaço no fim para a lista não ficar atrás da tab bar flutuante
+    listContent: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 110 },
+    blocks: { gap: 16, paddingBottom: 4 },
+    section: { gap: 10 },
+    syncCard: {
+        padding: 14,
+        borderRadius: 16,
+        backgroundColor: COLORS.surface,
+        borderWidth: 1,
+        borderColor: COLORS.borderSubtle,
+        gap: 10,
+    },
+    syncTop: { flexDirection: "row", alignItems: "center", gap: 10 },
+    empty: { alignItems: "center", paddingVertical: 80, paddingHorizontal: 12, gap: 10 },
+    emptyIcon: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        backgroundColor: COLORS.accentSoft,
+        alignItems: "center",
+        justifyContent: "center",
+        marginBottom: 6,
+    },
+    topButton: {
+        position: "absolute",
+        right: 20,
+        bottom: 100,
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: COLORS.surface2,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        alignItems: "center",
+        justifyContent: "center",
+        elevation: 6,
+        shadowColor: "#000",
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+    },
+});

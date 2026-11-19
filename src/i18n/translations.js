@@ -135,6 +135,21 @@ export const translations = {
     playtimeHidden: { pt: "Tempo de jogo oculto", en: "Playtime hidden" },
     playtimeNeverPlayed: { pt: "Nunca jogado", en: "Never played" },
     achievementsCount: { pt: "{unlocked}/{total} conquistas ({percent}%)", en: "{unlocked}/{total} achievements ({percent}%)" },
+    playtimeTotal: { pt: "{time} no total", en: "{time} total" },
+    playtimeRecent: { pt: "{time} em 2 semanas", en: "{time} in 2 weeks" },
+    achievementsShort: { pt: "{unlocked}/{total} conquistas", en: "{unlocked}/{total} achievements" },
+    pinGame: { pt: "Fixar jogo", en: "Pin game" },
+    unpinGame: { pt: "Desfixar jogo", en: "Unpin game" },
+
+    // --- biblioteca (redesign) ---
+    libraryTitle: { pt: "Biblioteca", en: "Library" },
+    librarySubtitle: { pt: "{count} jogos · {completed} completos", en: "{count} games · {completed} perfected" },
+    continueHunting: { pt: "Continuar caçando", en: "Keep hunting" },
+    allGamesSeparator: { pt: "Todos os jogos", en: "All games" },
+    moreFilters: { pt: "Mais filtros", en: "More filters" },
+    sortButton: { pt: "Ordenar: {sort}", en: "Sort: {sort}" },
+    scrollToTop: { pt: "Voltar ao topo", en: "Back to top" },
+    clearSearch: { pt: "Limpar busca", en: "Clear search" },
 
     // --- game screen ---
     communityGuides: { pt: "Guias da Comunidade", en: "Steam Guides" },

@@ -2,133 +2,128 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as NavigationBar from "expo-navigation-bar";
 import { Tabs } from "expo-router";
 import { useSyncExternalStore } from "react";
-import { Pressable, StatusBar, useColorScheme, View } from "react-native";
+import { Pressable, StatusBar, StyleSheet, Text, View } from "react-native";
 import '../globals.css';
 import { useLanguage } from "@/src/i18n/LanguageContext";
-import { COLORS } from "@/src/theme/colors";
-import { theme } from "@/src/theme/styles";
+import { COLORS, FONTS } from "@/src/theme/colors";
 import { getOverlayOpen, subscribeOverlay } from "@/src/utils/overlayBar";
 
-/** Botão personalizado da tab bar, com destaque do item selecionado e efeito de toque. */
-function TabBarButton({ children, style, onPress, onLongPress, accessibilityState }) {
-    const colorScheme = useColorScheme();
-    const isDark = colorScheme === "dark";
-    const selected = accessibilityState?.selected ?? false;
+// Ícones de cada aba: [ativo, inativo]
+const TAB_ICONS = {
+    GameStack: ["game-controller", "game-controller-outline"],
+    FriendsStack: ["people", "people-outline"],
+    ProfileStack: ["person-circle", "person-circle-outline"],
+};
+
+/**
+ * Tab bar flutuante do redesign (prancheta 04): pílula sobre o conteúdo; a aba
+ * ativa mostra ícone + nome num fundo azul suave, as outras só o ícone.
+ * Some quando um overlay pede (ex.: menu de contexto aberto).
+ */
+function FloatingTabBar({ state, descriptors, navigation, hidden }) {
+    if (hidden) return null;
 
     return (
-        <Pressable onPress={onPress} onLongPress={onLongPress} style={style}>
-            {({ pressed }) => (
-                <View
-                    style={{
-                        flex: 1,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        borderRadius: 20,
-                        marginHorizontal: 6,
-                        marginVertical: 4,
-                        backgroundColor: selected
-                            ? (isDark ? COLORS.accentSoft : COLORS.accentSoftLight)
-                            : "transparent",
-                        opacity: pressed ? 0.7 : 1,
-                    }}
-                >
-                    {children}
-                </View>
-            )}
-        </Pressable>
+        <View style={styles.bar} accessibilityRole="tablist">
+            {state.routes.map((route, index) => {
+                const focused = state.index === index;
+                const { options } = descriptors[route.key];
+                const label = options.title ?? route.name;
+                const [activeIcon, idleIcon] = TAB_ICONS[route.name] ?? ["ellipse", "ellipse-outline"];
+
+                const onPress = () => {
+                    const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
+                    if (!focused && !event.defaultPrevented) navigation.navigate(route.name, route.params);
+                };
+                const onLongPress = () => navigation.emit({ type: "tabLongPress", target: route.key });
+
+                return (
+                    <Pressable
+                        key={route.key}
+                        onPress={onPress}
+                        onLongPress={onLongPress}
+                        accessibilityRole="tab"
+                        accessibilityState={{ selected: focused }}
+                        accessibilityLabel={label}
+                        style={({ pressed }) => [
+                            styles.tab,
+                            focused && styles.tabActive,
+                            { opacity: pressed ? 0.75 : 1 },
+                        ]}
+                    >
+                        <Ionicons
+                            name={focused ? activeIcon : idleIcon}
+                            size={focused ? 20 : 22}
+                            color={focused ? COLORS.accent : COLORS.textMuted}
+                        />
+                        {focused && <Text style={styles.tabLabel}>{label}</Text>}
+                    </Pressable>
+                );
+            })}
+        </View>
     );
 }
 
 /**
- * Layout de abas: define GameStack, FriendsStack e ProfileStack com tema claro/escuro
- * e barra de abas flutuante.
+ * Layout de abas: GameStack, FriendsStack e ProfileStack, tema escuro e
+ * tab bar flutuante.
  */
 export default function TabsLayout() {
-    const colorScheme = useColorScheme();
-    const isDark = colorScheme === "dark";
-    const s = isDark ? theme.dark : theme.light;
     const { t } = useLanguage();
     const overlayOpen = useSyncExternalStore(subscribeOverlay, getOverlayOpen);
 
-    NavigationBar.setButtonStyleAsync(isDark ? "light" : "dark");
+    NavigationBar.setButtonStyleAsync("light");
 
     return (
-        <View style={{ flex: 1, backgroundColor: s.surfaceAlt }}>
-            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={s.surfaceAlt} />
+        <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
+            <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
             <Tabs
+                tabBar={(props) => <FloatingTabBar {...props} hidden={overlayOpen} />}
                 screenOptions={{
                     headerShown: false,
                     animation: "shift",
-                    sceneStyle: { backgroundColor: s.surfaceAlt },
-                    tabBarActiveTintColor: isDark ? COLORS.accent : COLORS.accentStrong,
-                    tabBarInactiveTintColor: isDark ? "#9ca3af" : "#6b7280",
-                    tabBarStyle: {
-                        position: "absolute",
-                        left: 16,
-                        right: 16,
-                        bottom: 16,
-                        height: 60,
-                        borderRadius: 30,
-                        backgroundColor: s.surface,
-                        borderTopWidth: 0,
-                        borderWidth: 1,
-                        borderColor: COLORS.accent,
-                        elevation: 10,
-                        shadowColor: "#000",
-                        shadowOpacity: 0.18,
-                        shadowRadius: 12,
-                        shadowOffset: { width: 0, height: 4 },
-                        paddingTop: 4,
-                        paddingBottom: 4,
-                        display: overlayOpen ? "none" : "flex",
-                    },
-                    tabBarButton: (props) => <TabBarButton {...props} />,
-                    tabBarLabelStyle: {
-                        fontSize: 11,
-                        fontWeight: "700",
-                    },
+                    sceneStyle: { backgroundColor: COLORS.bg },
                 }}
             >
-                <Tabs.Screen
-                    name="GameStack"
-                    options={{
-                        title: t("tabGames"),
-                        tabBarIcon: ({ color, size, focused }) => (
-                            <Ionicons
-                                name={focused ? "game-controller" : "game-controller-outline"}
-                                color={color}
-                                size={size}
-                            />
-                        ),
-                    }}
-                />
-                <Tabs.Screen
-                    name="FriendsStack"
-                    options={{
-                        title: t("tabFriends"),
-                        tabBarIcon: ({ color, size, focused }) => (
-                            <Ionicons
-                                name={focused ? "people" : "people-outline"}
-                                color={color}
-                                size={size}
-                            />
-                        ),
-                    }}
-                />
-                <Tabs.Screen
-                    name="ProfileStack"
-                    options={{
-                        title: t("tabProfile"),
-                        tabBarIcon: ({ color, size, focused }) => (
-                            <Ionicons
-                                name={focused ? "person-circle" : "person-circle-outline"}
-                                color={color}
-                                size={size}
-                            />
-                        ),
-                    }}
-                />
+                <Tabs.Screen name="GameStack" options={{ title: t("tabGames") }} />
+                <Tabs.Screen name="FriendsStack" options={{ title: t("tabFriends") }} />
+                <Tabs.Screen name="ProfileStack" options={{ title: t("tabProfile") }} />
             </Tabs>
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    bar: {
+        position: "absolute",
+        left: 20,
+        right: 20,
+        bottom: 20,
+        height: 64,
+        borderRadius: 32,
+        backgroundColor: COLORS.tabBar,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-around",
+        paddingHorizontal: 8,
+        elevation: 10,
+        shadowColor: "#000",
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+    },
+    tab: {
+        minWidth: 44,
+        height: 44,
+        borderRadius: 22,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+        paddingHorizontal: 12,
+    },
+    tabActive: { backgroundColor: COLORS.accentSoft, paddingHorizontal: 16 },
+    tabLabel: { fontFamily: FONTS.bodySemibold, fontSize: 13, color: COLORS.accent },
+});

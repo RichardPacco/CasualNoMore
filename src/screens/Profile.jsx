@@ -41,7 +41,7 @@ function computeCompletionStats(cachedGames) {
  */
 export default function Profile() {
     const router = useRouter();
-    const { steamId } = useContext(AuthContext);
+    const { steamId, clearSteamId } = useContext(AuthContext);
     const { t: tr } = useLanguage();
     const t = useTheme();
     const isDark = t.isDark;
@@ -182,6 +182,17 @@ export default function Profile() {
                         <Text className={`text-center font-bold ${buttonText}`}>
                             {tr("profileRetry")}
                         </Text>
+                    </Pressable>
+
+                    {/* Sair também aqui: o botão de logout normal fica no ProfileCard,
+                        que não aparece quando o perfil falha (ex.: API key inválida).
+                        Limpar o steamId dispara o redirecionamento para o login. */}
+                    <Pressable
+                        className="mt-3 px-6 py-2 rounded-lg flex-row items-center gap-2"
+                        onPress={clearSteamId}
+                    >
+                        <Ionicons name="log-out-outline" size={18} color={COLORS.danger} />
+                        <Text className="font-semibold text-danger">{tr("logout")}</Text>
                     </Pressable>
                 </View>
             )}

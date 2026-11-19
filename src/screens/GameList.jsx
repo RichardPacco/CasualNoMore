@@ -15,10 +15,20 @@ import { FlashList } from "@shopify/flash-list";
 import * as WebBrowser from "expo-web-browser";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Keyboard, ScrollView, StyleSheet, View } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Pressable from "@/src/components/ui/Pressable";
 
 // Configurações de privacidade do perfil na Steam (para deixar os jogos públicos)
 const STEAM_PRIVACY_URL = "https://steamcommunity.com/my/edit/settings";
+
+// Modos de exibição da biblioteca (salvos no aparelho com esta chave)
+const VIEW_MODE_KEY = "@library_view_mode";
+const VIEW_MODES = ["compact", "card", "grid"];
+const VIEW_MODE_OPTIONS = [
+    { value: "compact", icon: "list", label: "viewCompact" },
+    { value: "card", icon: "albums-outline", label: "viewCards" },
+    { value: "grid", icon: "grid-outline", label: "viewGrid" },
+];
 
 /** Jogo tem conquistas e todas foram desbloqueadas. */
 function isCompleted(g) {
@@ -70,6 +80,19 @@ export default function GameList({ navigation, route }) {
     const [refreshingRecent, setRefreshingRecent] = useState(false);
     // painel único de filtrar e ordenar (aberto por "Mais filtros" ou pelo botão de ordenar)
     const [sheetVisible, setSheetVisible] = useState(false);
+
+    // Modo de exibição da lista: "compact" (sem imagem), "card" ou "grid"
+    // (2 colunas). Fica salvo no aparelho; se a leitura falhar, usa "card".
+    const [viewMode, setViewModeState] = useState("card");
+    useEffect(() => {
+        AsyncStorage.getItem(VIEW_MODE_KEY)
+            .then(saved => { if (VIEW_MODES.includes(saved)) setViewModeState(saved); })
+            .catch(() => { });
+    }, []);
+    const setViewMode = useCallback((mode) => {
+        setViewModeState(mode);
+        AsyncStorage.setItem(VIEW_MODE_KEY, mode).catch(() => { });
+    }, []);
     const [showTopButton, setShowTopButton] = useState(false);
     const listRef = useRef(null);
 
@@ -318,16 +341,26 @@ export default function GameList({ navigation, route }) {
      * Renderiza um card de jogo na lista virtualizada (FlashList).
      */
     const renderGameCard = useCallback(
-        ({ item }) => (
-            <GameCard
-                game={item}
-                navigation={navigation}
-                onOpen={openGame}
-                onLongPress={refreshSingleGame}
-                onTogglePin={togglePinGame}
-            />
-        ),
-        [navigation, openGame, refreshSingleGame, togglePinGame]
+        ({ item, index }) => {
+            const card = (
+                <GameCard
+                    game={item}
+                    navigation={navigation}
+                    onOpen={openGame}
+                    onLongPress={refreshSingleGame}
+                    onTogglePin={togglePinGame}
+                    variant={viewMode}
+                />
+            );
+            if (viewMode !== "grid") return card;
+            // grade de 2 colunas: meio espaço de cada lado entre as colunas
+            return (
+                <View style={{ flex: 1, paddingLeft: index % 2 ? 5 : 0, paddingRight: index % 2 ? 0 : 5 }}>
+                    {card}
+                </View>
+            );
+        },
+        [navigation, openGame, refreshSingleGame, togglePinGame, viewMode]
     );
 
     const filterOptions = useMemo(() => [
@@ -656,15 +689,24 @@ export default function GameList({ navigation, route }) {
     const filterLabel = (value) => filterOptions.find(o => o.value === value)?.label ?? value;
     const sortLabel = sortOptions.find(o => o.value === sort)?.label ?? "";
 
-    const renderRow = (g) => (
-        <GameCard
-            key={g.appid}
-            game={g}
-            navigation={navigation}
-            onOpen={openGame}
-            onLongPress={refreshSingleGame}
-            onTogglePin={togglePinGame}
-        />
+    const renderRow = (g) => {
+        const card = (
+            <GameCard
+                key={g.appid}
+                game={g}
+                navigation={navigation}
+                onOpen={openGame}
+                onLongPress={refreshSingleGame}
+                onTogglePin={togglePinGame}
+                variant={viewMode}
+            />
+        );
+        // na grade, cada card ocupa meia largura (ver styles.sectionGrid)
+        return viewMode === "grid" ? <View key={g.appid} style={styles.gridCell}>{card}</View> : card;
+    };
+    // Seção do topo (fixados/recentes) no formato do modo atual
+    const renderSection = (rows) => (
+        <View style={viewMode === "grid" ? styles.sectionGrid : null}>{rows.map(renderRow)}</View>
     );
 
     return (
@@ -677,6 +719,25 @@ export default function GameList({ navigation, route }) {
                         <AppText variant="muted">
                             {tr("librarySubtitle", { count: games.length, completed: filterCounts.completed ?? 0 })}
                         </AppText>
+                    </View>
+                    {/* Modo de exibição: lista sem imagem, cards ou grade */}
+                    <View style={styles.viewToggle} accessibilityRole="radiogroup" accessibilityLabel={tr("viewModeLabel")}>
+                        {VIEW_MODE_OPTIONS.map(opt => {
+                            const on = viewMode === opt.value;
+                            return (
+                                <Pressable
+                                    key={opt.value}
+                                    onPress={() => setViewMode(opt.value)}
+                                    accessibilityRole="radio"
+                                    accessibilityState={{ checked: on }}
+                                    accessibilityLabel={tr(opt.label)}
+                                    hitSlop={{ top: 4, bottom: 4 }}
+                                    style={[styles.viewOption, on && styles.viewOptionOn]}
+                                >
+                                    <Ionicons name={opt.icon} size={18} color={on ? COLORS.accent : COLORS.textMuted} />
+                                </Pressable>
+                            );
+                        })}
                     </View>
                     <Pressable
                         onPress={() => refreshRecentGames(false)}
@@ -757,7 +818,8 @@ export default function GameList({ navigation, route }) {
 
             <PullToRefresh refreshing={refreshing} onRefresh={onRefresh} enabled={!syncing}>
                 <FlashList
-                    key={`${filter}-${sort}-${debouncedQuery}-${!!recentBlock}-${pinnedBlock.pinned.length}`}
+                    key={`${filter}-${sort}-${debouncedQuery}-${!!recentBlock}-${pinnedBlock.pinned.length}-${viewMode}`}
+                    numColumns={viewMode === "grid" ? 2 : 1}
                     ref={listRef}
                     data={listData}
                     keyExtractor={(item) => item.appid.toString()}
@@ -785,14 +847,14 @@ export default function GameList({ navigation, route }) {
                             {pinnedRows.length > 0 && (
                                 <View style={styles.section}>
                                     <AppText variant="label" color={COLORS.gold}>{tr("pinnedSeparator")}</AppText>
-                                    <View>{pinnedRows.map(renderRow)}</View>
+                                    {renderSection(pinnedRows)}
                                 </View>
                             )}
 
                             {recentRows.length > 0 && (
                                 <View style={styles.section}>
                                     <AppText variant="label">{tr("recentGamesSeparator")}</AppText>
-                                    <View>{recentRows.map(renderRow)}</View>
+                                    {renderSection(recentRows)}
                                 </View>
                             )}
 
@@ -865,7 +927,21 @@ export default function GameList({ navigation, route }) {
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: COLORS.bg },
     header: { paddingHorizontal: 20, paddingTop: 20, gap: 14 },
-    titleRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+    titleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+    viewToggle: {
+        flexDirection: "row",
+        padding: 3,
+        gap: 2,
+        borderRadius: 14,
+        backgroundColor: COLORS.surface,
+        borderWidth: 1,
+        borderColor: COLORS.borderSubtle,
+    },
+    viewOption: { width: 36, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+    viewOptionOn: { backgroundColor: COLORS.accentSoft },
+    // seções do topo na grade: 2 colunas com 10 px entre elas
+    sectionGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
+    gridCell: { width: "48.6%" },
     // 48 px: mesma altura do campo de busca, para ficarem alinhados
     iconButton: {
         width: 48,

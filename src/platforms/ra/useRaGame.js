@@ -4,14 +4,12 @@ import { computeProgress } from "@/src/utils/achievements";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toAchievements, toDetails } from "./adapter";
 
-// Conquistas buscadas há menos que isso não são buscadas de novo ao abrir o jogo
-const FRESH_MS = 2 * 60 * 1000;
-
 /**
  * Dados de um jogo do RetroAchievements para a tela do jogo: conquistas
- * (formato comum), detalhes e a linha atualizada do banco. Mostra o cache na
- * hora e busca GetGameInfoAndUserProgress se o cache tiver mais de 2 minutos
- * (ou com `refresh`), gravando o resultado no banco.
+ * (formato comum), detalhes e a linha atualizada do banco. Com o jogo já
+ * salvo, usa só o banco: busca GetGameInfoAndUserProgress apenas na primeira
+ * vez que o jogo é aberto ou quando o usuário atualiza (`refresh`), gravando
+ * o resultado no banco.
  *
  * Uma busca serve às duas abas (Conquistas e Detalhes): a GameScreen chama
  * este hook e repassa os dados. `row` null = não é jogo do RA (não faz nada).
@@ -59,14 +57,12 @@ export default function useRaGame(row, account) {
         if (!row) return;
         setCurrent(row);
         setAchievements(row.achievements || []);
-        const fresh = row.achievementsStatus === "done"
-            && row.achievementsSyncedAt
-            && Date.now() - row.achievementsSyncedAt < FRESH_MS;
-        if (fresh) {
+        // Já buscado antes: fica com o banco (atualizar é manual)
+        if (row.achievementsStatus === "done") {
             setLoading(false);
             return;
         }
-        setLoading(!row.achievements);
+        setLoading(true);
         fetchGame();
         return () => {
             // jogo trocou ou a tela fechou: a busca em andamento para de escrever

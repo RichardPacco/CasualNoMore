@@ -446,7 +446,7 @@ Cada etapa termina com o app funcionando e vira um commit. A Steam **não pode q
   - Perdível → vermelho, ícone `alert-circle-outline`
 
 > **Feito.** O que mudou em relação ao planejado:
-> - A busca fica num hook só, `src/platforms/ra/useRaGame.js`, chamado pela `GameScreen` e repassado às duas abas (uma chamada para Conquistas e Detalhes). Cache de 2 minutos; o botão de atualizar força a busca. O `useAchievements` da Steam ficou intacto (recebe `null` em jogos do RA).
+> - A busca fica num hook só, `src/platforms/ra/useRaGame.js`, chamado pela `GameScreen` e repassado às duas abas (uma chamada para Conquistas e Detalhes). Busca só na primeira vez que o jogo é aberto; depois usa o banco e só busca de novo com o botão de atualizar (manual). O `useAchievements` da Steam ficou intacto (recebe `null` em jogos do RA).
 > - `raDb.saveRaGameInfo` grava conquistas, detalhes, imagens grandes e o progresso de uma vez (no lugar de `updateRaGameAchievements`/`updateRaGameDetails`).
 > - Adaptador: `toAchievements(info)` e `toDetails(info)`. O tipo da conquista é lido de forma tolerante (`type`/`Type`, qualquer caixa).
 > - Sem selo **HC**: só hardcore conta (D2). Conquista só em softcore aparece como "Só em softcore (não conta)".

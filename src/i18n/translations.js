@@ -236,6 +236,10 @@ export const translations = {
     gameUnpinned: { pt: "Jogo desfixado!", en: "Game unpinned!" },
 
     // --- plataformas / RetroAchievements ---
+    loginStepOf: { pt: "Etapa {current} de {total}", en: "Step {current} of {total}" },
+    loginSkipPlatform: { pt: "Pular {platform}", en: "Skip {platform}" },
+    loginNeedOne: { pt: "Conecte pelo menos uma plataforma para continuar.", en: "Connect at least one platform to continue." },
+    loginPlatformConnected: { pt: "{platform} conectado!", en: "{platform} connected!" },
     platformSteam: { pt: "Steam", en: "Steam" },
     platformRa: { pt: "RetroAchievements", en: "RetroAchievements" },
     choosePlatform: { pt: "Escolha a plataforma", en: "Choose a platform" },

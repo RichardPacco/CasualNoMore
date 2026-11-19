@@ -217,7 +217,8 @@ export default function AchievementsTab({ game, data = null }) {
                 result = [...result].reverse();
                 break;
             case "points":
-                result = [...result].sort((a, b) => (b.points || 0) - (a.points || 0));
+                // menos pontos primeiro (as mais fáceis no topo)
+                result = [...result].sort((a, b) => (a.points || 0) - (b.points || 0));
                 break;
             // "default": a ordem em que a lista já vem (RA: a do autor do set)
             default: break;

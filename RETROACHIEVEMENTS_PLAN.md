@@ -526,6 +526,7 @@ Cada etapa termina com o app funcionando e vira um commit. A Steam **não pode q
 - [x] Performance: sem mudança; a biblioteca já usa cache por linha (WeakMap no adaptador) e `useMemo` em filtros/busca. Não testado com mais de 1000 jogos
 - [x] Limpeza: 22 chaves de tradução sem uso, `ContextMenu.jsx`, `SearchBar.jsx` e o pacote `react-native-paper`. As bandeiras voltaram para o seletor de idioma; o `login_background.png` fica guardado, mesmo sem uso
 - [x] Atualizar a versão: 2.1.0 e `android.versionCode` 2
+- [x] Login do RA idêntico ao da Steam: formulário único `src/components/login/PlatformLoginForm.jsx` (passos da key e da conta, contas salvas com login rápido, cartão da key salva) e `loginPlatforms.js` com o que muda por plataforma; a key do RA é salva sozinha com 32 letras/números. O `RaLoginForm` (da etapa 1) foi removido
 
 ### Etapa 7 — Opcional, depois que tudo estiver estável
 

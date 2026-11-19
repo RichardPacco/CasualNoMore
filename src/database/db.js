@@ -85,7 +85,7 @@ export async function ensureTableFriends(steamId) {
         console.log(`[db] Criando tabela se não existir: ${tableName}`);
         await db.execAsync(`
         CREATE TABLE IF NOT EXISTS ${tableName} (
-            steamId INTEGER PRIMARY KEY NOT NULL,
+            steamId TEXT PRIMARY KEY NOT NULL,
             profile TEXT,
             games TEXT,
             commonGames TEXT

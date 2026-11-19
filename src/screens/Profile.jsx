@@ -1,16 +1,17 @@
 import { getPlayerSummary } from "@/src/api/steam";
+import AboutModal from "@/src/components/AboutModal";
 import LanguageSelector from "@/src/components/LanguageSelector";
 import ProfileCard from "@/src/components/ProfileCard";
 import PullToRefresh from "@/src/components/PullToRefresh";
+import { AppText, Button, ProgressRing } from "@/src/components/ui";
 import { AuthContext } from "@/src/context/AuthContext";
 import { getAllGames } from "@/src/database/db";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { getGameCounts } from "@/src/utils/achievements";
-import { COLORS } from "@/src/theme/colors";
-import { useTheme } from "@/src/theme/styles";
+import { COLORS, FONTS } from "@/src/theme/colors";
 import { useRouter } from "expo-router";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 /**
@@ -36,20 +37,20 @@ function computeCompletionStats(cachedGames) {
 }
 
 /**
- * Tela de perfil do usuário com resumo de progresso de conquistas,
- * seletor de idioma e atualização por pull-to-refresh.
+ * Perfil (redesign, prancheta 11): card do perfil Steam, jogos completos e
+ * conclusão média, e a lista de ajustes (idioma, sobre o app, sair).
+ * Puxar para baixo atualiza.
  */
 export default function Profile() {
     const router = useRouter();
     const { steamId, clearSteamId } = useContext(AuthContext);
     const { t: tr } = useLanguage();
-    const t = useTheme();
-    const isDark = t.isDark;
 
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
     const [refreshingProfile, setRefreshingProfile] = useState(false);
     const [completionStats, setCompletionStats] = useState({ perfected: 0, avgCompletion: 0 });
+    const [aboutVisible, setAboutVisible] = useState(false);
     const cancelledRef = useRef(false);
 
     useEffect(() => {
@@ -102,6 +103,7 @@ export default function Profile() {
         loadProfile();
     }, [loadProfile]);
 
+    // Sem steamId (saiu): volta para o login
     useEffect(() => {
         if (!steamId) {
             router.replace("/(auth)/login");
@@ -110,94 +112,134 @@ export default function Profile() {
 
     if (loading) {
         return (
-            <View className={`flex-1 items-center justify-center ${t.pageBg}`}>
-                <ActivityIndicator size="large" color={isDark ? COLORS.accent : "#000"} />
+            <View style={styles.center}>
+                <ActivityIndicator size="large" color={COLORS.accent} />
             </View>
         );
     }
 
-    const placeholderBg = t.cardBg;
-    const placeholderText = t.textSecondary;
-    const buttonBg = isDark ? "bg-blue-600" : "bg-blue-500";
-    const buttonText = "text-white";
-    const textSecondary = t.textSecondary;
-
-    return (
-        <View className={`flex-1 ${t.pageBg}`}>
-            <PullToRefresh refreshing={refreshingProfile} onRefresh={refreshProfile}>
-            <ScrollView className={`flex-1 p-4 ${t.pageBg}`} contentContainerStyle={{ paddingBottom: 70 }}>
-                {profile ? (
-                    <>
-                        <ProfileCard data={profile} />
-
-                    {/* Completion stats */}
-                    <View className="flex-row gap-3 mb-4">
-                        <View className={`flex-1 ${t.cardBg} rounded-xl p-4 items-center`}>
-                            <View className="w-10 h-10 rounded-full bg-warning/15 items-center justify-center mb-2">
-                                <Ionicons name="trophy" size={18} color={COLORS.warning} />
-                            </View>
-                            <Text className={`${t.textHeader} text-2xl font-bold`}>
-                                {completionStats.perfected}
-                            </Text>
-                            <Text className={`${textSecondary} text-xs text-center mt-1`}>
-                                {tr("profilePerfectedGames")}
-                            </Text>
-                        </View>
-
-                        <View className={`flex-1 ${t.cardBg} rounded-xl p-4 items-center`}>
-                            <View className="w-10 h-10 rounded-full bg-accent/15 items-center justify-center mb-2">
-                                <Ionicons name="stats-chart-outline" size={18} color={COLORS.accent} />
-                            </View>
-                            <Text className={`${t.textHeader} text-2xl font-bold`}>
-                                {completionStats.avgCompletion.toFixed(1)}%
-                            </Text>
-                            <Text className={`${textSecondary} text-xs text-center mt-1`}>
-                                {tr("profileAvgCompletion")}
-                            </Text>
-                        </View>
+    // Erro ao carregar o perfil (ex.: sem conexão ou chave inválida):
+    // tentar de novo, ou sair para o login (o card com o "Sair" não aparece).
+    if (!profile) {
+        return (
+            <View style={styles.screen}>
+                <View style={styles.headerPad}>
+                    <AppText variant="title">{tr("tabProfile")}</AppText>
+                </View>
+                <View style={styles.errorBox}>
+                    <View style={styles.errorIcon}>
+                        <Ionicons name="alert-circle-outline" size={32} color={COLORS.danger} />
                     </View>
-
-                    {/* Language selector */}
-                    <View className={`${t.cardBg} p-3 rounded-xl flex-row items-center justify-between`}>
-                        <Text className={`${t.textHeader} text-sm font-bold`}>
-                            {tr("languageLabel")}
-                        </Text>
-                        <LanguageSelector />
-                    </View>
-                </>
-            ) : (
-                <View
-                    className={`${placeholderBg} rounded-xl overflow-hidden p-6 items-center`}
-                >
-                    <Text className={`text-lg font-semibold mb-2 ${placeholderText}`}>
-                        {tr("profileUnavailable")}
-                    </Text>
-                    <Text className={`mb-4 ${placeholderText}`}>
+                    <AppText variant="subtitle" style={{ textAlign: "center" }}>{tr("profileUnavailable")}</AppText>
+                    <AppText variant="muted" style={{ textAlign: "center", fontSize: 14, lineHeight: 21 }}>
                         {tr("profileLoadError")}
-                    </Text>
+                    </AppText>
+                    <Button label={tr("profileRetry")} onPress={loadProfile} style={{ marginTop: 8, alignSelf: "stretch" }} />
                     <Pressable
-                        className={`${buttonBg} px-6 py-2 rounded-lg`}
-                        onPress={loadProfile}
-                    >
-                        <Text className={`text-center font-bold ${buttonText}`}>
-                            {tr("profileRetry")}
-                        </Text>
-                    </Pressable>
-
-                    {/* Sair também aqui: o botão de logout normal fica no ProfileCard,
-                        que não aparece quando o perfil falha (ex.: API key inválida).
-                        Limpar o steamId dispara o redirecionamento para o login. */}
-                    <Pressable
-                        className="mt-3 px-6 py-2 rounded-lg flex-row items-center gap-2"
                         onPress={clearSteamId}
+                        accessibilityRole="button"
+                        style={({ pressed }) => [styles.logoutInline, { opacity: pressed ? 0.8 : 1 }]}
                     >
                         <Ionicons name="log-out-outline" size={18} color={COLORS.danger} />
-                        <Text className="font-semibold text-danger">{tr("logout")}</Text>
+                        <Text style={styles.logoutText}>{tr("logout")}</Text>
                     </Pressable>
                 </View>
-            )}
-            </ScrollView>
+            </View>
+        );
+    }
+
+    return (
+        <View style={styles.screen}>
+            <PullToRefresh refreshing={refreshingProfile} onRefresh={refreshProfile}>
+                <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+                    <AppText variant="title">{tr("tabProfile")}</AppText>
+
+                    <ProfileCard data={profile} />
+
+                    {/* Jogos completos e conclusão média */}
+                    <View style={styles.stats}>
+                        <View style={styles.statTile}>
+                            <View style={styles.trophyIcon}>
+                                <Ionicons name="trophy" size={18} color={COLORS.gold} />
+                            </View>
+                            <Text style={styles.statValue}>{completionStats.perfected}</Text>
+                            <AppText variant="muted">{tr("profilePerfectedGames")}</AppText>
+                        </View>
+                        <View style={styles.statTile}>
+                            <ProgressRing value={completionStats.avgCompletion} size={36} stroke={5} showLabel={false} />
+                            <Text style={styles.statValue}>{completionStats.avgCompletion.toFixed(1)}%</Text>
+                            <AppText variant="muted">{tr("profileAvgCompletion")}</AppText>
+                        </View>
+                    </View>
+
+                    {/* Ajustes: idioma, sobre o app, sair */}
+                    <View style={styles.settings}>
+                        <View style={styles.settingRow}>
+                            <Text style={styles.settingLabel}>{tr("languageLabel")}</Text>
+                            <LanguageSelector inset />
+                        </View>
+                        <Pressable
+                            onPress={() => setAboutVisible(true)}
+                            accessibilityRole="button"
+                            style={({ pressed }) => [styles.settingRow, styles.settingDivider, { opacity: pressed ? 0.8 : 1 }]}
+                        >
+                            <Text style={styles.settingLabel}>{tr("aboutApp")}</Text>
+                            <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+                        </Pressable>
+                        <Pressable
+                            onPress={clearSteamId}
+                            accessibilityRole="button"
+                            style={({ pressed }) => [styles.settingRow, styles.settingDivider, { justifyContent: "flex-start", gap: 10, opacity: pressed ? 0.8 : 1 }]}
+                        >
+                            <Ionicons name="log-out-outline" size={18} color={COLORS.danger} />
+                            <Text style={[styles.settingLabel, { color: COLORS.danger }]}>{tr("logout")}</Text>
+                        </Pressable>
+                    </View>
+                </ScrollView>
             </PullToRefresh>
+
+            <AboutModal visible={aboutVisible} onClose={() => setAboutVisible(false)} />
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    screen: { flex: 1, backgroundColor: COLORS.bg },
+    center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: COLORS.bg },
+    // espaço no fim para o conteúdo não ficar atrás da tab bar flutuante
+    content: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 110, gap: 14 },
+    stats: { flexDirection: "row", gap: 10 },
+    statTile: { flex: 1, padding: 16, borderRadius: 20, backgroundColor: COLORS.surface, gap: 8 },
+    trophyIcon: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: "rgba(255, 179, 0, 0.14)",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    statValue: { fontFamily: FONTS.display, fontSize: 28, lineHeight: 32, color: COLORS.text },
+    settings: { borderRadius: 20, backgroundColor: COLORS.surface, overflow: "hidden" },
+    settingRow: {
+        minHeight: 56,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+    },
+    settingDivider: { borderTopWidth: 1, borderTopColor: COLORS.borderSubtle },
+    settingLabel: { fontFamily: FONTS.bodySemibold, fontSize: 15, color: COLORS.text },
+    headerPad: { paddingHorizontal: 20, paddingTop: 20 },
+    errorBox: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32, gap: 12, paddingBottom: 80 },
+    errorIcon: {
+        width: 72,
+        height: 72,
+        borderRadius: 36,
+        backgroundColor: "rgba(248, 113, 113, 0.12)",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    logoutInline: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16 },
+    logoutText: { fontFamily: FONTS.bodySemibold, fontSize: 14, color: COLORS.danger },
+});

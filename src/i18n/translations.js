@@ -109,6 +109,8 @@ export const translations = {
     profileCountry: { pt: "País: {code}", en: "Country: {code}" },
     profileLastOnline: { pt: "Última vez online: {date}", en: "Last online: {date}" },
     viewProfile: { pt: "Ver Perfil", en: "View Profile" },
+    viewSteamProfile: { pt: "Ver perfil na Steam", en: "View Steam profile" },
+    lastOnlineShort: { pt: "última vez online {date}", en: "last online {date}" },
 
     // --- game list ---
     filterAll: { pt: "Todos", en: "All" },

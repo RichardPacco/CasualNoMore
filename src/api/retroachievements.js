@@ -16,6 +16,9 @@ const API_BASE = "https://retroachievements.org/API/";
 const MEDIA_BASE = "https://media.retroachievements.org";
 const SITE_BASE = "https://retroachievements.org";
 
+/** Site do RetroAchievements. */
+export const RA_SITE_URL = SITE_BASE;
+
 /** Página onde o usuário encontra a Web API Key (Settings → Keys). */
 export const RA_SETTINGS_URL = `${SITE_BASE}/settings`;
 

@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { memo } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
+import AwardMedal from "@/src/components/AwardMedal";
 import Pressable from "@/src/components/ui/Pressable";
 import { ProgressBar } from "@/src/components/ui";
 import { useImageCdnFallback } from "@/src/hooks/useImageCdnFallback";
@@ -9,8 +10,6 @@ import { getPlatform } from "@/src/platforms";
 import { COLORS, FONTS } from "@/src/theme/colors";
 
 const placeholderImage = require("../../assets/images/placeholder_gamelist.jpg");
-// medalha de jogo completo (100% das conquistas), a mesma de antes do redesign
-const completionIcon = require("../../assets/images/completion_icon.png");
 
 /**
  * Um jogo na biblioteca, em um dos três formatos (`variant`):
@@ -31,7 +30,9 @@ function GameCardComponent({ game, navigation, onOpen, onLongPress, onTogglePin,
 
     // Imagem: na grade a capa larga, nos cards a cápsula. Cada plataforma
     // manda a lista de URLs a tentar em ordem; todas falharam -> placeholder.
-    const { candidates } = isGrid ? game.gridImage : game.image;
+    const { candidates, shape } = isGrid ? game.gridImage : game.image;
+    // ícones quadrados (RA) no lugar da cápsula/capa larga (Steam)
+    const square = shape === "square";
     const { stage, onError } = useImageCdnFallback(
         `${game.key}|${variant}|${candidates[0] ?? ""}`,
         candidates.length
@@ -40,7 +41,7 @@ function GameCardComponent({ game, navigation, onOpen, onLongPress, onTogglePin,
 
     const { unlocked, total, percent } = game;
     const hasAchievements = total > 0;
-    const complete = !!game.award;
+    const complete = hasAchievements && unlocked === total;
     const subtitle = getPlatform(game.platform)?.subtitle(game, tr) ?? "";
     const countText = hasAchievements
         ? tr("achievementsCount", { unlocked, total, percent: percent.toFixed(1) })
@@ -48,14 +49,7 @@ function GameCardComponent({ game, navigation, onOpen, onLongPress, onTogglePin,
 
     const open = () => onOpen ? onOpen(game) : navigation.navigate("GameScreen", { platform: game.platform, id: game.id });
 
-    const medal = complete ? (
-        <Image
-            source={completionIcon}
-            style={isGrid ? styles.medalGrid : styles.medal}
-            resizeMode="contain"
-            accessibilityLabel={tr("filterCompleted")}
-        />
-    ) : null;
+    const medal = game.award ? <AwardMedal award={game.award} size={isGrid ? 22 : 24} /> : null;
 
     const pin = onTogglePin ? (
         <Pressable
@@ -91,7 +85,7 @@ function GameCardComponent({ game, navigation, onOpen, onLongPress, onTogglePin,
                 style={({ pressed }) => [styles.tile, game.pinned && styles.pinned, { opacity: pressed ? 0.85 : 1 }]}
             >
                 <View>
-                    <Image source={imageSource} onError={onError} style={styles.cover} resizeMode="cover" />
+                    <Image source={imageSource} onError={onError} style={[styles.cover, square && styles.coverSquare]} resizeMode="cover" />
                     {medal && <View style={styles.medalOverlay}>{medal}</View>}
                     {pin}
                 </View>
@@ -143,7 +137,7 @@ function GameCardComponent({ game, navigation, onOpen, onLongPress, onTogglePin,
             {...pressableProps}
             style={({ pressed }) => [styles.row, game.pinned && styles.pinned, { opacity: pressed ? 0.85 : 1 }]}
         >
-            <Image source={imageSource} onError={onError} style={styles.capsule} resizeMode="cover" />
+            <Image source={imageSource} onError={onError} style={square ? styles.squareImage : styles.capsule} resizeMode="cover" />
 
             {/* Mesmo arranjo de antes do redesign: nome (+ medalha e alfinete),
                 tempo de jogo, barra e contagem de conquistas, um embaixo do outro */}
@@ -188,7 +182,8 @@ const styles = StyleSheet.create({
     name: { flex: 1, fontFamily: FONTS.bodySemibold, fontSize: 16, color: COLORS.text },
     meta: { fontFamily: FONTS.body, fontSize: 13, color: COLORS.textMuted },
     count: { fontFamily: FONTS.body, fontSize: 12, color: COLORS.textMuted },
-    medal: { width: 24, height: 24 },
+    // ícone quadrado (RA): mesma altura da cápsula, em quadrado
+    squareImage: { width: 56, height: 56, borderRadius: 10, backgroundColor: COLORS.surface2 },
     // alfinete pequeno na linha do nome; hitSlop leva a área de toque a ~44 px
     pinButton: { padding: 2 },
 
@@ -217,6 +212,7 @@ const styles = StyleSheet.create({
     },
     // capa larga da Steam (header 460x215) inteira, sem corte
     cover: { width: "100%", aspectRatio: 460 / 215, backgroundColor: COLORS.surface2 },
+    coverSquare: { aspectRatio: 1 },
     medalOverlay: {
         position: "absolute",
         left: 6,
@@ -228,7 +224,6 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
-    medalGrid: { width: 22, height: 22 },
     pinOverlay: {
         position: "absolute",
         right: 6,

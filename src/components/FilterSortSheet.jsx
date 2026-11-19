@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
-import { Animated, BackHandler, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Animated, BackHandler, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import Pressable from "@/src/components/ui/Pressable";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText, Button } from "@/src/components/ui";
@@ -16,8 +16,15 @@ const HIDDEN_OFFSET = 700; // deslocamento do painel fechado (fora da tela)
  * ao tocar em "Ver N jogos"; "Limpar" volta para os padrões.
  *
  * Props: visible, onClose, filterOptions [{label,value}], counts {value: n},
- * filter, sortOptions [{label,value}], sort, onApply({ filter, sort }),
+ * filter, sortOptions [{label,value}], sort, onApply({ filter, sort, console }),
  * defaultFilter, defaultSort.
+ * Opcionais (biblioteca do RA):
+ * - consoleOptions [{label,value,count}] + consoleValue: filtro de console,
+ *   também no rascunho (null = todos);
+ * - computeCounts(consoleId): contagens dos filtros para o console do
+ *   rascunho (senão usa `counts`);
+ * - toggles [{key,label,value,onChange}]: preferências que valem na hora
+ *   (ex.: esconder hacks), fora do rascunho.
  */
 export default function FilterSortSheet({
     visible,
@@ -30,6 +37,10 @@ export default function FilterSortSheet({
     onApply,
     defaultFilter = "all",
     defaultSort = "recentPlaytime",
+    consoleOptions = null,
+    consoleValue = null,
+    computeCounts = null,
+    toggles = null,
 }) {
     const { t } = useLanguage();
     const insets = useSafeAreaInsets();
@@ -38,6 +49,7 @@ export default function FilterSortSheet({
 
     const [draftFilter, setDraftFilter] = useState(filter);
     const [draftSort, setDraftSort] = useState(sort);
+    const [draftConsole, setDraftConsole] = useState(consoleValue);
 
     // Esconde a tab bar enquanto o painel está aberto
     useEffect(() => {
@@ -50,6 +62,7 @@ export default function FilterSortSheet({
         if (!visible) return;
         setDraftFilter(filter);
         setDraftSort(sort);
+        setDraftConsole(consoleValue);
         closingRef.current = false;
         anim.setValue(HIDDEN_OFFSET);
         Animated.timing(anim, { toValue: 0, duration: 250, useNativeDriver: true }).start();
@@ -80,16 +93,19 @@ export default function FilterSortSheet({
     if (!visible) return null;
 
     const apply = () => {
-        onApply({ filter: draftFilter, sort: draftSort });
+        onApply({ filter: draftFilter, sort: draftSort, console: draftConsole });
         close();
     };
 
     const reset = () => {
         setDraftFilter(defaultFilter);
         setDraftSort(defaultSort);
+        setDraftConsole(null);
     };
 
-    const resultCount = counts[draftFilter] ?? 0;
+    // contagens do console do rascunho, quando a tela sabe calculá-las
+    const draftCounts = computeCounts ? computeCounts(draftConsole) : counts;
+    const resultCount = draftCounts[draftFilter] ?? 0;
 
     return (
         <>
@@ -132,13 +148,61 @@ export default function FilterSortSheet({
                                     >
                                         <Text style={styles.optionLabel} numberOfLines={1}>{opt.label}</Text>
                                         <Text style={[styles.optionCount, { color: on ? COLORS.accent : COLORS.textMuted }]}>
-                                            {counts[opt.value] ?? 0}
+                                            {draftCounts[opt.value] ?? 0}
                                         </Text>
                                     </Pressable>
                                 );
                             })}
                         </View>
                     </View>
+
+                    {consoleOptions?.length > 0 && (
+                        <View style={styles.section}>
+                            <AppText variant="label">{t("console")}</AppText>
+                            <View style={styles.consoles} accessibilityRole="radiogroup">
+                                {[{ value: null, label: t("allConsoles") }, ...consoleOptions].map(opt => {
+                                    const on = draftConsole === opt.value;
+                                    return (
+                                        <Pressable
+                                            key={opt.value ?? "all"}
+                                            onPress={() => setDraftConsole(opt.value)}
+                                            accessibilityRole="radio"
+                                            accessibilityState={{ checked: on }}
+                                            style={({ pressed }) => [
+                                                styles.consoleChip,
+                                                on ? styles.optionOn : styles.optionOff,
+                                                { opacity: pressed ? 0.8 : 1 },
+                                            ]}
+                                        >
+                                            <Text style={styles.consoleLabel} numberOfLines={1}>{opt.label}</Text>
+                                            {opt.count != null && (
+                                                <Text style={[styles.optionCount, { color: on ? COLORS.accent : COLORS.textMuted }]}>
+                                                    {opt.count}
+                                                </Text>
+                                            )}
+                                        </Pressable>
+                                    );
+                                })}
+                            </View>
+                        </View>
+                    )}
+
+                    {toggles?.length > 0 && (
+                        <View style={styles.section}>
+                            {toggles.map(tg => (
+                                <View key={tg.key} style={styles.toggleRow}>
+                                    <Text style={styles.toggleLabel}>{tg.label}</Text>
+                                    <Switch
+                                        value={!!tg.value}
+                                        onValueChange={tg.onChange}
+                                        accessibilityLabel={tg.label}
+                                        trackColor={{ false: COLORS.border, true: COLORS.accent }}
+                                        thumbColor={COLORS.text}
+                                    />
+                                </View>
+                            ))}
+                        </View>
+                    )}
 
                     <View style={styles.section}>
                         <AppText variant="label">{t("sortTitle")}</AppText>
@@ -241,4 +305,18 @@ const styles = StyleSheet.create({
     segmentItemOn: { backgroundColor: COLORS.border },
     segmentLabel: { fontFamily: FONTS.bodySemibold, fontSize: 13 },
     footer: { flexDirection: "row", gap: 10 },
+    consoles: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    consoleChip: {
+        minHeight: 40,
+        paddingHorizontal: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        maxWidth: "100%",
+    },
+    consoleLabel: { flexShrink: 1, fontFamily: FONTS.bodyMedium, fontSize: 13, color: COLORS.text },
+    toggleRow: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+    toggleLabel: { flex: 1, fontFamily: FONTS.bodyMedium, fontSize: 15, color: COLORS.text },
 });

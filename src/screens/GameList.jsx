@@ -2,14 +2,17 @@ import GameCard from "@/src/components/GameCard";
 import { AppText, Button, Chip, ProgressBar, TextField } from "@/src/components/ui";
 import PullToRefresh from "@/src/components/PullToRefresh";
 import FilterSortSheet from "@/src/components/FilterSortSheet";
-import { AuthContext } from "@/src/context/AuthContext";
+import PlatformPicker from "@/src/components/PlatformPicker";
+import { RA_SITE_URL } from "@/src/api/retroachievements";
+import { useSettings } from "@/src/context/SettingsContext";
 import useLibrary from "@/src/hooks/useLibrary";
+import { getPlatform } from "@/src/platforms";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS, FONTS } from "@/src/theme/colors";
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import * as WebBrowser from "expo-web-browser";
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Keyboard, ScrollView, StyleSheet, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Pressable from "@/src/components/ui/Pressable";
@@ -59,21 +62,35 @@ function filterRule(value) {
  * chips de filtro, ordenação, seções de fixados e jogados recentemente,
  * e progresso de conquistas.
  *
- * Os jogos vêm do useLibrary, já no formato comum (LibraryGame) de todas as
- * plataformas conectadas; a sincronização de cada plataforma fica no hook dela.
+ * Os jogos vêm do useLibrary, já no formato comum (LibraryGame). Uma
+ * plataforma por vez: com mais de uma conectada, o seletor no topo troca entre
+ * elas. Filtros e ordenações disponíveis vêm da plataforma (`library` no
+ * módulo dela); o RA tem ainda filtro de console e esconder hacks/subsets.
  */
 export default function GameList({ navigation }) {
     const { t: tr } = useLanguage();
-    const { accounts } = useContext(AuthContext);
-    const steamConnected = !!accounts.steam;
+    const { settings, updateSettings } = useSettings();
     const {
-        games, loading, progress, syncing, refreshingRecent, turbo, toggleTurbo,
+        platforms, active, setActive,
+        games, loading, progress, syncing, refreshingRecent, error, turbo, toggleTurbo,
         reload, refreshRecent, refreshGame, togglePin, reloadGame,
     } = useLibrary();
+    // o que a biblioteca da plataforma ativa oferece (filtros, ordenações, turbo...)
+    const libraryOptions = getPlatform(active).library;
 
     // ---------- hooks / state ----------
     const [filter, setFilter] = useState("all");
     const [sort, setSort] = useState("recentPlaytime");
+    // console escolhido no filtro (só RA); null = todos
+    const [consoleFilter, setConsoleFilter] = useState(null);
+
+    // Ao trocar de plataforma: volta para os padrões o que ela não oferece
+    useEffect(() => {
+        setConsoleFilter(null);
+        if (!libraryOptions.filters.includes(filter)) setFilter("all");
+        if (!libraryOptions.sorts.includes(sort)) setSort("recentPlaytime");
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- só na troca de plataforma
+    }, [active]);
     const [refreshing, setRefreshing] = useState(false);
     // painel único de filtrar e ordenar (aberto por "Mais filtros" ou pelo botão de ordenar)
     const [sheetVisible, setSheetVisible] = useState(false);
@@ -155,25 +172,48 @@ export default function GameList({ navigation }) {
         { label: tr("filterCompleted"), value: "completed" },
         { label: tr("filterNotCompleted"), value: "notCompleted" },
         { label: tr("filterPinned"), value: "pinned" },
-    ], [tr]);
+    ].filter(o => libraryOptions.filters.includes(o.value)), [tr, libraryOptions]);
 
     const sortOptions = useMemo(() => [
         { label: tr("sortRecent"), value: "recentPlaytime" },
         { label: tr("sortPlaytime"), value: "totalPlaytime" },
         { label: tr("sortName"), value: "name" },
         { label: tr("sortProgress"), value: "progress" },
-    ], [tr]);
+    ].filter(o => libraryOptions.sorts.includes(o.value)), [tr, libraryOptions]);
 
-    // Quantos jogos se encaixam em cada opção de filtro (mesma regra da lista)
-    const filterCounts = useMemo(() => {
+    // Consoles da biblioteca (RA), com quantos jogos cada um tem, por nome
+    const consoleOptions = useMemo(() => {
+        if (!libraryOptions.hasConsoleFilter) return null;
+        const byId = new Map();
+        for (const g of games) {
+            if (!g.console) continue;
+            const entry = byId.get(g.console.id) ?? { value: g.console.id, label: g.console.name, count: 0 };
+            entry.count++;
+            byId.set(g.console.id, entry);
+        }
+        return [...byId.values()].sort((a, b) => a.label.localeCompare(b.label));
+    }, [games, libraryOptions]);
+
+    /** Jogos do console escolhido (todos se `consoleId` for null). */
+    const gamesOfConsole = useCallback(
+        (consoleId) => consoleId == null ? games : games.filter(g => g.console?.id === consoleId),
+        [games]
+    );
+
+    /** Quantos jogos se encaixam em cada opção de filtro (mesma regra da lista). */
+    const countFilters = useCallback((consoleId) => {
+        const base = gamesOfConsole(consoleId);
         return filterOptions.reduce((acc, opt) => {
-            acc[opt.value] = games.filter(filterRule(opt.value)).length;
+            acc[opt.value] = base.filter(filterRule(opt.value)).length;
             return acc;
         }, {});
-    }, [games, filterOptions]);
+    }, [gamesOfConsole, filterOptions]);
+
+    const filterCounts = useMemo(() => countFilters(consoleFilter), [countFilters, consoleFilter]);
 
     const filteredGames = useMemo(() => {
-        let result = filter === "all" ? games : games.filter(filterRule(filter));
+        const base = gamesOfConsole(consoleFilter);
+        let result = filter === "all" ? base : base.filter(filterRule(filter));
 
         // apply search by name (debounced)
         if (debouncedQuery && debouncedQuery.trim().length > 0) {
@@ -211,7 +251,7 @@ export default function GameList({ navigation }) {
         }
 
         return result;
-    }, [games, filter, sort, debouncedQuery]);
+    }, [gamesOfConsole, consoleFilter, filter, sort, debouncedQuery]);
 
     // Na ordenação padrão, separa os recentes (vão num card com borda no
     // cabeçalho) do restante (vira a lista virtualizada).
@@ -248,8 +288,9 @@ export default function GameList({ navigation }) {
     }, [searchQuery]);
 
     // ---------- UI ----------
-    // Botão turbo dos cards de sincronização: liga/desliga mais jogos ao mesmo tempo
-    const turboButton = (
+    // Botão turbo dos cards de sincronização: liga/desliga mais jogos ao mesmo
+    // tempo (só na Steam: o RA sincroniza em poucas chamadas)
+    const turboButton = !libraryOptions.hasTurbo ? null : (
         <Pressable
             onPress={toggleTurbo}
             accessibilityRole="switch"
@@ -267,8 +308,14 @@ export default function GameList({ navigation }) {
 
     // Primeira sincronização (banco ainda vazio): título, card de progresso e
     // linhas-esqueleto no lugar da lista (redesign, prancheta 13).
+    // Seletor de plataforma (só com mais de uma conectada)
+    const platformPicker = platforms.length > 1
+        ? <PlatformPicker value={active} onChange={setActive} />
+        : null;
+
     if (loading && games.length === 0) {
-        const pct = progress.total ? (progress.current / progress.total) * 100 : 0;
+        // progresso numérico só na Steam; no RA, só o indicador girando
+        const pct = progress?.total ? (progress.current / progress.total) * 100 : 0;
         return (
             <View style={styles.screen}>
                 <View style={[styles.header, { gap: 16 }]}>
@@ -276,10 +323,11 @@ export default function GameList({ navigation }) {
                         <AppText variant="title">{tr("libraryTitle")}</AppText>
                         <AppText variant="muted">{tr("firstSync")}</AppText>
                     </View>
+                    {platformPicker}
                     <View style={styles.syncCard} accessibilityRole="progressbar" accessibilityLabel={tr("syncSearching")}>
                         <View style={styles.syncTop}>
                             <AppText variant="itemName" style={{ flex: 1 }}>{tr("syncSearching")}</AppText>
-                            {progress.total > 0 ? (
+                            {progress?.total > 0 ? (
                                 <AppText variant="muted" color={COLORS.accent} style={{ fontFamily: FONTS.bodySemibold }}>
                                     {tr("syncCount", { current: progress.current, total: progress.total })}
                                 </AppText>
@@ -287,7 +335,7 @@ export default function GameList({ navigation }) {
                                 <ActivityIndicator size="small" color={COLORS.accent} />
                             )}
                         </View>
-                        <ProgressBar value={pct} height={6} />
+                        {progress && <ProgressBar value={pct} height={6} />}
                         <View style={styles.syncTop}>
                             <AppText variant="muted" style={{ fontSize: 12, flex: 1 }}>{tr("syncHint")}</AppText>
                             {turboButton}
@@ -393,6 +441,8 @@ export default function GameList({ navigation }) {
                     </Pressable>
                 </View>
 
+                {platformPicker}
+
                 <View style={styles.searchRow}>
                     <TextField
                         value={searchQuery}
@@ -421,7 +471,7 @@ export default function GameList({ navigation }) {
                         style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.8 : 1 }]}
                     >
                         <Ionicons name="swap-vertical" size={20} color={COLORS.textSoft} />
-                        {sort !== "recentPlaytime" && <View style={styles.dot} />}
+                        {(sort !== "recentPlaytime" || consoleFilter != null) && <View style={styles.dot} />}
                     </Pressable>
                 </View>
 
@@ -451,7 +501,7 @@ export default function GameList({ navigation }) {
 
             <PullToRefresh refreshing={refreshing} onRefresh={onRefresh} enabled={!syncing}>
                 <FlashList
-                    key={`${filter}-${sort}-${debouncedQuery}-${!!recentBlock}-${pinnedBlock.pinned.length}-${viewMode}`}
+                    key={`${active}-${filter}-${sort}-${consoleFilter}-${debouncedQuery}-${!!recentBlock}-${pinnedBlock.pinned.length}-${viewMode}`}
                     numColumns={viewMode === "grid" ? 2 : 1}
                     ref={listRef}
                     data={listData}
@@ -470,11 +520,15 @@ export default function GameList({ navigation }) {
                                     <View style={styles.syncTop}>
                                         <ActivityIndicator size="small" color={COLORS.accent} />
                                         <AppText variant="muted" style={{ flex: 1 }}>
-                                            {tr("loadingGames", { current: progress.current, total: progress.total })}
+                                            {progress
+                                                ? tr("loadingGames", { current: progress.current, total: progress.total })
+                                                : tr("raSyncing")}
                                         </AppText>
                                         {turboButton}
                                     </View>
-                                    <ProgressBar value={progress.total ? (progress.current / progress.total) * 100 : 0} />
+                                    {progress && (
+                                        <ProgressBar value={progress.total ? (progress.current / progress.total) * 100 : 0} />
+                                    )}
                                 </View>
                             )}
 
@@ -505,27 +559,27 @@ export default function GameList({ navigation }) {
                                 </View>
                                 <AppText variant="subtitle" style={{ textAlign: "center" }}>{tr("noGamesTitle")}</AppText>
                                 <AppText variant="muted" style={{ textAlign: "center", fontSize: 14, lineHeight: 21 }}>
-                                    {steamConnected ? tr("noGamesMessage") : tr("raLibraryComingSoon")}
+                                    {active === "ra"
+                                        ? (error ? tr("raConnectionError") : tr("raEmptyLibrary"))
+                                        : tr("noGamesMessage")}
                                 </AppText>
-                                {/* tentar de novo e ajuda de privacidade: só valem para a Steam */}
-                                {steamConnected && (<>
                                 <Button
                                     label={tr("profileRetry")}
                                     onPress={onRefresh}
                                     loading={refreshing}
                                     style={{ marginTop: 8, paddingHorizontal: 28 }}
                                 />
+                                {/* ajuda: privacidade do perfil (Steam) ou o site do RA */}
                                 <Pressable
-                                    onPress={() => WebBrowser.openBrowserAsync(STEAM_PRIVACY_URL)
+                                    onPress={() => WebBrowser.openBrowserAsync(active === "ra" ? RA_SITE_URL : STEAM_PRIVACY_URL)
                                         .catch(err => console.error("Failed to open browser:", err))}
                                     accessibilityRole="link"
                                     style={styles.helpLink}
                                 >
                                     <AppText variant="muted" color={COLORS.accent} style={{ fontFamily: FONTS.bodySemibold, fontSize: 14 }}>
-                                        {tr("publicProfileHelp")}
+                                        {active === "ra" ? tr("raOpenSite") : tr("publicProfileHelp")}
                                     </AppText>
                                 </Pressable>
-                                </>)}
                             </View>
                         ) : null
                     }
@@ -549,12 +603,20 @@ export default function GameList({ navigation }) {
                 onClose={() => setSheetVisible(false)}
                 filterOptions={filterOptions}
                 counts={filterCounts}
+                computeCounts={countFilters}
                 filter={filter}
                 sortOptions={sortOptions}
                 sort={sort}
-                onApply={({ filter: f, sort: s }) => {
+                consoleOptions={consoleOptions}
+                consoleValue={consoleFilter}
+                toggles={libraryOptions.hasConsoleFilter ? [
+                    { key: "hideHacks", label: tr("hideHacks"), value: settings.hideHacks, onChange: v => updateSettings({ hideHacks: v }) },
+                    { key: "hideSubsets", label: tr("hideSubsets"), value: settings.hideSubsets, onChange: v => updateSettings({ hideSubsets: v }) },
+                ] : null}
+                onApply={({ filter: f, sort: s, console: c }) => {
                     setFilter(f);
                     setSort(s);
+                    setConsoleFilter(c ?? null);
                 }}
             />
         </View>

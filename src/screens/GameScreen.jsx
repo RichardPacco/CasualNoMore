@@ -8,12 +8,12 @@ import AchievementsTab from './AchievementsTab';
 import GameDetailsTab from './GameDetailsTab';
 import { AppText } from "@/src/components/ui";
 import { AuthContext } from "@/src/context/AuthContext";
+import { useSettings } from "@/src/context/SettingsContext";
 import { useImageCdnFallback } from "@/src/hooks/useImageCdnFallback";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { getPlatform } from "@/src/platforms";
 import { COLORS, FONTS } from "@/src/theme/colors";
 import { getGameCounts } from "@/src/utils/achievements";
-import { headerUri } from "@/src/utils/cdn";
 import { formatDuration, playtimeLine } from "@/src/utils/playtime";
 import { showToast } from "@/src/utils/toast";
 
@@ -30,13 +30,15 @@ const placeholderImage = require("../../assets/images/placeholder_gamelist.jpg")
  * recente, e nenhuma cópia antiga do jogo viaja pela navegação para depois
  * sobrescrever dados mais novos.
  *
- * Por enquanto o conteúdo (capa, abas) é o da Steam; o do RetroAchievements
- * entra na etapa 3 do RETROACHIEVEMENTS_PLAN.md.
+ * A capa vem da plataforma (heroImages). No RetroAchievements, por enquanto,
+ * só capa, nome e progresso: as abas (conquistas e detalhes) entram na
+ * etapa 3 do RETROACHIEVEMENTS_PLAN.md.
  */
 export default function GameScreen({ route, navigation }) {
     const { platform: platformId = "steam", id } = route.params;
-    const appid = id;
     const { accounts } = useContext(AuthContext);
+    const { settings } = useSettings();
+    const isSteam = platformId === "steam";
     const platform = getPlatform(platformId);
     const connected = !!platform?.isConnected(accounts);
     const { t: tr } = useLanguage();
@@ -59,17 +61,10 @@ export default function GameScreen({ route, navigation }) {
         return () => { cancelled = true; };
     }, [connected, platform, accounts, id]);
 
-    // Capa: URL da loja salva, a que o appdetails trouxe, depois os CDNs antigos
-    const headerCandidates = [
-        ...new Set([
-            game?.headerUrl,
-            game?.details?.header_image,
-            headerUri(appid, false),
-            headerUri(appid, true),
-        ].filter(Boolean)),
-    ];
+    // Capa: lista de URLs a tentar em ordem, montada pela plataforma
+    const headerCandidates = game && platform?.heroImages ? platform.heroImages(game) : [];
     const { stage, onError } = useImageCdnFallback(
-        `${appid}|${headerCandidates.join("|")}`,
+        `${platformId}:${id}|${headerCandidates.join("|")}`,
         headerCandidates.length
     );
 
@@ -107,11 +102,15 @@ export default function GameScreen({ route, navigation }) {
         );
     }
 
-    const { unlocked, total } = getGameCounts(game);
-    const played = game.playtimeHidden || !(game.playtime_forever > 0)
-        ? playtimeLine(game, tr)
-        : tr("playtimePlayed", { time: formatDuration(game.playtime_forever) });
-    const meta = [played, total > 0 ? tr("achievementsShort", { unlocked, total }) : null]
+    // Linha abaixo do nome: tempo de jogo (Steam) ou console (RA) + conquistas
+    const { unlocked, total } = isSteam ? getGameCounts(game) : platform.toLibraryGame(game, settings.raMode);
+    const firstMeta = isSteam
+        ? (game.playtimeHidden || !(game.playtime_forever > 0)
+            ? playtimeLine(game, tr)
+            : tr("playtimePlayed", { time: formatDuration(game.playtime_forever) }))
+        : game.consoleName;
+    const name = isSteam ? game.name : game.title;
+    const meta = [firstMeta, total > 0 ? tr("achievementsShort", { unlocked, total }) : null]
         .filter(Boolean)
         .join(" · ");
 
@@ -138,7 +137,7 @@ export default function GameScreen({ route, navigation }) {
                     {/* no modo compacto o nome fica na linha dos botões */}
                     {compact && (
                         <AppText variant="subtitle" style={styles.compactTitle} numberOfLines={1}>
-                            {game.name}
+                            {name}
                         </AppText>
                     )}
                     <Pressable
@@ -157,12 +156,19 @@ export default function GameScreen({ route, navigation }) {
                 </View>
                 {!compact && (
                     <View style={styles.heroTexts}>
-                        <AppText variant="title" style={styles.heroTitle} numberOfLines={2}>{game.name}</AppText>
+                        <AppText variant="title" style={styles.heroTitle} numberOfLines={2}>{name}</AppText>
                         <Text style={styles.heroMeta} numberOfLines={1}>{meta}</Text>
                     </View>
                 )}
             </View>
 
+            {!isSteam ? (
+                <View style={styles.fallbackBody}>
+                    <AppText variant="muted" style={{ textAlign: "center", fontSize: 14, lineHeight: 21 }}>
+                        {tr("gameScreenRaSoon")}
+                    </AppText>
+                </View>
+            ) : (
             <Tab.Navigator
                 tabBar={(props) => <SegmentedTabBar {...props} label={tr("gameSections")} />}
                 screenOptions={{ sceneStyle: { backgroundColor: COLORS.bg } }}
@@ -177,6 +183,7 @@ export default function GameScreen({ route, navigation }) {
                     {() => <AchievementsTab game={game} />}
                 </Tab.Screen>
             </Tab.Navigator>
+            )}
         </View>
     );
 }

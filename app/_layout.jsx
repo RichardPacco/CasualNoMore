@@ -1,4 +1,5 @@
 import { AuthProvider } from "@/src/context/AuthContext";
+import { SettingsProvider } from "@/src/context/SettingsContext";
 import { LanguageProvider } from "@/src/i18n/LanguageContext";
 import { COLORS } from "@/src/theme/colors";
 import {
@@ -57,11 +58,13 @@ export default function RootLayout() {
         <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.bg }}>
           <LanguageProvider>
             <AuthProvider>
+              <SettingsProvider>
               <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: COLORS.bg } }}>
                 <Stack.Screen name="index" />
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="(auth)/login" />
               </Stack>
+              </SettingsProvider>
             </AuthProvider>
           </LanguageProvider>
         </SafeAreaView>

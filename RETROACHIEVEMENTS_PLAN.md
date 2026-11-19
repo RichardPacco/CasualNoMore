@@ -359,7 +359,7 @@ Cada etapa termina com o app funcionando e vira um commit. A Steam **não pode q
 - [x] Key errada mostra um erro claro e não salva nada
 - [x] Logout do RA desconecta `accounts.ra` (a key fica salva para o próximo login; ver nota acima)
 
-### Etapa 2 — Biblioteca do RA
+### ✅ Etapa 2 — Biblioteca do RA
 
 **Arquivos**
 
@@ -394,12 +394,23 @@ Cada etapa termina com o app funcionando e vira um commit. A Steam **não pode q
   - RA **beaten** → ícone de bandeira
   - (cores no `colors.js`)
 
+> **Feito.** O que mudou em relação ao planejado:
+> - **Biblioteca separada por plataforma (D1):** no lugar do chip "Todas / Steam / RA", um seletor Steam | RetroAchievements (`PlatformPicker`) no topo, só com as duas conectadas. Uma plataforma por vez; a escolha fica em `@library_platform`. As duas sincronizam em segundo plano. Sem `PlatformBadge` (não há lista misturada).
+> - Cada plataforma diz o que a biblioteca oferece em `library` no seu módulo (`src/platforms/<id>/index.js`): filtros, ordenações, turbo e filtro de console. No RA não há "Jogados", "Nunca jogados" nem "Tempo jogado".
+> - `raDb.js`: a sincronização grava com `INSERT ... ON CONFLICT DO UPDATE` só nas colunas de progresso (fixado, conquistas e detalhes nunca são apagados). Tabelas criadas por `ensureCustomTable` do `db.js`, então o `clearDB` também as zera. `updateRaGameAchievements`/`updateRaGameDetails` ficam para a etapa 3.
+> - Sem `consoles.js`/`GetConsoleIDs`: o filtro de console usa os consoles que já vêm na biblioteca. Hubs (100) e Events (101) são ignorados na sincronização.
+> - Filtro de console com seleção única (Todos + cada console, com contagem). "Esconder hacks" e "Esconder subsets" ficam no mesmo painel e valem na hora (são preferências, em `SettingsContext`).
+> - `SettingsContext` (`@settings`) criado já nesta etapa: `raMode` (padrão hardcore, D2 ainda não confirmada), `hideHacks` (true) e `hideSubsets` (false) (D4).
+> - Ícone quadrado (96x96) do RA nos três modos de exibição (box art só existe para os 50 jogos recentes).
+> - Tela do jogo do RA: capa (`heroImages` da plataforma), nome, console e progresso; as abas entram na etapa 3.
+
 **Pronto quando**
-- [ ] Conta só RA: a biblioteca carrega em poucos segundos, com ícones, console e progresso certos
-- [ ] Duas contas: lista misturada, chip de plataforma funciona, busca encontra jogos das duas
-- [ ] Filtro por console e esconder hacks funcionam
-- [ ] Pin funciona para os jogos do RA e persiste
-- [ ] Puxar para atualizar sincroniza as duas plataformas
+- [x] Conta só RA: a biblioteca carrega em poucos segundos, com ícones, console e progresso certos
+- [x] Duas contas: o seletor troca entre as bibliotecas e a busca funciona em cada uma
+- [x] Filtro por console e esconder hacks funcionam
+- [x] Pin funciona para os jogos do RA e persiste
+- [x] Puxar para atualizar sincroniza a plataforma ativa
+- [ ] Conferir com uma conta real se o `NumAwarded` da biblioteca já soma softcore + hardcore (necessário para o modo softcore)
 
 ### Etapa 3 — Tela do jogo do RA
 
@@ -577,10 +588,10 @@ Confirmar antes ou durante a etapa indicada. Os padrões abaixo são as recomend
 
 | # | Decisão | Recomendação | Afeta a etapa |
 |---|---|---|---|
-| D1 | Biblioteca misturada com chip de plataforma **ou** uma aba por plataforma | Misturada + chip | 2 |
+| D1 | Biblioteca misturada com chip de plataforma **ou** uma aba por plataforma | ✅ **Decidido: separada por plataforma** (seletor no topo) | 2 |
 | D2 | O progresso padrão do RA conta só hardcore ou soft + hard | Hardcore, configurável no perfil | 3 |
 | D3 | Pode entrar no app só com o RA (sem Steam) | Sim | 0 e 1 |
-| D4 | Esconder hacks e subsets por padrão | Hacks escondidos, subsets visíveis | 2 |
+| D4 | Esconder hacks e subsets por padrão | ✅ **Decidido: hacks escondidos, subsets visíveis** | 2 |
 | D5 | Medalhas do RA: ícones próprios por nível ou reutilizar `completion_icon.png` com cores | Reutilizar com cores (dourada, prata, bandeira) | 2 |
 | D6 | Fazer mocks das telas novas (login com escolha de plataforma, biblioteca mista, jogo do RA, perfil com dois cards) antes de implementar | Sim, antes da etapa 2 | 1 a 4 |
 

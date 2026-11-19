@@ -76,6 +76,29 @@ export async function ensureTable(steamId) {
     return promise;
 }
 
+/**
+ * Garante que exista a tabela `tableName` (criada com `columnsSql`, o corpo do
+ * CREATE TABLE) e retorna o nome. Usa o mesmo registro das tabelas da Steam,
+ * então o clearDB também zera as tabelas criadas por aqui (ex.: as do
+ * RetroAchievements, em raDb.js).
+ */
+export async function ensureCustomTable(tableName, columnsSql) {
+    if (createdTables.has(tableName)) return tableName;
+    if (tableCreationPromises.has(tableName)) return tableCreationPromises.get(tableName);
+
+    const promise = (async () => {
+        const db = await openDB();
+        console.log(`[db] Criando tabela se não existir: ${tableName}`);
+        await db.execAsync(`CREATE TABLE IF NOT EXISTS ${tableName} (${columnsSql});`);
+        createdTables.add(tableName);
+        tableCreationPromises.delete(tableName);
+        return tableName;
+    })();
+
+    tableCreationPromises.set(tableName, promise);
+    return promise;
+}
+
 /** Garante que exista a tabela de amigos do steamId e retorna o nome dela. */
 export async function ensureTableFriends(steamId) {
     const tableName = `friends_${steamId}`;
@@ -110,7 +133,7 @@ export async function ensureTableFriends(steamId) {
 let transactionQueue = Promise.resolve();
 
 /** Roda `fn` dentro de uma transação (tudo ou nada), uma transação por vez. */
-async function runInTransaction(fn) {
+export async function runInTransaction(fn) {
     const db = await openDB();
     const run = transactionQueue.then(() => db.withTransactionAsync(() => fn(db)));
     transactionQueue = run.catch(() => { }); // uma falha não trava a fila

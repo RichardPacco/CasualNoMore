@@ -35,6 +35,9 @@ export default function GameScreen({ route, navigation }) {
 
     const [game, setGame] = useState(null);
     const [loadingGame, setLoadingGame] = useState(true);
+    // aba ativa: em "Conquistas" a capa encolhe para sobrar espaço para a lista
+    const [activeTab, setActiveTab] = useState("Detalhes");
+    const compact = activeTab === "Conquistas";
 
     useEffect(() => {
         let cancelled = false;
@@ -107,7 +110,7 @@ export default function GameScreen({ route, navigation }) {
     return (
         <View style={styles.screen}>
             {/* Capa com degradê, voltar, fixar, nome e tempo de jogo */}
-            <View style={styles.hero}>
+            <View style={[styles.hero, compact && styles.heroCompact]}>
                 <Image
                     source={stage >= headerCandidates.length ? placeholderImage : { uri: headerCandidates[stage] }}
                     onError={onError}
@@ -115,12 +118,20 @@ export default function GameScreen({ route, navigation }) {
                     resizeMode="cover"
                 />
                 <LinearGradient
-                    colors={["rgba(10,14,21,0)", "rgba(10,14,21,0)", COLORS.bg]}
-                    locations={[0, 0.45, 1]}
+                    colors={compact
+                        ? ["rgba(10,14,21,0.15)", COLORS.bg]
+                        : ["rgba(10,14,21,0)", "rgba(10,14,21,0)", COLORS.bg]}
+                    locations={compact ? [0, 1] : [0, 0.45, 1]}
                     style={StyleSheet.absoluteFill}
                 />
                 <View style={styles.heroButtons}>
                     {backButton}
+                    {/* no modo compacto o nome fica na linha dos botões */}
+                    {compact && (
+                        <AppText variant="subtitle" style={styles.compactTitle} numberOfLines={1}>
+                            {game.name}
+                        </AppText>
+                    )}
                     <Pressable
                         onPress={togglePin}
                         accessibilityRole="button"
@@ -135,15 +146,20 @@ export default function GameScreen({ route, navigation }) {
                         />
                     </Pressable>
                 </View>
-                <View style={styles.heroTexts}>
-                    <AppText variant="title" style={styles.heroTitle} numberOfLines={2}>{game.name}</AppText>
-                    <Text style={styles.heroMeta} numberOfLines={1}>{meta}</Text>
-                </View>
+                {!compact && (
+                    <View style={styles.heroTexts}>
+                        <AppText variant="title" style={styles.heroTitle} numberOfLines={2}>{game.name}</AppText>
+                        <Text style={styles.heroMeta} numberOfLines={1}>{meta}</Text>
+                    </View>
+                )}
             </View>
 
             <Tab.Navigator
                 tabBar={(props) => <SegmentedTabBar {...props} label={tr("gameSections")} />}
                 screenOptions={{ sceneStyle: { backgroundColor: COLORS.bg } }}
+                screenListeners={({ route: tabRoute }) => ({
+                    focus: () => setActiveTab(tabRoute.name),
+                })}
             >
                 <Tab.Screen name="Detalhes" options={{ title: tr("details") }}>
                     {() => <GameDetailsTab game={game} navigation={navigation} />}
@@ -189,7 +205,9 @@ function SegmentedTabBar({ state, descriptors, navigation, label }) {
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: COLORS.bg },
     hero: { height: 200, backgroundColor: COLORS.surface2, justifyContent: "space-between" },
-    heroButtons: { flexDirection: "row", justifyContent: "space-between", padding: 16 },
+    heroCompact: { height: 120 },
+    heroButtons: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, padding: 16 },
+    compactTitle: { flex: 1, fontSize: 20 },
     roundButton: {
         width: 44,
         height: 44,

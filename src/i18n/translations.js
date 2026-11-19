@@ -184,6 +184,11 @@ export const translations = {
     achSortUnlock: { pt: "Data de Desbloqueio", en: "Unlock Date" },
     achSortReverse: { pt: "Ordem Inversa", en: "Reverse Order" },
     unlockedAt: { pt: "Desbloqueada em {date}", en: "Unlocked on {date}" },
+    achFilterAll: { pt: "Todas", en: "All" },
+    achLocked: { pt: "Bloqueada", en: "Locked" },
+    achProgressOf: { pt: "de {total} desbloqueadas", en: "of {total} unlocked" },
+    refreshAchievements: { pt: "Atualizar conquistas", en: "Refresh achievements" },
+    achRarityA11y: { pt: "{percent} dos jogadores", en: "{percent} of players" },
 
     // --- guide search ---
     searchGoogle: { pt: "Buscar no Google", en: "Search on Google" },

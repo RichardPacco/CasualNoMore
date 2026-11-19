@@ -39,16 +39,10 @@ export default function AchievementSheet({ achievement, game, onClose }) {
         : tr("achLocked");
 
     // Busca pelo nome do jogo + conquista (mesma query do menu antigo)
-    const query = item ? encodeURIComponent(`${game?.name} ${item.name} Guide`) : "";
+    const query = item ? encodeURIComponent(`${game?.name} ${item.name} Achievement Guide`) : "";
     const links = item ? [
         { key: "google", label: tr("searchGoogle"), icon: "logo-google", url: `https://www.google.com/search?q=${query}` },
-        { key: "chatgpt", label: tr("searchChatGPT"), icon: "sparkles-outline", url: `https://chatgpt.com/?q=${query}` },
-        {
-            key: "steam",
-            label: tr("steamCommunityGuides"),
-            icon: "book-outline",
-            url: `https://steamcommunity.com/app/${game?.appid}/guides/?searchText=${encodeURIComponent(item.name)}`,
-        },
+        { key: "chatgpt", label: tr("searchChatGPT"), icon: "sparkles-outline", url: `https://chatgpt.com/?q=${query}` }
     ] : [];
 
     return (

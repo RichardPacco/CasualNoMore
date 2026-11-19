@@ -11,7 +11,7 @@ import { showToast } from "@/src/utils/toast";
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import { memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Image, Keyboard, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, Keyboard, ScrollView, StyleSheet, Text, View } from "react-native";
 import Pressable from "@/src/components/ui/Pressable";
 import { AuthContext } from "@/src/context/AuthContext";
 import { updateGameAchievements } from "@/src/database/db";
@@ -276,8 +276,13 @@ export default function AchievementsTab({ game }) {
                     </Pressable>
                 </View>
 
-                {/* Filtro */}
-                <View style={styles.chips}>
+                {/* Filtro: chips em linha com rolagem lateral, como na biblioteca */}
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.chips}
+                    keyboardShouldPersistTaps="handled"
+                >
                     {filterOptions.map(opt => (
                         <Chip
                             key={opt.value}
@@ -287,7 +292,7 @@ export default function AchievementsTab({ game }) {
                             onPress={() => setFilter(opt.value)}
                         />
                     ))}
-                </View>
+                </ScrollView>
             </View>
 
             <FlashList
@@ -379,7 +384,8 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
-    chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingVertical: 5 },
+    // mesmo espaçamento dos chips da biblioteca
+    chips: { gap: 8, paddingVertical: 5, paddingRight: 20 },
     // espaço no fim para a lista não ficar atrás da tab bar flutuante
     listContent: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 110 },
     row: {

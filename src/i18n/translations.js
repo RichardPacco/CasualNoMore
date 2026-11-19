@@ -3,7 +3,8 @@ export const translations = {
     tabGames: { pt: "Jogos", en: "Games" },
     tabFriends: { pt: "Amigos", en: "Friends" },
     tabProfile: { pt: "Perfil", en: "Profile" },
-    splashTagline: { pt: "Nenhum jogo é casual se tem conquistas !", en: "No game is casual if theres cheevos to hunt !" },
+    splashTagline: { pt: "Nenhum jogo é casual se tem conquistas !.", en: "No game is casual if theres cheevos to hunt !" },
+    loadingLabel: { pt: "Carregando", en: "Loading" },
 
     // --- login ---
     loginCacheCleared: { pt: "Todos os dados de cache foram limpos!", en: "All cached data has been cleared!" },

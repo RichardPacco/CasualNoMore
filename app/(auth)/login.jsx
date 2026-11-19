@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { getPlayerSummary, resolveVanityURL } from "@/src/api/steam";
-import { loadApiKey, saveApiKeyStore, setApiKeyStore } from "@/src/config/apiKeyStore";
+import { loadApiKey, saveApiKeyStore } from "@/src/config/apiKeyStore";
 import LanguageSelector from "@/src/components/LanguageSelector";
 import ClearDbModal from "@/src/components/ClearDbModal";
 import RemoveAccountModal from "@/src/components/RemoveAccountModal";
@@ -77,11 +77,13 @@ export default function Login() {
      * Também zera as cópias em memória (API key, contas salvas, steamId), senão a
      * tela continuaria mostrando dados que já não existem no armazenamento.
      * O idioma também volta ao padrão, como numa instalação nova.
+     * A API key fica no SecureStore, que o AsyncStorage.clear() não alcança,
+     * então é apagada à parte (memória + armazenamento seguro).
      */
     const handleClearCache = async () => {
         try {
             await AsyncStorage.clear();
-            setApiKeyStore(null);
+            await saveApiKeyStore("");
             setApiKey("");
             setKeyInput("");
             await clearSavedAccounts();

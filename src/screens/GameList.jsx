@@ -1,4 +1,4 @@
-import { getOwnedGames, GetSchemaForGame } from "@/src/api/steam";
+import { getOwnedGames, GetSchemaForGame, getStoreAssets } from "@/src/api/steam";
 import GameCard from "@/src/components/GameCard";
 import PullToRefresh from "@/src/components/PullToRefresh";
 import RadioSheet from "@/src/components/RadioSheet";
@@ -164,6 +164,10 @@ export default function GameList({ navigation, route }) {
             schema, schemaStatus, achievements, achievementsStatus, details, detailsStatus,
             // idioma dos detalhes da loja: zerado junto com eles quando stale
             detailsLang: details ? (cached?.detailsLang ?? null) : null,
+            // URLs das imagens da loja (com hash): as recém-buscadas vêm no
+            // baseGame (getStoreAssets); senão mantém as do cache.
+            capsuleUrl: baseGame.capsuleUrl ?? cached?.capsuleUrl ?? null,
+            headerUrl: baseGame.headerUrl ?? cached?.headerUrl ?? null,
             lang,
             pinned: cached?.pinned || (pinnedIds?.has(baseGame.appid) ? 1 : 0),
         };
@@ -189,8 +193,12 @@ export default function GameList({ navigation, route }) {
         showToast(tr("gameRefreshing"), "info");
         try {
             const owned = await getOwnedGames(steamId);
-            const baseGame = owned?.games?.find(g => g.appid === game.appid);
-            if (!baseGame) throw new Error("game not in owned list");
+            const ownedGame = owned?.games?.find(g => g.appid === game.appid);
+            if (!ownedGame) throw new Error("game not in owned list");
+
+            // Rebusca também as URLs das imagens (o hash muda se a arte mudar)
+            const assets = await getStoreAssets([game.appid]);
+            const baseGame = { ...ownedGame, ...assets.get(game.appid) };
 
             await forceRefreshGame(baseGame, game);
             showToast(tr("gameRefreshed"), "success");
@@ -245,8 +253,13 @@ export default function GameList({ navigation, route }) {
                 return;
             }
 
-            for (const baseGame of toRefresh) {
+            // Rebusca as URLs das imagens desses jogos (o hash muda se a arte mudar)
+            const assets = await getStoreAssets(toRefresh.map(g => g.appid));
+            if (isStale()) return;
+
+            for (const ownedGame of toRefresh) {
                 if (isStale()) return;
+                const baseGame = { ...ownedGame, ...assets.get(ownedGame.appid) };
                 const existing = gamesRef.current.find(g => g.appid === baseGame.appid);
                 await forceRefreshGame(baseGame, existing, pinnedIds, isStale);
             }
@@ -444,7 +457,7 @@ export default function GameList({ navigation, route }) {
 
             // Processa primeiro os jogos mais relevantes (mais jogados recentemente)
             // para que o topo da lista ganhe dados (progresso) antes do resto
-            const freshGames = [...fresh.games].sort((a, b) => {
+            const sortedFresh = [...fresh.games].sort((a, b) => {
                 const a2 = a.playtime_2weeks || 0;
                 const b2 = b.playtime_2weeks || 0;
                 if (b2 !== a2) return b2 - a2;
@@ -453,6 +466,18 @@ export default function GameList({ navigation, route }) {
                 if (b0 !== a0) return b0 - a0;
                 return (a.name || "").localeCompare(b.name || "");
             });
+
+            // URLs das imagens da loja só para quem ainda não tem no cache
+            // (jogos novos na conta ou nunca buscados): em lotes de 100 por chamada.
+            const missingAssets = sortedFresh
+                .filter(g => {
+                    const idx = gameMap.get(g.appid);
+                    return !(idx !== undefined && gamesList[idx].capsuleUrl);
+                })
+                .map(g => g.appid);
+            const assets = await getStoreAssets(missingAssets);
+            if (loadGenRef.current !== gen) return false;
+            const freshGames = sortedFresh.map(g => ({ ...g, ...assets.get(g.appid) }));
 
             // Enriquecimento em paralelo (poucos por vez para não estourar a API)
             // e atualização da UI + persistência em lotes (reduz re-renders e I/O).
@@ -483,7 +508,9 @@ export default function GameList({ navigation, route }) {
                             || prev.schemaStatus !== enriched.schemaStatus
                             || prev.achievementsStatus !== enriched.achievementsStatus
                             || prev.detailsStatus !== enriched.detailsStatus
-                            || prev.lang !== enriched.lang;
+                            || prev.lang !== enriched.lang
+                            || prev.capsuleUrl !== enriched.capsuleUrl
+                            || prev.headerUrl !== enriched.headerUrl;
                         if (!changed) continue;
                         gamesList[idx] = enriched;
                     } else {

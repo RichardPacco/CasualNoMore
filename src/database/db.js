@@ -62,7 +62,9 @@ export async function ensureTable(steamId) {
       lang TEXT,
       unlocked INTEGER,
       totalAchievements INTEGER,
-      pinned INTEGER DEFAULT 0
+      pinned INTEGER DEFAULT 0,
+      capsuleUrl TEXT,
+      headerUrl TEXT
     );
   `);
         createdTables.add(tableName);
@@ -122,6 +124,7 @@ const GAME_COLUMNS = [
     "schema", "schemaStatus", "achievements", "achievementsStatus",
     "details", "detailsStatus", "detailsLang", "lang",
     "unlocked", "totalAchievements", "pinned",
+    "capsuleUrl", "headerUrl",
 ];
 
 /** SQL do INSERT OR REPLACE de um jogo completo na tabela informada. */
@@ -150,6 +153,8 @@ function gameRowValues(game) {
         game.unlocked ?? achievementsList.filter(a => a.achieved).length,
         game.totalAchievements ?? achievementsList.length,
         game.pinned ? 1 : 0,
+        game.capsuleUrl || null,
+        game.headerUrl || null,
     ];
 }
 

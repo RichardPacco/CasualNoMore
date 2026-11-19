@@ -11,6 +11,8 @@ import { Image, Linking, ScrollView, Text, TouchableOpacity, useWindowDimensions
 import RenderHTML from 'react-native-render-html';
 import { headerUri } from "@/src/utils/cdn";
 
+const placeholderImage = require("../../assets/images/placeholder_gamelist.jpg");
+
 
 /**
  * Aba com os detalhes do jogo vindos da loja Steam
@@ -27,7 +29,20 @@ export default function GameDetailsTab({ game }) {
 
     const [showFull, setShowFull] = useState(false);
 
-    const { stage, onError } = useImageCdnFallback(game?.appid);
+    // Header: URL da loja salva (GetItems) ou a que o appdetails traz, ambas com
+    // hash (funcionam para jogos novos); depois os CDNs antigos; senão placeholder.
+    const headerCandidates = [
+        ...new Set([
+            game?.headerUrl,
+            gameDetail?.header_image,
+            headerUri(game?.appid, false),
+            headerUri(game?.appid, true),
+        ].filter(Boolean)),
+    ];
+    const { stage, onError } = useImageCdnFallback(
+        `${game?.appid}|${headerCandidates.join("|")}`,
+        headerCandidates.length
+    );
 
     useEffect(() => {
         if (!game) return;
@@ -95,7 +110,9 @@ export default function GameDetailsTab({ game }) {
                 <TouchableOpacity onPress={openSteamPage}>
 
                     <Image
-                        source={{ uri: headerUri(game.appid, stage === 1) }}
+                        source={stage >= headerCandidates.length
+                            ? placeholderImage
+                            : { uri: headerCandidates[stage] }}
                         onError={onError}
                         style={{
                             width: "100%",

@@ -1,5 +1,5 @@
 import { getGameCounts } from "@/src/utils/achievements";
-import { capsuleUri } from "@/src/utils/cdn";
+import { capsuleUri, imageCandidates } from "@/src/utils/cdn";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { useImageCdnFallback } from "@/src/hooks/useImageCdnFallback";
 import { memo } from "react";
@@ -17,7 +17,13 @@ const placeholderImage = require("../../assets/images/placeholder_gamelist.jpg")
 function GameCardComponent({ game, navigation, onOpen, onLongPress, onTogglePin }) {
     const t = useTheme();
     const { t: tr } = useLanguage();
-    const { stage, onError } = useImageCdnFallback(game.appid);
+    // URL da loja (com hash, funciona para jogos novos) primeiro; depois os
+    // CDNs antigos montados pelo appid; todas falharam -> placeholder.
+    const candidates = imageCandidates(game.capsuleUrl, fb => capsuleUri(game.appid, fb));
+    const { stage, onError } = useImageCdnFallback(
+        `${game.appid}|${game.capsuleUrl ?? ""}`,
+        candidates.length
+    );
 
     const { unlocked, total, percent } = getGameCounts(game);
 
@@ -43,9 +49,9 @@ function GameCardComponent({ game, navigation, onOpen, onLongPress, onTogglePin 
             style={{ minHeight: 90 }}
         >
             <Image
-                source={stage >= 2
+                source={stage >= candidates.length
                     ? placeholderImage
-                    : { uri: capsuleUri(game.appid, stage === 1) }}
+                    : { uri: candidates[stage] }}
                 onError={onError}
                 className="w-40 h-20 rounded-md"
                 style={{ aspectRatio: 231 / 87 }}

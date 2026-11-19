@@ -177,7 +177,6 @@ export default function AchievementsTab({ game }) {
     // ---------- state ----------
     const [filter, setFilter] = useState("all");
     const [sort, setSort] = useState("rarity");
-    const [reverse, setReverse] = useState(false);
     const [filterVisible, setFilterVisible] = useState(false);
     const [sortVisible, setSortVisible] = useState(false);
     const [showTopButton, setShowTopButton] = useState(false);

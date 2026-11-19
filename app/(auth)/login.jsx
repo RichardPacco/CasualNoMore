@@ -151,17 +151,30 @@ export default function Login() {
         });
     };
 
-    /** Login rápido com uma conta salva (toque no avatar): define o steamId e vai para as tabs. */
+    /**
+     * Login rápido com uma conta salva (toque no avatar): valida o perfil como
+     * no login normal (o perfil pode ter ficado privado desde que foi salvo),
+     * atualiza nome/avatar salvos e vai para as tabs.
+     */
     const handleQuickLogin = async (account) => {
+        if (loading) return;
         if (!apiKey) {
             showToast(t("loginApiKeyMissing"), "warning");
             return;
         }
 
         setLoading(true);
-        await addSavedAccount(account);
-        await setSteamId(account.steamId);
-        router.replace("/(tabs)/GameStack");
+        try {
+            // validateSteamProfile já mostra o toast de erro/privado
+            const playerSummary = await validateSteamProfile(account.steamId);
+            if (!playerSummary) return;
+
+            await saveAccount(playerSummary, account.steamId);
+            await setSteamId(account.steamId);
+            router.replace("/(tabs)/GameStack");
+        } finally {
+            setLoading(false);
+        }
     };
 
     /** Marca a conta para remoção (disparado pelo toque longo no avatar). */

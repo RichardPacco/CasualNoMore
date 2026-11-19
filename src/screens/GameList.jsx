@@ -660,7 +660,7 @@ export default function GameList({ navigation, route }) {
             {/* floating buttons: refresh recent + filter + sort + scroll to top */}
             <View className="absolute bottom-24 right-6 gap-3">
                 <TouchableOpacity
-                    onPress={refreshRecentGames}
+                    onPress={() => refreshRecentGames(false)}
                     disabled={refreshingRecent}
                     activeOpacity={0.8}
                     accessibilityLabel={tr("refreshRecentGames")}

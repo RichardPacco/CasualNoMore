@@ -1,14 +1,14 @@
 import { getFriendList, getOwnedGames, getPlayerSummary } from "@/src/api/steam";
-import ContextMenu from "@/src/components/ContextMenu";
 import PullToRefresh from "@/src/components/PullToRefresh";
-import SearchBar from "@/src/components/SearchBar";
+import { AppText, ProgressBar, TextField } from "@/src/components/ui";
 import { AuthContext } from "@/src/context/AuthContext";
 import { loadFriend, saveFriendsBatch } from "@/src/database/db";
 import { useLanguage } from "@/src/i18n/LanguageContext";
-import { COLORS } from "@/src/theme/colors";
-import { useTheme } from "@/src/theme/styles";
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Image, Text, TouchableOpacity, View } from "react-native";
+import { COLORS, FONTS } from "@/src/theme/colors";
+import { personaStatus } from "@/src/utils/personaStatus";
+import { Ionicons } from "@expo/vector-icons";
+import { memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 
 /** Gera uma assinatura (appids ordenados) dos jogos para detectar mudanças na lista. */
@@ -48,25 +48,66 @@ async function fetchFriendData(id, myGames) {
 }
 
 /**
- * Tela com a lista de amigos do usuário, mostrando perfil, quantidade
- * de jogos e jogos em comum (com menu de contexto por amigo).
+ * Linha de um amigo (redesign, prancheta 09): avatar com bolinha de status,
+ * nome, quantidade de jogos e status, e etiqueta com os jogos em comum.
+ * Tocar abre os jogos do amigo.
+ */
+function FriendRowComponent({ friend, onPress }) {
+    const { t: tr } = useLanguage();
+    const name = friend.profile?.personaname || tr("friendFallback");
+    const status = personaStatus(friend.profile?.personastate, tr);
+    const common = friend.commonGames?.length ?? 0;
+    const initials = name.split(/\s+/).map(w => w[0]).join("").slice(0, 2).toUpperCase();
+
+    return (
+        <Pressable
+            onPress={() => onPress(friend)}
+            accessibilityRole="button"
+            accessibilityLabel={`${name}, ${status.text}, ${tr("friendCommonPill", { count: common })}`}
+            style={({ pressed }) => [styles.row, { opacity: pressed ? 0.85 : 1 }]}
+        >
+            <View>
+                {friend.profile?.avatarfull ? (
+                    <Image source={{ uri: friend.profile.avatarfull }} style={styles.avatar} />
+                ) : (
+                    <View style={[styles.avatar, styles.avatarFallback]}>
+                        <Text style={styles.initials}>{initials}</Text>
+                    </View>
+                )}
+                <View style={[styles.statusDot, { backgroundColor: status.color }]} />
+            </View>
+
+            <View style={styles.rowBody}>
+                <Text style={styles.name} numberOfLines={1}>{name}</Text>
+                <Text style={styles.meta} numberOfLines={1}>
+                    {tr("friendGamesStatus", { count: friend.games?.game_count ?? 0, status: status.text })}
+                </Text>
+            </View>
+
+            <Text style={styles.pill}>{tr("friendCommonPill", { count: common })}</Text>
+            <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+        </Pressable>
+    );
+}
+
+const FriendRow = memo(FriendRowComponent);
+
+/**
+ * Lista de amigos (redesign, prancheta 09): busca e uma linha por amigo com
+ * status e jogos em comum; tocar abre a tela de jogos do amigo.
  */
 export default function Friends({ navigation }) {
     const { steamId } = useContext(AuthContext);
     const { t: tr } = useLanguage();
-    const t = useTheme();
-    const isDark = t.isDark;
 
     const [friends, setFriends] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [progress, setProgress] = useState({ current: 0, total: 0 });
     const [friendListError, setFriendListError] = useState(false);
-    const [menu, setMenu] = useState(null);
     const [searchQuery, setSearchQuery] = useState("");
 
     const cancelledRef = useRef(false);
-    const containerRef = useRef(null);
     const myGamesRef = useRef([]);
     const friendsRef = useRef([]);
 
@@ -78,20 +119,10 @@ export default function Friends({ navigation }) {
         cancelledRef.current = !steamId;
     }, [steamId]);
 
-    /** Abre o menu de contexto do amigo na posição do toque (convertida para o container). */
-    const openContextMenu = (e, item) => {
-        const { pageX, pageY } = e.nativeEvent;
-        // Converte coordenadas da janela (pageX/pageY) para o sistema de
-        // coordenadas do container (leva em conta safe area / status bar).
-        containerRef.current?.measureInWindow((cx, cy, cw, ch) => {
-            setMenu({ x: pageX - cx, y: pageY - cy, width: cw, height: ch, friend: item, });
-        });
-    };
-
-    /** Fecha o menu de contexto do amigo. */
-    const closeContextMenu = () => {
-        setMenu(null);
-    };
+    /** Abre a tela de jogos do amigo (começa em "Em comum"). */
+    const openFriend = useCallback((friend) => {
+        navigation.navigate("CommonGames", { friend });
+    }, [navigation]);
 
     /**
      * Busca progressivamente dados frescos dos amigos (perfil + jogos + comuns),
@@ -250,108 +281,153 @@ export default function Friends({ navigation }) {
         return friends.filter(f => (f.profile?.personaname || "").toLowerCase().includes(q));
     }, [friends, searchQuery]);
 
-    const textPrimary = t.textPrimary;
-    const textSecondary = t.textSecondary;
-    const friendCardBg = t.elevatedCardBg;
-    const friendCardBorder = t.cardBorder;
+    const syncing = progress.current < progress.total;
+
+    const renderRow = useCallback(
+        ({ item }) => <FriendRow friend={item} onPress={openFriend} />,
+        [openFriend]
+    );
 
     return (
-        <View ref={containerRef} className={`flex-1 p-4 ${t.pageBg}`}>
-            <Text className={`text-xl font-bold mb-4 ${t.textHeader}`}>
-                {tr("profileFriendsTitle")}
-            </Text>
-
-            <SearchBar
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholder={tr("searchFriendsPlaceholder")}
-            />
+        <View style={styles.screen}>
+            <View style={styles.header}>
+                <View style={{ gap: 2 }}>
+                    <AppText variant="title">{tr("tabFriends")}</AppText>
+                    {friends.length > 0 && (
+                        <AppText variant="muted">{tr("friendsSubtitle", { count: friends.length })}</AppText>
+                    )}
+                </View>
+                <TextField
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    placeholder={tr("searchFriendsPlaceholder")}
+                    accessibilityLabel={tr("searchFriendsPlaceholder")}
+                    returnKeyType="search"
+                    left={<Ionicons name="search" size={18} color={COLORS.textMuted} />}
+                    right={searchQuery ? (
+                        <Pressable
+                            onPress={() => setSearchQuery("")}
+                            accessibilityRole="button"
+                            accessibilityLabel={tr("clearSearch")}
+                            style={styles.clearButton}
+                        >
+                            <Ionicons name="close-circle" size={18} color={COLORS.textMuted} />
+                        </Pressable>
+                    ) : null}
+                />
+            </View>
 
             {loading && friends.length === 0 ? (
-                <View className="flex-1 items-center justify-center">
-                    <ActivityIndicator size="large" color={isDark ? COLORS.accent : "#000"} />
+                <View style={styles.center}>
+                    <ActivityIndicator size="large" color={COLORS.accent} />
                     {progress.total > 0 && (
-                        <Text className={`${t.textSecondary} mt-2`}>
+                        <AppText variant="muted">
                             {tr("searchingFriends", { current: progress.current, total: progress.total })}
-                        </Text>
+                        </AppText>
                     )}
                 </View>
             ) : (
-                <PullToRefresh refreshing={refreshing} onRefresh={onRefresh} enabled={progress.current >= progress.total}>
+                <PullToRefresh refreshing={refreshing} onRefresh={onRefresh} enabled={!syncing}>
                     <FlashList
                         data={filteredFriends}
                         keyExtractor={(item) => item.steamid}
+                        renderItem={renderRow}
                         maintainVisibleContentPosition={{ disabled: true }}
-                        contentContainerStyle={{ paddingBottom: 70 }}
+                        contentContainerStyle={styles.listContent}
+                        keyboardShouldPersistTaps="handled"
                         ListHeaderComponent={
-                            !refreshing && progress.current < progress.total && (
-                                <View className="py-4 items-center">
-                                    <ActivityIndicator size="small" color={COLORS.accent} />
-                                    <Text className={`${t.textSecondary} mt-2`}>
-                                        {tr("loadingFriends", { current: progress.current, total: progress.total })}
-                                    </Text>
+                            !refreshing && syncing ? (
+                                <View style={styles.syncCard} accessibilityRole="progressbar">
+                                    <View style={styles.syncTop}>
+                                        <ActivityIndicator size="small" color={COLORS.accent} />
+                                        <AppText variant="muted" style={{ flex: 1 }}>
+                                            {tr("loadingFriends", { current: progress.current, total: progress.total })}
+                                        </AppText>
+                                    </View>
+                                    <ProgressBar value={progress.total ? (progress.current / progress.total) * 100 : 0} />
                                 </View>
-                            )
+                            ) : null
                         }
-                        renderItem={({ item }) => (
-                            <TouchableOpacity
-                                onPress={(e) => openContextMenu(e, item)}
-                                className={`flex-row items-center ${friendCardBg} ${friendCardBorder} border rounded-xl p-3 mb-2`}
-                            >
-                                <Image
-                                    source={{ uri: item.profile?.avatarfull }}
-                                    className="w-12 h-12 rounded-full mr-3"
-                                />
-                                <View className="flex-1">
-                                    <Text className={`${textPrimary} text-lg`}>
-                                        {item.profile?.personaname}
-                                    </Text>
-                                    <Text className={`${textSecondary} text-sm`}>
-                                        {tr("profileGamesCount", { count: item.games?.game_count ?? 0 })}
-                                    </Text>
-                                    <Text className={`${textSecondary} text-sm`}>
-                                        {tr("profileCommonGamesCount", { count: item.commonGames?.length ?? 0 })}
-                                    </Text>
-                                </View>
-                            </TouchableOpacity>
-                        )}
                         ListEmptyComponent={
-                            !loading && (
-                                <Text className={`${textSecondary} text-center mt-4`}>
-                                    {searchQuery.trim()
-                                        ? tr("friendsSearchNoResults")
-                                        : (friendListError ? tr("profileFriendsPrivate") : tr("profileNoPublicFriends"))}
-                                </Text>
-                            )
+                            !loading ? (
+                                <View style={styles.empty}>
+                                    <View style={styles.emptyIcon}>
+                                        <Ionicons name="people-outline" size={28} color={COLORS.accent} />
+                                    </View>
+                                    <AppText variant="body" style={{ textAlign: "center" }}>
+                                        {searchQuery.trim()
+                                            ? tr("friendsSearchNoResults")
+                                            : (friendListError ? tr("profileFriendsPrivate") : tr("profileNoPublicFriends"))}
+                                    </AppText>
+                                </View>
+                            ) : null
                         }
                     />
                 </PullToRefresh>
             )}
-
-            <ContextMenu
-                visible={!!menu}
-                x={menu?.x ?? 0}
-                y={menu?.y ?? 0}
-                bounds={{ width: menu?.width, height: menu?.height }}
-                title={menu?.friend?.profile?.personaname}
-                onClose={closeContextMenu}
-                options={[
-                    {
-                        label: tr("friendCommonGames"),
-                        icon: "people-outline",
-                        onPress: () => {
-                            if (menu) navigation.navigate("CommonGames", { friend: menu.friend, mode: "common" });
-                        },
-                    },
-                    {
-                        label: tr("friendOwnGames"),
-                        icon: "game-controller-outline",
-                        onPress: () => {
-                            if (menu) navigation.navigate("CommonGames", { friend: menu.friend, mode: "all" });
-                        },
-                    },
-                ]}
-            />
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    screen: { flex: 1, backgroundColor: COLORS.bg },
+    header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 6, gap: 14 },
+    clearButton: { width: 36, height: 44, marginRight: -10, alignItems: "center", justifyContent: "center" },
+    center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10 },
+    // espaço no fim para a lista não ficar atrás da tab bar flutuante
+    listContent: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 110 },
+    syncCard: {
+        padding: 14,
+        marginBottom: 10,
+        borderRadius: 16,
+        backgroundColor: COLORS.surface,
+        borderWidth: 1,
+        borderColor: COLORS.borderSubtle,
+        gap: 10,
+    },
+    syncTop: { flexDirection: "row", alignItems: "center", gap: 10 },
+    row: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        padding: 12,
+        marginBottom: 8,
+        borderRadius: 16,
+        backgroundColor: COLORS.surface,
+    },
+    avatar: { width: 48, height: 48, borderRadius: 24 },
+    avatarFallback: { backgroundColor: "#2B3550", alignItems: "center", justifyContent: "center" },
+    initials: { fontFamily: FONTS.display, fontSize: 16, color: COLORS.text },
+    statusDot: {
+        position: "absolute",
+        right: -1,
+        bottom: -1,
+        width: 14,
+        height: 14,
+        borderRadius: 7,
+        borderWidth: 3,
+        borderColor: COLORS.surface,
+    },
+    rowBody: { flex: 1, minWidth: 0, gap: 3 },
+    name: { fontFamily: FONTS.bodySemibold, fontSize: 15, color: COLORS.text },
+    meta: { fontFamily: FONTS.body, fontSize: 12, color: COLORS.textMuted },
+    pill: {
+        fontFamily: FONTS.bodySemibold,
+        fontSize: 12,
+        color: COLORS.accent,
+        backgroundColor: COLORS.accentSoft,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+        overflow: "hidden",
+    },
+    empty: { alignItems: "center", paddingVertical: 60, paddingHorizontal: 12, gap: 12 },
+    emptyIcon: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        backgroundColor: COLORS.accentSoft,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+});

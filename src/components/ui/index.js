@@ -4,6 +4,7 @@ export { default as BottomSheet } from "./BottomSheet";
 export { default as Button } from "./Button";
 export { default as Card } from "./Card";
 export { default as Chip } from "./Chip";
+export { default as Dialog, DialogIcon } from "./Dialog";
 export { default as ProgressBar } from "./ProgressBar";
 export { default as ProgressRing } from "./ProgressRing";
 export { default as TextField } from "./TextField";

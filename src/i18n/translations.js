@@ -73,6 +73,9 @@ export const translations = {
     // --- about ---
     aboutMadeBy: { pt: "Feito por {name}", en: "Made by {name}" },
     aboutGitHub: { pt: "GitHub", en: "GitHub" },
+    aboutVersionBy: { pt: "Versão {version} · Feito por {name}", en: "Version {version} · Made by {name}" },
+    aboutDisclaimer: { pt: "Projeto pessoal, sem afiliação com a Valve ou a Steam.", en: "A personal project, not affiliated with Valve or Steam." },
+    loginRemoveAccountNote: { pt: "Os jogos salvos continuam no banco até você limpá-lo.", en: "Saved games stay in the database until you clear it." },
 
     // --- profile ---
     profileFriendsTitle: { pt: "Amigos (Lista de Jogos Pública)", en: "Friends (Public Games List)" },

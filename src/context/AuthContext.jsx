@@ -12,6 +12,7 @@ export const AuthContext = createContext({
     savedAccounts: [],
     addSavedAccount: () => { },
     removeSavedAccount: () => { },
+    clearSavedAccounts: () => { },
 });
 
 /** Provider do contexto de autenticação: gerencia o steamId atual, estado de loading e contas salvas. */
@@ -98,8 +99,18 @@ export function AuthProvider({ children }) {
         await persistSavedAccounts(next);
     };
 
+    /** Remove todas as contas salvas (memória e AsyncStorage). */
+    const clearSavedAccounts = async () => {
+        setSavedAccounts([]);
+        try {
+            await AsyncStorage.removeItem(SAVED_ACCOUNTS_KEY);
+        } catch (e) {
+            console.error("[Auth] erro ao limpar contas salvas:", e);
+        }
+    };
+
     return (
-        <AuthContext.Provider value={{ steamId, setSteamId, clearSteamId, loading, savedAccounts, addSavedAccount, removeSavedAccount }}>
+        <AuthContext.Provider value={{ steamId, setSteamId, clearSteamId, loading, savedAccounts, addSavedAccount, removeSavedAccount, clearSavedAccounts }}>
             {children}
         </AuthContext.Provider>
     );

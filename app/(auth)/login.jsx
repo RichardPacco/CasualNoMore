@@ -1,14 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { getPlayerSummary, resolveVanityURL } from "@/src/api/steam";
-import { loadApiKey, saveApiKeyStore } from "@/src/config/apiKeyStore";
+import { loadApiKey, saveApiKeyStore, setApiKeyStore } from "@/src/config/apiKeyStore";
 import LanguageSelector from "@/src/components/LanguageSelector";
 import ClearDbModal from "@/src/components/ClearDbModal";
 import RemoveAccountModal from "@/src/components/RemoveAccountModal";
 import AboutModal from "@/src/components/AboutModal";
 import { AuthContext } from "@/src/context/AuthContext";
 import { clearDB } from "@/src/database/db";
-import { useLanguage } from "@/src/i18n/LanguageContext";
+import { DEFAULT_LANGUAGE, useLanguage } from "@/src/i18n/LanguageContext";
 import { showToast } from "@/src/utils/toast";
 import { COLORS } from "@/src/theme/colors";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -24,9 +24,9 @@ const loginBackground = require("../../assets/images/login_background.png");
  * Tela de login: entrada de SteamID/vanity e API key, com contas salvas para login rápido.
  */
 export default function Login() {
-    const { setSteamId, savedAccounts, addSavedAccount, removeSavedAccount } = useContext(AuthContext);
+    const { setSteamId, clearSteamId, savedAccounts, addSavedAccount, removeSavedAccount, clearSavedAccounts } = useContext(AuthContext);
     const router = useRouter();
-    const { t } = useLanguage();
+    const { t, setLanguage } = useLanguage();
 
     const [input, setInput] = useState("");
     const [apiKey, setApiKey] = useState("");
@@ -72,10 +72,21 @@ export default function Login() {
         showToast(t("loginApiKeyRemoved"), "info");
     };
 
-    /** Limpa o cache (AsyncStorage), disparado pelo botão de limpar cache. */
+    /**
+     * Limpa o cache (AsyncStorage), disparado pelo botão de limpar cache.
+     * Também zera as cópias em memória (API key, contas salvas, steamId), senão a
+     * tela continuaria mostrando dados que já não existem no armazenamento.
+     * O idioma também volta ao padrão, como numa instalação nova.
+     */
     const handleClearCache = async () => {
         try {
             await AsyncStorage.clear();
+            setApiKeyStore(null);
+            setApiKey("");
+            setKeyInput("");
+            await clearSavedAccounts();
+            await clearSteamId();
+            await setLanguage(DEFAULT_LANGUAGE);
             showToast(t("loginCacheCleared"));
         } catch (e) {
             Alert.alert(t("loginError"), t("loginClearCacheFailed"));
@@ -392,11 +403,11 @@ export default function Login() {
                                     style={{ backgroundColor: "#222" }}
                                     theme={{
                                         colors: {
-                                        primary: COLORS.accent,
-                                    },
-                                }}
-                                textColor="#fff"
-                                onSubmitEditing={handleSubmit}
+                                            primary: COLORS.accent,
+                                        },
+                                    }}
+                                    textColor="#fff"
+                                    onSubmitEditing={handleSubmit}
                                     right={
                                         <TextInput.Icon
                                             icon={() =>

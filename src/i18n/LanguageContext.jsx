@@ -4,16 +4,17 @@ import { setLanguageStore } from "./langStore";
 import { translations } from "./translations";
 
 export const SUPPORTED_LANGUAGES = ["pt", "en"];
+export const DEFAULT_LANGUAGE = "en";
 
 const LanguageContext = createContext({
-    language: "en",
-    setLanguage: () => {},
+    language: DEFAULT_LANGUAGE,
+    setLanguage: () => { },
     t: (key) => key,
 });
 
 /** Provider do contexto de idioma: carrega o idioma salvo e fornece a função de tradução `t`. */
 export function LanguageProvider({ children }) {
-    const [language, setLanguageState] = useState("en");
+    const [language, setLanguageState] = useState(DEFAULT_LANGUAGE);
 
     useEffect(() => {
         let mounted = true;

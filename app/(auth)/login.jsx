@@ -15,8 +15,9 @@ import { showToast } from "@/src/utils/toast";
 import { COLORS, FONTS } from "@/src/theme/colors";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import {
+    ActivityIndicator,
     Alert,
     Image,
     KeyboardAvoidingView,
@@ -26,9 +27,11 @@ import {
     StatusBar,
     StyleSheet,
     Text,
-    TouchableOpacity,
     View,
 } from "react-native";
+
+// Mesmo limite do AuthContext (MAX_SAVED_ACCOUNTS): espaços na grade de contas
+const MAX_ACCOUNT_SLOTS = 3;
 
 
 /**
@@ -50,6 +53,13 @@ export default function Login() {
     const [accountToRemove, setAccountToRemove] = useState(null);
     const [aboutVisible, setAboutVisible] = useState(false);
     const [maintenanceVisible, setMaintenanceVisible] = useState(false);
+    // conta salva sendo validada no login rápido (mostra o carregamento no cartão dela)
+    const [pendingAccountId, setPendingAccountId] = useState(null);
+    const otherAccountRef = useRef(null);
+
+    // Modo contas (prancheta 03) quando há chave salva e pelo menos uma conta;
+    // senão o fluxo de dois passos (prancheta 02).
+    const showAccounts = !!apiKey && savedAccounts.length > 0;
 
     /** Carrega a API key salva do armazenamento na montagem. */
     useEffect(() => {
@@ -180,6 +190,7 @@ export default function Login() {
         }
 
         setLoading(true);
+        setPendingAccountId(account.steamId);
         try {
             // validateSteamProfile já mostra o toast de erro/privado
             const playerSummary = await validateSteamProfile(account.steamId);
@@ -190,6 +201,7 @@ export default function Login() {
             router.replace("/(tabs)/GameStack");
         } finally {
             setLoading(false);
+            setPendingAccountId(null);
         }
     };
 
@@ -312,36 +324,68 @@ export default function Login() {
                         </Pressable>
                     </View>
 
+                    {showAccounts ? (
+                        <>
+                            {/* Modo contas (prancheta 03): chave salva e contas para login rápido */}
+                            <View style={styles.heading}>
+                                <AppText variant="title">{t("loginAccountsTitle")}</AppText>
+                                <AppText variant="muted" style={{ fontSize: 14 }}>{t("loginAccountsHint")}</AppText>
+                            </View>
+
+                            <View style={styles.accountsGrid}>
+                                {savedAccounts.map((acc, index) => (
+                                    <AccountTile
+                                        key={acc.steamId}
+                                        account={acc}
+                                        highlighted={index === 0}
+                                        busy={pendingAccountId === acc.steamId}
+                                        disabled={loading}
+                                        onPress={() => handleQuickLogin(acc)}
+                                        onLongPress={() => confirmRemoveAccount(acc)}
+                                    />
+                                ))}
+                                {savedAccounts.length < MAX_ACCOUNT_SLOTS && (
+                                    <Pressable
+                                        onPress={() => otherAccountRef.current?.focus()}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={t("loginOtherAccount")}
+                                        style={({ pressed }) => [styles.accountTile, styles.addTile, { opacity: pressed ? 0.8 : 1 }]}
+                                    >
+                                        <View style={styles.addCircle}>
+                                            <Ionicons name="add" size={24} color={COLORS.textMuted} />
+                                        </View>
+                                        <Text style={[styles.accountName, { color: COLORS.textMuted }]}>{t("loginAddAccount")}</Text>
+                                    </Pressable>
+                                )}
+                            </View>
+
+                            <View style={styles.otherAccount}>
+                                <TextField
+                                    ref={otherAccountRef}
+                                    label={t("loginOtherAccount")}
+                                    value={input}
+                                    onChangeText={setInput}
+                                    placeholder={t("loginSteamIdLabel")}
+                                    autoCapitalize="none"
+                                    autoCorrect={false}
+                                    returnKeyType="go"
+                                    onSubmitEditing={handleSubmit}
+                                />
+                                <Button
+                                    label={t("loginEnter")}
+                                    onPress={handleSubmit}
+                                    loading={loading && !pendingAccountId}
+                                    disabled={loading}
+                                />
+                                <AppText variant="muted" style={{ fontSize: 12 }}>{t("loginPublicTip")}</AppText>
+                            </View>
+                        </>
+                    ) : (
+                        <>
                     <View style={styles.heading}>
                         <AppText variant="title">{t("loginWelcomeTitle")}</AppText>
                         <AppText variant="body" color={COLORS.textSoft}>{t("loginWelcomeSubtitle")}</AppText>
                     </View>
-
-                    {/* Contas salvas: visual atualizado no passo 3 do redesign */}
-                    {savedAccounts.length > 0 && (
-                        <View style={styles.accounts}>
-                            <AppText variant="muted" style={{ textAlign: "center" }}>
-                                {t("loginAccountsLabel")}
-                            </AppText>
-                            <View style={styles.accountsRow}>
-                                {savedAccounts.map((acc) => (
-                                    <TouchableOpacity
-                                        key={acc.steamId}
-                                        onPress={() => handleQuickLogin(acc)}
-                                        onLongPress={() => confirmRemoveAccount(acc)}
-                                        accessibilityRole="button"
-                                        accessibilityLabel={acc.name}
-                                        style={{ alignItems: "center", gap: 4 }}
-                                    >
-                                        <Image source={{ uri: acc.avatar }} style={styles.accountAvatar} />
-                                        <AppText variant="muted" numberOfLines={1} style={{ maxWidth: 70 }}>
-                                            {acc.name}
-                                        </AppText>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                        </View>
-                    )}
 
                     {/* Passo 1: chave da API */}
                     {apiKey ? (
@@ -416,8 +460,26 @@ export default function Login() {
                             </AppText>
                         </StepCard>
                     )}
+                        </>
+                    )}
 
                     <View style={{ flex: 1 }} />
+
+                    {/* Modo contas: status da chave salva no rodapé */}
+                    {showAccounts && (
+                        <View style={styles.keyCard}>
+                            <Ionicons name="key-outline" size={18} color={COLORS.success} />
+                            <Text style={styles.keyCardText}>{t("loginApiKeySavedLabel")}</Text>
+                            <Pressable
+                                onPress={removeSavedApiKey}
+                                accessibilityRole="button"
+                                accessibilityLabel={t("loginRemoveApiKey")}
+                                style={styles.inlineDanger}
+                            >
+                                <Text style={styles.inlineDangerText}>{t("loginRemove")}</Text>
+                            </Pressable>
+                        </View>
+                    )}
 
                     <Pressable
                         onPress={() => setAboutVisible(true)}
@@ -459,6 +521,52 @@ export default function Login() {
                 onClose={() => setAboutVisible(false)}
             />
         </View>
+    );
+}
+
+/**
+ * Cartão de uma conta salva: avatar (ou iniciais, se não houver), nome e
+ * carregamento enquanto o login rápido valida o perfil.
+ * Toque entra, toque longo pede para remover.
+ */
+function AccountTile({ account, highlighted, busy, disabled, onPress, onLongPress }) {
+    const initials = (account.name || "?")
+        .split(/\s+/)
+        .map(w => w[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase();
+
+    return (
+        <Pressable
+            onPress={onPress}
+            onLongPress={onLongPress}
+            delayLongPress={400}
+            disabled={disabled}
+            accessibilityRole="button"
+            accessibilityLabel={account.name}
+            accessibilityState={{ busy, disabled }}
+            style={({ pressed }) => [
+                styles.accountTile,
+                { borderColor: highlighted ? COLORS.accent : COLORS.borderSubtle, opacity: pressed ? 0.8 : 1 },
+            ]}
+        >
+            <View style={styles.avatarWrap}>
+                {account.avatar ? (
+                    <Image source={{ uri: account.avatar }} style={styles.accountAvatar} />
+                ) : (
+                    <View style={[styles.accountAvatar, styles.avatarFallback]}>
+                        <Text style={styles.avatarInitials}>{initials}</Text>
+                    </View>
+                )}
+                {busy && (
+                    <View style={styles.avatarBusy}>
+                        <ActivityIndicator size="small" color={COLORS.accent} />
+                    </View>
+                )}
+            </View>
+            <Text style={styles.accountName} numberOfLines={1}>{account.name}</Text>
+        </Pressable>
     );
 }
 
@@ -515,9 +623,54 @@ const styles = StyleSheet.create({
         justifyContent: "center",
     },
     heading: { marginTop: 22, marginBottom: 14, gap: 8 },
-    accounts: { gap: 8, marginBottom: 6 },
-    accountsRow: { flexDirection: "row", justifyContent: "center", gap: 20 },
-    accountAvatar: { width: 56, height: 56, borderRadius: 28, borderWidth: 2, borderColor: COLORS.accent },
+    accountsGrid: { flexDirection: "row", gap: 12 },
+    accountTile: {
+        flex: 1,
+        maxWidth: "33.33%",
+        paddingVertical: 16,
+        paddingHorizontal: 8,
+        borderRadius: 20,
+        borderWidth: 1,
+        backgroundColor: COLORS.surface,
+        alignItems: "center",
+        gap: 10,
+    },
+    addTile: { borderStyle: "dashed", borderColor: "#364256", backgroundColor: "transparent" },
+    addCircle: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        borderWidth: 1,
+        borderStyle: "dashed",
+        borderColor: "#364256",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    avatarWrap: { width: 64, height: 64 },
+    accountAvatar: { width: 64, height: 64, borderRadius: 32 },
+    avatarFallback: { backgroundColor: "#22405E", alignItems: "center", justifyContent: "center" },
+    avatarInitials: { fontFamily: FONTS.display, fontSize: 20, color: COLORS.text },
+    avatarBusy: {
+        ...StyleSheet.absoluteFillObject,
+        borderRadius: 32,
+        backgroundColor: "rgba(10, 14, 21, 0.6)",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    accountName: { fontFamily: FONTS.bodySemibold, fontSize: 13, color: COLORS.text, maxWidth: "100%" },
+    otherAccount: { marginTop: 14, gap: 12 },
+    keyCard: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+        paddingLeft: 14,
+        paddingRight: 10,
+        borderRadius: 16,
+        backgroundColor: COLORS.surface,
+        borderWidth: 1,
+        borderColor: COLORS.borderSubtle,
+    },
+    keyCardText: { flex: 1, fontFamily: FONTS.bodySemibold, fontSize: 13, color: COLORS.text },
     stepCard: {
         padding: 16,
         borderRadius: 20,

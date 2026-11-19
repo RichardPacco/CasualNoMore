@@ -6,9 +6,10 @@ import { COLORS, FONTS } from "@/src/theme/colors";
  * Campo de texto do redesign (48 px, cantos 14) com rótulo opcional acima.
  * Props: label, left/right (elementos opcionais nas pontas, ex.: ícone de
  * busca ou botão de mostrar senha), containerStyle; o resto vai para o TextInput.
- * A borda fica azul enquanto o campo está em foco.
+ * A borda fica azul enquanto o campo está em foco. `ref` vai para o TextInput
+ * (React 19 passa ref como prop comum), para poder dar foco por código.
  */
-export default function TextField({ label, left = null, right = null, containerStyle, onFocus, onBlur, ...inputProps }) {
+export default function TextField({ ref, label, left = null, right = null, containerStyle, onFocus, onBlur, ...inputProps }) {
     const [focused, setFocused] = useState(false);
 
     return (
@@ -17,6 +18,7 @@ export default function TextField({ label, left = null, right = null, containerS
             <View style={[styles.field, { borderColor: focused ? COLORS.accent : COLORS.border }]}>
                 {left}
                 <TextInput
+                    ref={ref}
                     accessibilityLabel={label}
                     placeholderTextColor={COLORS.textMuted}
                     selectionColor={COLORS.accent}

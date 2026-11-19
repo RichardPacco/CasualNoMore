@@ -52,6 +52,10 @@ export const translations = {
     loginStepProfileTitle: { pt: "Seu perfil Steam", en: "Your Steam profile" },
     loginStepProfileHint: { pt: "Depois da chave, informe seu SteamID64 ou a URL do perfil. O perfil precisa estar público.", en: "After the key, enter your SteamID64 or profile URL. The profile must be public." },
     loginEnter: { pt: "Entrar", en: "Sign in" },
+    loginAccountsTitle: { pt: "Quem vai caçar hoje?", en: "Who's hunting today?" },
+    loginAccountsHint: { pt: "Toque para entrar · segure para remover", en: "Tap to sign in · hold to remove" },
+    loginAddAccount: { pt: "Adicionar", en: "Add" },
+    loginOtherAccount: { pt: "Entrar com outra conta", en: "Sign in with another account" },
     aboutApp: { pt: "Sobre o app", en: "About the app" },
 
     // --- manutenção (cache e banco) ---

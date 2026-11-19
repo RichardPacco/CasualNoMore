@@ -3,7 +3,7 @@ import GameCard from "@/src/components/GameCard";
 import PullToRefresh from "@/src/components/PullToRefresh";
 import RadioSheet from "@/src/components/RadioSheet";
 import { AuthContext } from "@/src/context/AuthContext";
-import { getAllGames, parseJson, saveGame, saveGamesBatch, togglePin as dbTogglePin, getPinnedAppIds } from "@/src/database/db";
+import { getAllGames, getGame, parseJson, saveGame, saveGamesBatch, togglePin as dbTogglePin, getPinnedAppIds } from "@/src/database/db";
 import { getLanguageStore } from "@/src/i18n/langStore";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS } from "@/src/theme/colors";
@@ -120,6 +120,8 @@ export default function GameList({ navigation, route }) {
             playtimeHidden,
             unlocked, totalAchievements: total,
             schema, schemaStatus, achievements, achievementsStatus, details, detailsStatus,
+            // idioma dos detalhes da loja: zerado junto com eles quando stale
+            detailsLang: details ? (cached?.detailsLang ?? null) : null,
             lang,
             pinned: cached?.pinned || (pinnedIds?.has(baseGame.appid) ? 1 : 0),
         };
@@ -213,6 +215,28 @@ export default function GameList({ navigation, route }) {
     const refreshRecentRef = useRef(null);
     refreshRecentRef.current = refreshRecentGames;
 
+    // appid do último jogo aberto: ao voltar para a lista, essa linha é relida
+    // do banco para refletir o que a GameScreen salvou (conquistas, detalhes).
+    const lastOpenedRef = useRef(null);
+
+    /**
+     * Abre a GameScreen passando só o appid (a tela lê o jogo do banco).
+     */
+    const openGame = useCallback((game) => {
+        lastOpenedRef.current = game.appid;
+        navigation.navigate("GameScreen", { appid: game.appid });
+    }, [navigation]);
+
+    useEffect(() => {
+        return navigation.addListener("focus", async () => {
+            const appid = lastOpenedRef.current;
+            if (!appid || !steamId) return;
+            lastOpenedRef.current = null;
+            const row = await getGame(steamId, appid);
+            if (row) setGames(prev => prev.map(g => g.appid === appid ? row : g));
+        });
+    }, [navigation, steamId]);
+
     /**
      * Renderiza um card de jogo na lista virtualizada (FlashList).
      */
@@ -221,11 +245,12 @@ export default function GameList({ navigation, route }) {
             <GameCard
                 game={item}
                 navigation={navigation}
+                onOpen={openGame}
                 onLongPress={refreshSingleGame}
                 onTogglePin={togglePinGame}
             />
         ),
-        [navigation, refreshSingleGame, togglePinGame]
+        [navigation, openGame, refreshSingleGame, togglePinGame]
     );
 
     const filterOptions = useMemo(() => [
@@ -580,6 +605,7 @@ export default function GameList({ navigation, route }) {
                                             key={g.appid}
                                             game={g}
                                             navigation={navigation}
+                                            onOpen={openGame}
                                             onLongPress={refreshSingleGame}
                                             onTogglePin={togglePinGame}
                                         />
@@ -604,6 +630,7 @@ export default function GameList({ navigation, route }) {
                                             key={g.appid}
                                             game={g}
                                             navigation={navigation}
+                                            onOpen={openGame}
                                             onLongPress={refreshSingleGame}
                                             onTogglePin={togglePinGame}
                                         />

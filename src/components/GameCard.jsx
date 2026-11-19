@@ -12,9 +12,9 @@ const placeholderImage = require("../../assets/images/placeholder_gamelist.jpg")
 
 /**
  * Card de um jogo na lista: mostra imagem, nome, tempo jogado e progresso de conquistas.
- * Props: game, navigation, onLongPress, onTogglePin.
+ * Props: game, navigation, onOpen (opcional; senão navega direto com o appid), onLongPress, onTogglePin.
  */
-function GameCardComponent({ game, navigation, onLongPress, onTogglePin }) {
+function GameCardComponent({ game, navigation, onOpen, onLongPress, onTogglePin }) {
     const t = useTheme();
     const { t: tr } = useLanguage();
     const { stage, onError } = useImageCdnFallback(game.appid);
@@ -35,7 +35,9 @@ function GameCardComponent({ game, navigation, onLongPress, onTogglePin }) {
     return (
         <TouchableOpacity
             className={`${t.cardBg} p-2 rounded-xl flex-row items-center mb-3`}
-            onPress={() => navigation.navigate("GameScreen", { game })}
+            onPress={() => onOpen
+                ? onOpen(game)
+                : navigation.navigate("GameScreen", { appid: game.appid })}
             onLongPress={onLongPress ? () => onLongPress(game) : undefined}
             delayLongPress={400}
             style={{ minHeight: 90 }}
@@ -107,6 +109,7 @@ function GameCardComponent({ game, navigation, onLongPress, onTogglePin }) {
 export default memo(GameCardComponent, (prevProps, nextProps) => {
     return prevProps.game === nextProps.game
         && prevProps.navigation === nextProps.navigation
+        && prevProps.onOpen === nextProps.onOpen
         && prevProps.onLongPress === nextProps.onLongPress
         && prevProps.onTogglePin === nextProps.onTogglePin;
 });

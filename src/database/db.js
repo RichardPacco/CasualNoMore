@@ -58,6 +58,7 @@ export async function ensureTable(steamId) {
       achievementsStatus TEXT,
       details TEXT,
       detailsStatus TEXT,
+      detailsLang TEXT,
       lang TEXT,
       unlocked INTEGER,
       totalAchievements INTEGER,
@@ -120,9 +121,9 @@ export async function saveGame(steamId, game) {
 
         console.log(`[db] Salvando jogo: ${game.name || game.appid} na tabela ${tableName}`);
         await db.runAsync(
-            `INSERT OR REPLACE INTO ${tableName} (appid, name, playtime_forever, playtime_2weeks, playtimeHidden, schema, schemaStatus, achievements, achievementsStatus, details, detailsStatus, lang, unlocked, totalAchievements, pinned)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [game.appid, game.name, game.playtime_forever || 0, game.playtime_2weeks || 0, playtimeHidden, schemaString, schemaStatus, achievementsString, achievementsStatus, detailsString, detailsStatus, game.lang || null, unlocked, totalAchievements, pinned]
+            `INSERT OR REPLACE INTO ${tableName} (appid, name, playtime_forever, playtime_2weeks, playtimeHidden, schema, schemaStatus, achievements, achievementsStatus, details, detailsStatus, detailsLang, lang, unlocked, totalAchievements, pinned)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [game.appid, game.name, game.playtime_forever || 0, game.playtime_2weeks || 0, playtimeHidden, schemaString, schemaStatus, achievementsString, achievementsStatus, detailsString, detailsStatus, game.detailsLang || null, game.lang || null, unlocked, totalAchievements, pinned]
         );
         console.log(`[db] Jogo salvo: ${game.name || game.appid}`);
     } catch (err) {
@@ -187,9 +188,9 @@ export async function saveGamesBatch(steamId, games) {
             console.log(`[db] Salvando jogo: ${game.name || game.appid} na tabela ${tableName}`);
             return db.runAsync(
                 `INSERT OR REPLACE INTO ${tableName} 
-                (appid, name, playtime_forever, playtime_2weeks, playtimeHidden, schema, schemaStatus, achievements, achievementsStatus, details, detailsStatus, lang, unlocked, totalAchievements, pinned)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [game.appid, game.name, game.playtime_forever || 0, game.playtime_2weeks || 0, playtimeHidden, schemaString, schemaStatus, achievementsString, achievementsStatus, detailsString, detailsStatus, game.lang || null, unlocked, totalAchievements, pinned]
+                (appid, name, playtime_forever, playtime_2weeks, playtimeHidden, schema, schemaStatus, achievements, achievementsStatus, details, detailsStatus, detailsLang, lang, unlocked, totalAchievements, pinned)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [game.appid, game.name, game.playtime_forever || 0, game.playtime_2weeks || 0, playtimeHidden, schemaString, schemaStatus, achievementsString, achievementsStatus, detailsString, detailsStatus, game.detailsLang || null, game.lang || null, unlocked, totalAchievements, pinned]
             ).then(() => {
                 console.log(`[db] Jogo salvo: ${game.name || game.appid}`);
             });
@@ -201,6 +202,42 @@ export async function saveGamesBatch(steamId, games) {
     }
 }
 
+
+/**
+ * Atualiza só os detalhes da loja de um jogo (e o idioma deles, detailsLang),
+ * sem tocar nas outras colunas (pinned, conquistas, lang...). Evita sobrescrever dados mais novos com uma
+ * cópia antiga do jogo. Não faz nada se o jogo ainda não estiver salvo.
+ */
+export async function updateGameDetails(steamId, appid, details, lang) {
+    try {
+        const db = await openDB();
+        const tableName = await ensureTable(steamId);
+        await db.runAsync(
+            `UPDATE ${tableName} SET details = ?, detailsStatus = ?, detailsLang = ? WHERE appid = ?`,
+            [toJson(details), details ? "done" : "pending", details ? lang : null, appid]
+        );
+    } catch (err) {
+        console.error("[db] updateGameDetails failed", appid, err);
+    }
+}
+
+/**
+ * Atualiza só as conquistas (e os contadores) de um jogo, sem tocar nas
+ * outras colunas. Não faz nada se o jogo ainda não estiver salvo.
+ */
+export async function updateGameAchievements(steamId, appid, achievements) {
+    try {
+        const db = await openDB();
+        const tableName = await ensureTable(steamId);
+        const list = Array.isArray(achievements) ? achievements : [];
+        await db.runAsync(
+            `UPDATE ${tableName} SET achievements = ?, achievementsStatus = 'done', unlocked = ?, totalAchievements = ? WHERE appid = ?`,
+            [toJson(list), list.filter(a => a.achieved).length, list.length, appid]
+        );
+    } catch (err) {
+        console.error("[db] updateGameAchievements failed", appid, err);
+    }
+}
 
 /** Alterna o estado pinned de um jogo. Retorna o novo valor (0 ou 1). */
 export async function togglePin(steamId, appid) {

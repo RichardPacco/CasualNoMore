@@ -150,6 +150,9 @@ export const translations = {
     sortButton: { pt: "Ordenar: {sort}", en: "Sort: {sort}" },
     scrollToTop: { pt: "Voltar ao topo", en: "Back to top" },
     clearSearch: { pt: "Limpar busca", en: "Clear search" },
+    filterSortTitle: { pt: "Filtrar e ordenar", en: "Filter and sort" },
+    filterShowLabel: { pt: "Mostrar", en: "Show" },
+    filterApplyCount: { pt: "Ver {count} jogos", en: "Show {count} games" },
 
     // --- game screen ---
     communityGuides: { pt: "Guias da Comunidade", en: "Steam Guides" },

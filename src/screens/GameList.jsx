@@ -3,7 +3,7 @@ import ContinueHuntingCard from "@/src/components/ContinueHuntingCard";
 import GameCard from "@/src/components/GameCard";
 import { AppText, Chip, ProgressBar, TextField } from "@/src/components/ui";
 import PullToRefresh from "@/src/components/PullToRefresh";
-import RadioSheet from "@/src/components/RadioSheet";
+import FilterSortSheet from "@/src/components/FilterSortSheet";
 import { AuthContext } from "@/src/context/AuthContext";
 import { deleteGamesNotOwned, getAllGames, getGame, parseJson, saveGame, saveGamesBatch, togglePin as dbTogglePin, getPinnedAppIds } from "@/src/database/db";
 import { getLanguageStore } from "@/src/i18n/langStore";
@@ -65,8 +65,8 @@ export default function GameList({ navigation, route }) {
     const [sort, setSort] = useState("recentPlaytime");
     const [refreshing, setRefreshing] = useState(false);
     const [refreshingRecent, setRefreshingRecent] = useState(false);
-    const [filterVisible, setFilterVisible] = useState(false);
-    const [sortVisible, setSortVisible] = useState(false);
+    // painel único de filtrar e ordenar (aberto por "Mais filtros" ou pelo botão de ordenar)
+    const [sheetVisible, setSheetVisible] = useState(false);
     const [showTopButton, setShowTopButton] = useState(false);
     const listRef = useRef(null);
 
@@ -329,14 +329,15 @@ export default function GameList({ navigation, route }) {
     );
 
     const filterOptions = useMemo(() => [
+        // ordem da grade do painel de filtros (prancheta 05), em pares
         { label: tr("filterAll"), value: "all" },
+        { label: tr("filterBacklog"), value: "progress" },
         { label: tr("filterPlayed"), value: "played" },
         { label: tr("filterNeverPlayed"), value: "neverPlayed" },
         { label: tr("filterWithAchievements"), value: "withAchievements" },
         { label: tr("filterWithoutAchievements"), value: "withoutAchievements" },
         { label: tr("filterCompleted"), value: "completed" },
         { label: tr("filterNotCompleted"), value: "notCompleted" },
-        { label: tr("filterBacklog"), value: "progress" },
         { label: tr("filterPinned"), value: "pinned" },
     ], [tr]);
 
@@ -694,7 +695,7 @@ export default function GameList({ navigation, route }) {
                         ) : null}
                     />
                     <Pressable
-                        onPress={() => setSortVisible(true)}
+                        onPress={() => setSheetVisible(true)}
                         accessibilityRole="button"
                         accessibilityLabel={tr("sortButton", { sort: sortLabel })}
                         style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.8 : 1 }]}
@@ -723,7 +724,7 @@ export default function GameList({ navigation, route }) {
                         label={moreSelected ? filterLabel(filter) : tr("moreFilters")}
                         count={moreSelected ? filterCounts[filter] : undefined}
                         selected={moreSelected}
-                        onPress={() => setFilterVisible(true)}
+                        onPress={() => setSheetVisible(true)}
                     />
                 </ScrollView>
             </View>
@@ -813,23 +814,18 @@ export default function GameList({ navigation, route }) {
                 </Pressable>
             )}
 
-            <RadioSheet
-                visible={filterVisible}
-                onClose={() => setFilterVisible(false)}
-                title={tr("filterTitle")}
-                options={filterOptions}
-                selected={filter}
-                onSelect={setFilter}
+            <FilterSortSheet
+                visible={sheetVisible}
+                onClose={() => setSheetVisible(false)}
+                filterOptions={filterOptions}
                 counts={filterCounts}
-            />
-
-            <RadioSheet
-                visible={sortVisible}
-                onClose={() => setSortVisible(false)}
-                title={tr("sortTitle")}
-                options={sortOptions}
-                selected={sort}
-                onSelect={setSort}
+                filter={filter}
+                sortOptions={sortOptions}
+                sort={sort}
+                onApply={({ filter: f, sort: s }) => {
+                    setFilter(f);
+                    setSort(s);
+                }}
             />
         </View>
     );

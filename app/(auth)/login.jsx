@@ -3,6 +3,8 @@ import * as WebBrowser from "expo-web-browser";
 import { getPlayerSummary, resolveVanityURL } from "@/src/api/steam";
 import { loadApiKey, saveApiKeyStore } from "@/src/config/apiKeyStore";
 import LanguageSelector from "@/src/components/LanguageSelector";
+import MaintenanceSheet from "@/src/components/MaintenanceSheet";
+import { AppText, Button, TextField } from "@/src/components/ui";
 import ClearDbModal from "@/src/components/ClearDbModal";
 import RemoveAccountModal from "@/src/components/RemoveAccountModal";
 import AboutModal from "@/src/components/AboutModal";
@@ -10,18 +12,29 @@ import { AuthContext } from "@/src/context/AuthContext";
 import { clearDB } from "@/src/database/db";
 import { DEFAULT_LANGUAGE, useLanguage } from "@/src/i18n/LanguageContext";
 import { showToast } from "@/src/utils/toast";
-import { COLORS } from "@/src/theme/colors";
+import { COLORS, FONTS } from "@/src/theme/colors";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useContext, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Image, ImageBackground, SafeAreaView, StatusBar, Text, TouchableOpacity, View } from "react-native";
-import { TextInput } from "react-native-paper";
-
-const loginBackground = require("../../assets/images/login_background.png");
+import {
+    Alert,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
 
 
 /**
- * Tela de login: entrada de SteamID/vanity e API key, com contas salvas para login rápido.
+ * Tela de login (redesign, prancheta 02): dois passos guiados, primeiro a
+ * API key e depois o SteamID/vanity, com contas salvas para login rápido.
+ * Cache e banco ficam no painel de manutenção (ícone de engrenagem).
  */
 export default function Login() {
     const { setSteamId, clearSteamId, savedAccounts, addSavedAccount, removeSavedAccount, clearSavedAccounts } = useContext(AuthContext);
@@ -36,6 +49,7 @@ export default function Login() {
     const [confirmVisible, setConfirmVisible] = useState(false);
     const [accountToRemove, setAccountToRemove] = useState(null);
     const [aboutVisible, setAboutVisible] = useState(false);
+    const [maintenanceVisible, setMaintenanceVisible] = useState(false);
 
     /** Carrega a API key salva do armazenamento na montagem. */
     useEffect(() => {
@@ -260,199 +274,169 @@ export default function Login() {
 
 
 
+    /** Abre a confirmação de limpar o banco a partir do painel de manutenção. */
+    const openClearDbFromMaintenance = () => {
+        setMaintenanceVisible(false);
+        // espera o painel fechar antes de abrir o próximo modal (iOS não empilha modais)
+        setTimeout(() => setConfirmVisible(true), 250);
+    };
+
+    /** Limpa o cache a partir do painel de manutenção. */
+    const clearCacheFromMaintenance = async () => {
+        setMaintenanceVisible(false);
+        await handleClearCache();
+    };
+
     return (
-        <SafeAreaView className="flex-1">
-            <StatusBar barStyle="light-content" backgroundColor="transparent" />
+        <View style={styles.screen}>
+            <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
 
-            <ImageBackground source={loginBackground} className="flex-1" resizeMode="cover">
-                {/* Overlay escura para garantir legibilidade */}
-                <View className="flex-1 bg-black/60 p-5">
-                    {/* Top corners: ações minimais */}
-                    <View className="flex-row justify-between">
-                        <TouchableOpacity
-                            onPress={handleClearCache}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                            className="flex-row items-center gap-1"
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === "ios" ? "padding" : undefined}
+            >
+                <ScrollView
+                    contentContainerStyle={styles.content}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    {/* Topo: idioma e manutenção (substitui os botões Cache/DB) */}
+                    <View style={styles.topBar}>
+                        <LanguageSelector />
+                        <Pressable
+                            onPress={() => setMaintenanceVisible(true)}
+                            accessibilityRole="button"
+                            accessibilityLabel={t("maintenanceButton")}
+                            style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.8 : 1 }]}
                         >
-                            <Ionicons name="trash-outline" size={20} color={COLORS.danger} />
-                            <Text className="text-danger text-xs font-medium">{t("loginCacheLabel")}</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            onPress={() => setConfirmVisible(true)}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                            className="flex-row items-center gap-1"
-                        >
-                            <Ionicons name="trash-outline" size={20} color={COLORS.danger} />
-                            <Text className="text-danger text-xs font-medium">{t("loginDbLabel")}</Text>
-                        </TouchableOpacity>
+                            <Ionicons name="settings-outline" size={20} color={COLORS.textMuted} />
+                        </Pressable>
                     </View>
 
-                    {/* Language selector */}
-                    <View className="mt-4 items-center flex-row justify-center gap-3">
-                        <Text className="text-gray-300 text-sm font-semibold">{t("languageLabel")}</Text>
-                        <LanguageSelector overlay />
+                    <View style={styles.heading}>
+                        <AppText variant="title">{t("loginWelcomeTitle")}</AppText>
+                        <AppText variant="body" color={COLORS.textSoft}>{t("loginWelcomeSubtitle")}</AppText>
                     </View>
 
-                    {/* Bottom section */}
-                    <View className="flex-1 justify-end">
-                        {/* Saved accounts */}
-                        <View className="mb-4">
-                            <Text className="text-gray-400 text-xs font-semibold mb-2 text-center">
+                    {/* Contas salvas: visual atualizado no passo 3 do redesign */}
+                    {savedAccounts.length > 0 && (
+                        <View style={styles.accounts}>
+                            <AppText variant="muted" style={{ textAlign: "center" }}>
                                 {t("loginAccountsLabel")}
-                            </Text>
-                            <View className="flex-row justify-center gap-5">
-                                {[0, 1, 2].map((i) => {
-                                    const acc = savedAccounts[i];
-                                    if (!acc) {
-                                        return (
-                                            <View key={i} className="items-center">
-                                                <View className="w-14 h-14 rounded-full border-2 border-dashed border-gray-600 items-center justify-center">
-                                                    <Ionicons name="add" size={22} color="#6b7280" />
-                                                </View>
-                                                <Text className="text-gray-600 text-xs mt-1">-</Text>
-                                            </View>
-                                        );
-                                    }
-                                    return (
-                                        <TouchableOpacity
-                                            key={acc.steamId}
-                                            onPress={() => handleQuickLogin(acc)}
-                                            onLongPress={() => confirmRemoveAccount(acc)}
-                                            className="items-center"
-                                        >
-                                            <Image
-                                                source={{ uri: acc.avatar }}
-                                                className="w-14 h-14 rounded-full border-2 border-accent"
-                                            />
-                                            <Text className="text-white text-xs mt-1 max-w-[70px] text-center" numberOfLines={1}>
-                                                {acc.name}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    );
-                                })}
-                            </View>
-                        </View>
-
-                        {/* Tip box */}
-                        <View className="bg-[#1e1e1e]/90 p-2.5 rounded-md mb-4 border-l-4 border-accent">
-                            <Text className="text-[#aaa] text-xs">
-                                {t("loginPublicTip")}
-                            </Text>
-                        </View>
-
-                        {/* API Key */}
-                        <View className="mb-3">
-                            {apiKey ? (
-                                <View className="bg-[#1e1e1e]/90 p-3 rounded-md border border-accent/40 flex-row items-center justify-between">
-                                    <View className="flex-row items-center gap-2 flex-1">
-                                        <Ionicons name="key" size={18} color={COLORS.accent} />
-                                        <Text className="text-white text-xs font-semibold" numberOfLines={1}>
-                                            {t("loginApiKeySavedLabel")}
-                                        </Text>
-                                    </View>
+                            </AppText>
+                            <View style={styles.accountsRow}>
+                                {savedAccounts.map((acc) => (
                                     <TouchableOpacity
-                                        onPress={removeSavedApiKey}
-                                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                        className="flex-row items-center gap-1"
+                                        key={acc.steamId}
+                                        onPress={() => handleQuickLogin(acc)}
+                                        onLongPress={() => confirmRemoveAccount(acc)}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={acc.name}
+                                        style={{ alignItems: "center", gap: 4 }}
                                     >
-                                        <Ionicons name="trash-outline" size={16} color={COLORS.danger} />
-                                        <Text className="text-danger text-xs font-medium">{t("loginRemoveApiKey")}</Text>
+                                        <Image source={{ uri: acc.avatar }} style={styles.accountAvatar} />
+                                        <AppText variant="muted" numberOfLines={1} style={{ maxWidth: 70 }}>
+                                            {acc.name}
+                                        </AppText>
                                     </TouchableOpacity>
-                                </View>
-                            ) : (
-                                <>
-                                    <View className="flex-row justify-between items-center mb-1">
-                                        <Text className="text-gray-400 text-xs font-semibold">
-                                            {t("loginApiKeyLabel")}
-                                        </Text>
-                                        <TouchableOpacity
-                                            onPress={openApiKeyPage}
-                                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                            className="flex-row items-center gap-1"
-                                        >
-                                            <Ionicons name="key-outline" size={14} color={COLORS.accent} />
-                                            <Text className="text-accent text-xs font-medium">{t("loginGetApiKey")}</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                    <TextInput
-                                        label={t("loginApiKeyLabel")}
-                                        value={keyInput}
-                                        onChangeText={handleApiKeyChange}
-                                        mode="outlined"
-                                        secureTextEntry={!showApiKey}
-                                        autoCapitalize="none"
-                                        autoCorrect={false}
-                                        style={{ backgroundColor: "#222" }}
-                                        theme={{
-                                            colors: {
-                                                primary: COLORS.accent,
-                                            },
-                                        }}
-                                        textColor="#fff"
-                                        right={
-                                            <TextInput.Icon
-                                                icon={() => (
-                                                    <Ionicons
-                                                        name={showApiKey ? "eye-off-outline" : "eye-outline"}
-                                                        size={20}
-                                                        color="#9ca3af"
-                                                    />
-                                                )}
-                                                onPress={() => setShowApiKey(v => !v)}
-                                            />
-                                        }
-                                    />
-                                </>
-                            )}
-                        </View>
-
-                        {/* Input + submit arrow */}
-                        {apiKey && (
-                            <View className="mb-3">
-                                <TextInput
-                                    label={t("loginSteamIdLabel")}
-                                    value={input}
-                                    onChangeText={setInput}
-                                    mode="outlined"
-                                    style={{ backgroundColor: "#222" }}
-                                    theme={{
-                                        colors: {
-                                            primary: COLORS.accent,
-                                        },
-                                    }}
-                                    textColor="#fff"
-                                    onSubmitEditing={handleSubmit}
-                                    right={
-                                        <TextInput.Icon
-                                            icon={() =>
-                                                loading ? (
-                                                    <ActivityIndicator size="small" color={COLORS.accent} />
-                                                ) : (
-                                                    <Ionicons name="arrow-forward" size={22} color={COLORS.accent} />
-                                                )
-                                            }
-                                            onPress={handleSubmit}
-                                            disabled={loading}
-                                        />
-                                    }
-                                />
+                                ))}
                             </View>
-                        )}
+                        </View>
+                    )}
 
-                        <TouchableOpacity
-                            onPress={() => setAboutVisible(true)}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                            className="flex-row items-center justify-center gap-1"
-                        >
-                            <Ionicons name="information-circle-outline" size={14} color="#9ca3af" />
-                            <Text className="text-gray-400 text-[10px] text-center mb-0.5">
-                                © 2026 Richard Pacco
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </ImageBackground>
+                    {/* Passo 1: chave da API */}
+                    {apiKey ? (
+                        <StepCard number={1} state="done" title={t("loginApiKeySavedLabel")}>
+                            <Pressable
+                                onPress={removeSavedApiKey}
+                                accessibilityRole="button"
+                                hitSlop={8}
+                                style={styles.inlineDanger}
+                            >
+                                <Text style={styles.inlineDangerText}>{t("loginRemoveApiKey")}</Text>
+                            </Pressable>
+                        </StepCard>
+                    ) : (
+                        <StepCard number={1} state="active" title={t("loginStepKeyTitle")}>
+                            <TextField
+                                label={t("loginApiKeyHint")}
+                                value={keyInput}
+                                onChangeText={handleApiKeyChange}
+                                placeholder={t("loginApiKeyPlaceholder")}
+                                secureTextEntry={!showApiKey}
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                                containerStyle={{ gap: 6 }}
+                                right={
+                                    <Pressable
+                                        onPress={() => setShowApiKey(v => !v)}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={showApiKey ? t("loginHideKey") : t("loginShowKey")}
+                                        style={styles.eyeButton}
+                                    >
+                                        <Ionicons
+                                            name={showApiKey ? "eye-off-outline" : "eye-outline"}
+                                            size={20}
+                                            color={COLORS.textMuted}
+                                        />
+                                    </Pressable>
+                                }
+                            />
+                            <Pressable
+                                onPress={openApiKeyPage}
+                                accessibilityRole="link"
+                                style={styles.linkRow}
+                            >
+                                <Ionicons name="open-outline" size={18} color={COLORS.accent} />
+                                <Text style={styles.linkText}>{t("loginGetApiKeySteam")}</Text>
+                            </Pressable>
+                            <AppText variant="muted" style={{ fontSize: 12 }}>{t("loginApiKeyPrivacy")}</AppText>
+                        </StepCard>
+                    )}
+
+                    {/* Passo 2: perfil Steam (liberado depois da chave) */}
+                    {apiKey ? (
+                        <StepCard number={2} state="active" title={t("loginStepProfileTitle")}>
+                            <TextField
+                                label={t("loginSteamIdLabel")}
+                                value={input}
+                                onChangeText={setInput}
+                                placeholder="76561198000000000"
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                                returnKeyType="go"
+                                onSubmitEditing={handleSubmit}
+                            />
+                            <Button label={t("loginEnter")} onPress={handleSubmit} loading={loading} />
+                            <AppText variant="muted" style={{ fontSize: 12 }}>{t("loginPublicTip")}</AppText>
+                        </StepCard>
+                    ) : (
+                        <StepCard number={2} state="locked" title={t("loginStepProfileTitle")}>
+                            <AppText variant="muted" color={COLORS.textSoft} style={{ lineHeight: 19 }}>
+                                {t("loginStepProfileHint")}
+                            </AppText>
+                        </StepCard>
+                    )}
+
+                    <View style={{ flex: 1 }} />
+
+                    <Pressable
+                        onPress={() => setAboutVisible(true)}
+                        accessibilityRole="button"
+                        style={styles.aboutButton}
+                    >
+                        <Ionicons name="information-circle-outline" size={16} color={COLORS.textMuted} />
+                        <AppText variant="muted">{t("aboutApp")}</AppText>
+                    </Pressable>
+                </ScrollView>
+            </KeyboardAvoidingView>
+
+            {/* Manutenção: limpar cache ou banco */}
+            <MaintenanceSheet
+                visible={maintenanceVisible}
+                onClose={() => setMaintenanceVisible(false)}
+                onClearCache={clearCacheFromMaintenance}
+                onClearDb={openClearDbFromMaintenance}
+            />
 
             {/* Confirmar limpeza do banco */}
             <ClearDbModal
@@ -474,9 +458,81 @@ export default function Login() {
                 visible={aboutVisible}
                 onClose={() => setAboutVisible(false)}
             />
-        </SafeAreaView>
+        </View>
     );
-
-
-
 }
+
+/**
+ * Card de um passo do login. `state`:
+ * - "active": passo atual (borda azul, número em azul)
+ * - "done": concluído (número vira check verde)
+ * - "locked": ainda não liberado (apagado)
+ */
+function StepCard({ number, title, state, children }) {
+    const active = state === "active";
+    const done = state === "done";
+    return (
+        <View
+            style={[
+                styles.stepCard,
+                { borderColor: active ? COLORS.accent : COLORS.borderSubtle, opacity: state === "locked" ? 0.6 : 1 },
+            ]}
+        >
+            <View style={styles.stepHeader}>
+                <View
+                    style={[
+                        styles.stepBadge,
+                        { backgroundColor: active ? COLORS.accent : done ? "rgba(74, 222, 128, 0.16)" : COLORS.border },
+                    ]}
+                >
+                    {done ? (
+                        <Ionicons name="checkmark" size={16} color={COLORS.success} />
+                    ) : (
+                        <Text style={[styles.stepNumber, { color: active ? COLORS.onAccent : COLORS.textSoft }]}>
+                            {number}
+                        </Text>
+                    )}
+                </View>
+                <Text style={styles.stepTitle} numberOfLines={1}>{title}</Text>
+            </View>
+            {children}
+        </View>
+    );
+}
+
+const styles = StyleSheet.create({
+    screen: { flex: 1, backgroundColor: COLORS.bg },
+    content: { flexGrow: 1, padding: 20, gap: 14 },
+    topBar: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    iconButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: COLORS.borderSubtle,
+        backgroundColor: COLORS.surface,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    heading: { marginTop: 22, marginBottom: 14, gap: 8 },
+    accounts: { gap: 8, marginBottom: 6 },
+    accountsRow: { flexDirection: "row", justifyContent: "center", gap: 20 },
+    accountAvatar: { width: 56, height: 56, borderRadius: 28, borderWidth: 2, borderColor: COLORS.accent },
+    stepCard: {
+        padding: 16,
+        borderRadius: 20,
+        backgroundColor: COLORS.surface,
+        borderWidth: 1,
+        gap: 12,
+    },
+    stepHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
+    stepBadge: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+    stepNumber: { fontFamily: FONTS.bodySemibold, fontSize: 14 },
+    stepTitle: { flex: 1, fontFamily: FONTS.bodySemibold, fontSize: 16, color: COLORS.text },
+    eyeButton: { width: 44, height: 44, marginRight: -10, alignItems: "center", justifyContent: "center" },
+    linkRow: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 8, alignSelf: "flex-start" },
+    linkText: { fontFamily: FONTS.bodySemibold, fontSize: 14, color: COLORS.accent },
+    inlineDanger: { alignSelf: "flex-start", minHeight: 44, justifyContent: "center" },
+    inlineDangerText: { fontFamily: FONTS.bodySemibold, fontSize: 14, color: COLORS.danger },
+    aboutButton: { alignSelf: "center", minHeight: 44, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12 },
+});

@@ -1,76 +1,55 @@
-import { Image, Pressable, useColorScheme, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useLanguage } from "@/src/i18n/LanguageContext";
-import { COLORS } from "@/src/theme/colors";
+import { COLORS, FONTS } from "@/src/theme/colors";
 
 const OPTIONS = [
-    { code: "pt", label: "PT", flag: require("../../assets/images/Brazil_flag.png") },
-    { code: "en", label: "EN", flag: require("../../assets/images/Flag_of_the_United_States.png") },
+    { code: "pt", label: "PT", name: "Português" },
+    { code: "en", label: "EN", name: "English" },
 ];
 
 /**
- * Seletor de idioma (PT/EN) com bandeiras dos países. Prop: overlay (modo sobreposto).
+ * Seletor de idioma segmentado (PT | EN), no estilo do redesign.
+ * `inset` = fundo mais escuro, para usar dentro de um card (ex.: Perfil).
  */
-export default function LanguageSelector({ overlay = false }) {
-    const { language, setLanguage } = useLanguage();
-    const colorScheme = useColorScheme();
-    const isDark = colorScheme === "dark";
-
-    const containerBg = overlay
-        ? "rgba(255,255,255,0.08)"
-        : isDark
-            ? "#111827"
-            : "#ffffff";
-    const borderColor = overlay
-        ? "rgba(255,255,255,0.18)"
-        : isDark
-            ? "#374151"
-            : "#e5e7eb";
+export default function LanguageSelector({ inset = false }) {
+    const { language, setLanguage, t } = useLanguage();
 
     return (
         <View
-            style={{
-                flexDirection: "row",
-                borderRadius: 12,
-                padding: 4,
-                backgroundColor: containerBg,
-                borderWidth: 1,
-                borderColor: borderColor,
-                alignSelf: "flex-start",
-                gap: 10,
-            }}
+            accessibilityRole="radiogroup"
+            accessibilityLabel={t("languageLabel")}
+            style={[styles.group, inset ? styles.groupInset : styles.groupDefault]}
         >
             {OPTIONS.map((opt) => {
                 const active = language === opt.code;
                 return (
                     <Pressable
                         key={opt.code}
+                        accessibilityRole="radio"
+                        accessibilityState={{ checked: active }}
+                        accessibilityLabel={opt.name}
                         onPress={() => setLanguage(opt.code)}
-                        accessibilityLabel={opt.label}
-                        style={({ pressed }) => ({
-                            width: 48,
-                            height: 34,
-                            borderRadius: 8,
-                            alignItems: "center",
-                            justifyContent: "center",
-                            backgroundColor: active ? "rgba(255,179,0,0.16)" : "transparent",
-                            borderWidth: active ? 2 : 0,
-                            borderColor: active ? COLORS.warning : "transparent",
-                            shadowColor: COLORS.warning,
-                            shadowOpacity: active ? 0.7 : 0,
-                            shadowRadius: 6,
-                            shadowOffset: { width: 0, height: 0 },
-                            elevation: active ? 6 : 0,
-                            opacity: pressed ? 0.7 : 1,
-                        })}
+                        style={({ pressed }) => [
+                            styles.option,
+                            active && styles.optionActive,
+                            { opacity: pressed ? 0.8 : 1 },
+                        ]}
                     >
-                        <Image
-                            source={opt.flag}
-                            style={{ width: 28, height: 20, borderRadius: 2 }}
-                            resizeMode="cover"
-                        />
+                        <Text style={[styles.label, { color: active ? COLORS.text : COLORS.textMuted }]}>
+                            {opt.label}
+                        </Text>
                     </Pressable>
                 );
             })}
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    group: { flexDirection: "row", padding: 3, borderRadius: 12, alignSelf: "flex-start" },
+    groupDefault: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.borderSubtle },
+    groupInset: { backgroundColor: COLORS.bg },
+    option: { minWidth: 44, height: 36, borderRadius: 9, alignItems: "center", justifyContent: "center", paddingHorizontal: 8 },
+    optionActive: { backgroundColor: COLORS.border },
+    label: { fontFamily: FONTS.bodySemibold, fontSize: 13 },
+});

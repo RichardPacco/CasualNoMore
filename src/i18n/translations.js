@@ -39,6 +39,30 @@ export const translations = {
     loginRemoveApiKey: { pt: "Remover chave", en: "Remove key" },
     loginApiKeyRemoved: { pt: "Chave de API removida!", en: "API key removed!" },
 
+    // --- login (redesign) ---
+    loginWelcomeTitle: { pt: "Bem-vindo ao CasualNoMore", en: "Welcome to CasualNoMore" },
+    loginWelcomeSubtitle: { pt: "Dois passos para ver suas conquistas da Steam.", en: "Two steps to see your Steam achievements." },
+    loginStepKeyTitle: { pt: "Sua chave da API Steam", en: "Your Steam Web API key" },
+    loginApiKeyHint: { pt: "Chave da API Steam (32 caracteres)", en: "Steam Web API key (32 characters)" },
+    loginApiKeyPlaceholder: { pt: "Cole sua chave aqui", en: "Paste your key here" },
+    loginGetApiKeySteam: { pt: "Obter chave na Steam", en: "Get a key on Steam" },
+    loginApiKeyPrivacy: { pt: "A chave fica guardada só neste aparelho, criptografada.", en: "The key is stored only on this device, encrypted." },
+    loginShowKey: { pt: "Mostrar chave", en: "Show key" },
+    loginHideKey: { pt: "Ocultar chave", en: "Hide key" },
+    loginStepProfileTitle: { pt: "Seu perfil Steam", en: "Your Steam profile" },
+    loginStepProfileHint: { pt: "Depois da chave, informe seu SteamID64 ou a URL do perfil. O perfil precisa estar público.", en: "After the key, enter your SteamID64 or profile URL. The profile must be public." },
+    loginEnter: { pt: "Entrar", en: "Sign in" },
+    aboutApp: { pt: "Sobre o app", en: "About the app" },
+
+    // --- manutenção (cache e banco) ---
+    maintenanceTitle: { pt: "Manutenção", en: "Maintenance" },
+    maintenanceButton: { pt: "Manutenção: limpar cache ou banco", en: "Maintenance: clear cache or database" },
+    maintenanceClearCache: { pt: "Limpar cache", en: "Clear cache" },
+    maintenanceClearCacheDesc: { pt: "Apaga a chave da API, as contas salvas e o idioma deste aparelho.", en: "Deletes the API key, saved accounts and language on this device." },
+    maintenanceClearDb: { pt: "Limpar banco de dados", en: "Clear database" },
+    maintenanceClearDbDesc: { pt: "Apaga os jogos e o progresso salvos. Tudo é baixado de novo da Steam.", en: "Deletes saved games and progress. Everything is downloaded again from Steam." },
+    close: { pt: "Fechar", en: "Close" },
+
     // --- language ---
     languageLabel: { pt: "Idioma", en: "Language" },
 

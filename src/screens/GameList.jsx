@@ -1,21 +1,24 @@
 import { getOwnedGames, GetSchemaForGame, getStoreAssets } from "@/src/api/steam";
 import ContinueHuntingCard from "@/src/components/ContinueHuntingCard";
 import GameCard from "@/src/components/GameCard";
-import { AppText, Chip, ProgressBar, TextField } from "@/src/components/ui";
+import { AppText, Button, Chip, ProgressBar, TextField } from "@/src/components/ui";
 import PullToRefresh from "@/src/components/PullToRefresh";
 import FilterSortSheet from "@/src/components/FilterSortSheet";
 import { AuthContext } from "@/src/context/AuthContext";
 import { deleteGamesNotOwned, getAllGames, getGame, parseJson, saveGame, saveGamesBatch, togglePin as dbTogglePin, getPinnedAppIds } from "@/src/database/db";
 import { getLanguageStore } from "@/src/i18n/langStore";
 import { useLanguage } from "@/src/i18n/LanguageContext";
-import { COLORS } from "@/src/theme/colors";
-import { useTheme } from "@/src/theme/styles";
+import { COLORS, FONTS } from "@/src/theme/colors";
 import { computeProgress, fetchAndMergeAchievements, getGameCounts } from "@/src/utils/achievements";
 import { showToast } from "@/src/utils/toast";
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
+import * as WebBrowser from "expo-web-browser";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Keyboard, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Keyboard, Pressable, ScrollView, StyleSheet, View } from "react-native";
+
+// Configurações de privacidade do perfil na Steam (para deixar os jogos públicos)
+const STEAM_PRIVACY_URL = "https://steamcommunity.com/my/edit/settings";
 
 /** Jogo tem conquistas e todas foram desbloqueadas. */
 function isCompleted(g) {
@@ -74,7 +77,6 @@ export default function GameList({ navigation, route }) {
     const [searchQuery, setSearchQuery] = useState("");
     const [debouncedQuery, setDebouncedQuery] = useState("");
 
-    const t = useTheme();
 
     // geração da carga atual: quando uma nova carga começa (ou o componente
     // desmonta), o número muda e execuções antigas param de escrever na UI/DB.
@@ -598,15 +600,43 @@ export default function GameList({ navigation, route }) {
 
 
     // ---------- UI ----------
+    // Primeira sincronização (banco ainda vazio): título, card de progresso e
+    // linhas-esqueleto no lugar da lista (redesign, prancheta 13).
     if (loading && games.length === 0) {
+        const pct = progress.total ? (progress.current / progress.total) * 100 : 0;
         return (
-            <View className={`flex-1 justify-center items-center ${t.pageBg}`}>
-                <ActivityIndicator size="large" color={COLORS.accent} />
-                {progress.total > 0 && (
-                    <Text className={`${t.textSecondary} mt-2`}>
-                        {tr("searchingGames", { current: progress.current, total: progress.total })}
-                    </Text>
-                )}
+            <View style={styles.screen}>
+                <View style={[styles.header, { gap: 16 }]}>
+                    <View style={{ gap: 2 }}>
+                        <AppText variant="title">{tr("libraryTitle")}</AppText>
+                        <AppText variant="muted">{tr("firstSync")}</AppText>
+                    </View>
+                    <View style={styles.syncCard} accessibilityRole="progressbar" accessibilityLabel={tr("syncSearching")}>
+                        <View style={styles.syncTop}>
+                            <AppText variant="itemName" style={{ flex: 1 }}>{tr("syncSearching")}</AppText>
+                            {progress.total > 0 ? (
+                                <AppText variant="muted" color={COLORS.accent} style={{ fontFamily: FONTS.bodySemibold }}>
+                                    {tr("syncCount", { current: progress.current, total: progress.total })}
+                                </AppText>
+                            ) : (
+                                <ActivityIndicator size="small" color={COLORS.accent} />
+                            )}
+                        </View>
+                        <ProgressBar value={pct} height={6} />
+                        <AppText variant="muted" style={{ fontSize: 12 }}>{tr("syncHint")}</AppText>
+                    </View>
+                    <View style={{ gap: 8 }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+                        {[0.6, 0.45, 0.7].map((w, i) => (
+                            <View key={i} style={styles.skeletonRow}>
+                                <View style={styles.skeletonCapsule} />
+                                <View style={{ flex: 1, gap: 8 }}>
+                                    <View style={[styles.skeletonLine, { width: `${w * 100}%` }]} />
+                                    <View style={[styles.skeletonLine, { height: 6 }]} />
+                                </View>
+                            </View>
+                        ))}
+                    </View>
+                </View>
             </View>
         );
     }
@@ -796,6 +826,22 @@ export default function GameList({ navigation, route }) {
                                 <AppText variant="muted" style={{ textAlign: "center", fontSize: 14, lineHeight: 21 }}>
                                     {tr("noGamesMessage")}
                                 </AppText>
+                                <Button
+                                    label={tr("profileRetry")}
+                                    onPress={onRefresh}
+                                    loading={refreshing}
+                                    style={{ marginTop: 8, paddingHorizontal: 28 }}
+                                />
+                                <Pressable
+                                    onPress={() => WebBrowser.openBrowserAsync(STEAM_PRIVACY_URL)
+                                        .catch(err => console.error("Failed to open browser:", err))}
+                                    accessibilityRole="link"
+                                    style={styles.helpLink}
+                                >
+                                    <AppText variant="muted" color={COLORS.accent} style={{ fontFamily: FONTS.bodySemibold, fontSize: 14 }}>
+                                        {tr("publicProfileHelp")}
+                                    </AppText>
+                                </Pressable>
                             </View>
                         ) : null
                     }
@@ -872,6 +918,10 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     syncTop: { flexDirection: "row", alignItems: "center", gap: 10 },
+    helpLink: { minHeight: 44, justifyContent: "center", paddingHorizontal: 8 },
+    skeletonRow: { flexDirection: "row", alignItems: "center", gap: 12, padding: 10, borderRadius: 16, backgroundColor: COLORS.surface },
+    skeletonCapsule: { width: 92, height: 34, borderRadius: 8, backgroundColor: COLORS.surface2 },
+    skeletonLine: { height: 10, borderRadius: 5, backgroundColor: COLORS.surface2 },
     empty: { alignItems: "center", paddingVertical: 80, paddingHorizontal: 12, gap: 10 },
     emptyIcon: {
         width: 64,

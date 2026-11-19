@@ -163,6 +163,11 @@ export const translations = {
     scrollToTop: { pt: "Voltar ao topo", en: "Back to top" },
     clearSearch: { pt: "Limpar busca", en: "Clear search" },
     filterSortTitle: { pt: "Filtrar e ordenar", en: "Filter and sort" },
+    firstSync: { pt: "Primeira sincronização", en: "First sync" },
+    syncSearching: { pt: "Buscando seus jogos", en: "Fetching your games" },
+    syncCount: { pt: "{current} de {total}", en: "{current} of {total}" },
+    syncHint: { pt: "Os mais jogados aparecem primeiro.", en: "Your most played games show up first." },
+    publicProfileHelp: { pt: "Abrir privacidade do perfil na Steam", en: "Open profile privacy on Steam" },
     filterShowLabel: { pt: "Mostrar", en: "Show" },
     filterApplyCount: { pt: "Ver {count} jogos", en: "Show {count} games" },
 

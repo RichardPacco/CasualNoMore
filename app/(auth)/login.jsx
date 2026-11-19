@@ -125,7 +125,7 @@ export default function Login() {
         setConfirmVisible(false);
         try {
             await clearDB();
-            showToast(t("loginDbCleared"), t("loginDbClearedDesc"));
+            showToast(`${t("loginDbCleared")} ${t("loginDbClearedDesc")}`, "success");
         } catch (err) {
             console.error(err);
             Alert.alert(t("loginError"), t("loginDbClearFailed"));

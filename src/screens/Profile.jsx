@@ -12,7 +12,8 @@ import { getGameCounts } from "@/src/utils/achievements";
 import { COLORS, FONTS } from "@/src/theme/colors";
 import { useRouter } from "expo-router";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { useSettings } from "@/src/context/SettingsContext";
 import Pressable from "@/src/components/ui/Pressable";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -57,6 +58,11 @@ export default function Profile() {
     const [refreshingProfile, setRefreshingProfile] = useState(false);
     const [completionStats, setCompletionStats] = useState({ perfected: 0, avgCompletion: 0 });
     const [aboutVisible, setAboutVisible] = useState(false);
+    const { settings, updateSettings } = useSettings();
+    // muda a cada puxar para atualizar: o card do RA busca de novo
+    const [raRefreshKey, setRaRefreshKey] = useState(0);
+    // resolve a espera do puxar para atualizar quando o card do RA termina
+    const raDoneRef = useRef(null);
     const cancelledRef = useRef(false);
 
     useEffect(() => {
@@ -88,22 +94,41 @@ export default function Profile() {
     }, [steamId]);
 
     /** Atualiza o perfil e as estatísticas ao puxar para atualizar (pull-to-refresh). */
+    // O PullToRefresh só volta ao normal quando `refreshing` passa de true
+    // para false: sempre liga e espera a Steam e o card do RA terminarem.
     const refreshProfile = useCallback(async () => {
-        if (!steamId) return;
         setRefreshingProfile(true);
+
+        // RA: o card avisa (onLoaded) quando terminou de buscar; no máximo 20 s
+        const raDone = accounts.ra
+            ? new Promise(resolve => {
+                raDoneRef.current = resolve;
+                setTimeout(resolve, 20000);
+            })
+            : Promise.resolve();
+        setRaRefreshKey(k => k + 1);
+
+        const steamDone = (async () => {
+            if (!steamId) return;
+            try {
+                const [Profile, cachedGames] = await Promise.all([
+                    getPlayerSummary(steamId),
+                    getAllGames(steamId),
+                ]);
+                if (Profile) setProfile(Profile);
+                setCompletionStats(computeCompletionStats(cachedGames));
+            } catch (err) {
+                console.error("[Profile] Failed to refresh profile:", err);
+            }
+        })();
+
         try {
-            const [Profile, cachedGames] = await Promise.all([
-                getPlayerSummary(steamId),
-                getAllGames(steamId),
-            ]);
-            if (Profile) setProfile(Profile);
-            setCompletionStats(computeCompletionStats(cachedGames));
-        } catch (err) {
-            console.error("[Profile] Failed to refresh profile:", err);
+            await Promise.all([steamDone, raDone]);
         } finally {
+            raDoneRef.current = null;
             setRefreshingProfile(false);
         }
-    }, [steamId]);
+    }, [steamId, accounts.ra]);
 
     useEffect(() => {
         loadProfile();
@@ -195,7 +220,7 @@ export default function Profile() {
                     </View>
                     )}
 
-                    {accounts.ra && <RaAccountCard account={accounts.ra} />}
+                    {accounts.ra && <RaAccountCard account={accounts.ra} refreshKey={raRefreshKey} onLoaded={() => raDoneRef.current?.()} />}
 
                     {/* Ajustes: idioma, sobre o app, sair */}
                     <View style={styles.settings}>
@@ -203,6 +228,19 @@ export default function Profile() {
                             <Text style={styles.settingLabel}>{tr("languageLabel")}</Text>
                             <LanguageSelector inset />
                         </View>
+                        {/* RA: esconder hacks/subsets da biblioteca (os mesmos do painel de filtros) */}
+                        {accounts.ra && [["hideHacks", tr("hideHacks")], ["hideSubsets", tr("hideSubsets")]].map(([key, label]) => (
+                            <View key={key} style={[styles.settingRow, styles.settingDivider]}>
+                                <Text style={styles.settingLabel}>{label}</Text>
+                                <Switch
+                                    value={!!settings[key]}
+                                    onValueChange={v => updateSettings({ [key]: v })}
+                                    accessibilityLabel={label}
+                                    trackColor={{ false: COLORS.border, true: COLORS.accent }}
+                                    thumbColor={COLORS.text}
+                                />
+                            </View>
+                        ))}
                         {/* Conectar a plataforma que falta */}
                         {platformRows.filter(([id]) => !accounts[id]).map(([id, name]) => (
                             <Pressable

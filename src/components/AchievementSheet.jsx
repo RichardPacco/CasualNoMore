@@ -22,7 +22,7 @@ function openInBrowser(url) {
  * raridade, nome, raridade e % dos jogadores, descrição, status e atalhos
  * para procurar um guia (Google e ChatGPT).
  * Conquistas do RetroAchievements (têm `points`) mostram também pontos,
- * TruePoints, tipo, o desbloqueio em softcore (que não conta) e o link da
+ * RetroPoints, tipo, o desbloqueio em softcore (que não conta) e o link da
  * conquista no site do RA.
  * Props: achievement (item da lista ou null), game, onClose.
  */

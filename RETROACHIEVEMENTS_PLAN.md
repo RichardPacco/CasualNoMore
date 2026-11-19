@@ -459,7 +459,7 @@ Cada etapa termina com o app funcionando e vira um commit. A Steam **não pode q
 - [x] Ao voltar para a biblioteca, o card mostra o progresso atualizado
 - [x] A tela de jogo da Steam continua idêntica
 
-### Etapa 4 — Perfil e conexão da segunda plataforma
+### ✅ Etapa 4 — Perfil e conexão da segunda plataforma
 
 **Arquivos**
 
@@ -467,7 +467,7 @@ Cada etapa termina com o app funcionando e vira um commit. A Steam **não pode q
   - um card por conta conectada
   - card do RA:
     - avatar (`raMedia(UserPic)`), nome, motto, membro desde
-    - **pontos hardcore**, **softcore** e **TruePoints**
+    - **pontos hardcore**, **softcore** e **RetroPoints**
     - **rank** (`Rank / TotalRanked`, de `GetUserSummary`)
     - status / RichPresence
   - linha de medalhas (`GetUserAwards`): masters, completions, beaten (HC/SC)
@@ -478,10 +478,17 @@ Cada etapa termina com o app funcionando e vira um commit. A Steam **não pode q
 - `src/components/RemoveAccountModal.jsx`: recebe `platform`.
 - `src/components/AboutModal.jsx`: crédito "Dados de conquistas retro: RetroAchievements.org".
 
+> **Feito.** O que mudou em relação ao planejado:
+> - Conectar/desconectar por plataforma já tinha sido feito na etapa 1.
+> - O card do RA (`RaAccountCard`) busca ele mesmo `GetUserProfile`, `GetUserSummary` e `GetUserAwards` (com `Promise.allSettled`: um que falhe não esconde os outros) e mostra status, Pontos, **RetroPoints** (o site renomeou TruePoints; o campo da API continua `TotalTruePoints`), Rank e **só Masterizados** (sem contagem de zerados, a pedido).
+> - Puxar o Perfil para atualizar liga sempre o indicador e espera a Steam e o card do RA (que avisa por `onLoaded`; no máximo 20 s). Antes, só com RA, o indicador ficava preso.
+> - Ajustes "Esconder hacks/subsets" no Perfil (só com RA conectado), os mesmos do painel de filtros.
+> - Crédito "Dados de conquistas retrô: RetroAchievements.org" no Sobre.
+
 **Pronto quando**
 - [x] Com uma conta, dá para conectar a outra sem sair (feito na etapa 1)
 - [x] Remover uma plataforma mantém a outra funcionando (feito na etapa 1)
-- [ ] O perfil do RA mostra pontos, rank e medalhas
+- [x] O perfil do RA mostra pontos, rank e medalhas
 
 ### Etapa 5 — Amigos do RA e jogos em comum
 
@@ -543,7 +550,7 @@ Adicionar em `src/i18n/translations.js`, PT e EN:
 | `raUserNotFound` | Usuário não encontrado | User not found |
 | `points` | {{n}} pts | {{n}} pts |
 | `pointsOf` | {{earned}}/{{total}} pts | {{earned}}/{{total}} pts |
-| `truePoints` | TruePoints | TruePoints |
+| `truePoints` | RetroPoints | RetroPoints |
 | `hardcore` | Hardcore | Hardcore |
 | `softcore` | Softcore | Softcore |
 | `awardMastered` | Masterizado | Mastered |

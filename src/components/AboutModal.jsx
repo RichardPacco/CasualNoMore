@@ -36,6 +36,9 @@ export default function AboutModal({ visible, onClose }) {
                 <AppText variant="muted" style={[styles.center, { color: COLORS.textSoft }]}>
                     {t("aboutDisclaimer")}
                 </AppText>
+                <AppText variant="muted" style={[styles.center, { color: COLORS.textSoft }]}>
+                    {t("raCredit")}
+                </AppText>
             </View>
             <View style={{ flexDirection: "row", gap: 10 }}>
                 <Button

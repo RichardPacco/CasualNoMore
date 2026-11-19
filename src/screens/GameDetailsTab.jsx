@@ -93,6 +93,45 @@ export default function GameDetailsTab({ game }) {
 
     return (
         <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+            {/* Botões no topo: loja, guias, discussões e HowLongToBeat */}
+            <View style={styles.actions}>
+                <Button
+                    label={tr("viewInSteamStore")}
+                    onPress={() => openUrl(`https://store.steampowered.com/app/${appid}`)}
+                    icon={<Ionicons name="open-outline" size={18} color={COLORS.onAccent} />}
+                    accessibilityRole="link"
+                />
+                <View style={styles.actionsRow}>
+                    <Button
+                        label={tr("guidesShort")}
+                        variant="secondary"
+                        onPress={() => openUrl(`https://steamcommunity.com/app/${appid}/guides/`)}
+                        icon={<Ionicons name="book-outline" size={18} color={COLORS.text} />}
+                        accessibilityRole="link"
+                        accessibilityLabel={tr("communityGuides")}
+                        style={{ flex: 1 }}
+                    />
+                    <Button
+                        label={tr("discussionsShort")}
+                        variant="secondary"
+                        onPress={() => openUrl(`https://steamcommunity.com/app/${appid}/discussions/`)}
+                        icon={<Ionicons name="chatbubbles-outline" size={18} color={COLORS.text} />}
+                        accessibilityRole="link"
+                        accessibilityLabel={tr("steamDiscussions")}
+                        style={{ flex: 1 }}
+                    />
+                </View>
+                {/* HowLongToBeat não tem API oficial nem liga o appid da Steam ao
+                    id dele: abre a busca do site pelo nome do jogo */}
+                <Button
+                    label={tr("viewOnHltb")}
+                    variant="secondary"
+                    onPress={() => openUrl(`https://howlongtobeat.com/?q=${encodeURIComponent(game.name || "")}`)}
+                    icon={<Ionicons name="time-outline" size={18} color={COLORS.text} />}
+                    accessibilityRole="link"
+                />
+            </View>
+
             <View style={styles.stats}>
                 <StatTile label={tr("genre")} value={genre} />
                 <StatTile label={tr("release")} value={releaseDate} />
@@ -121,35 +160,6 @@ export default function GameDetailsTab({ game }) {
                     )}
                 </View>
             )}
-
-            <View style={styles.actions}>
-                <Button
-                    label={tr("viewInSteamStore")}
-                    onPress={() => openUrl(`https://store.steampowered.com/app/${appid}`)}
-                    icon={<Ionicons name="open-outline" size={18} color={COLORS.onAccent} />}
-                    accessibilityRole="link"
-                />
-                <View style={styles.actionsRow}>
-                    <Button
-                        label={tr("guidesShort")}
-                        variant="secondary"
-                        onPress={() => openUrl(`https://steamcommunity.com/app/${appid}/guides/`)}
-                        icon={<Ionicons name="book-outline" size={18} color={COLORS.text} />}
-                        accessibilityRole="link"
-                        accessibilityLabel={tr("communityGuides")}
-                        style={{ flex: 1 }}
-                    />
-                    <Button
-                        label={tr("discussionsShort")}
-                        variant="secondary"
-                        onPress={() => openUrl(`https://steamcommunity.com/app/${appid}/discussions/`)}
-                        icon={<Ionicons name="chatbubbles-outline" size={18} color={COLORS.text} />}
-                        accessibilityRole="link"
-                        accessibilityLabel={tr("steamDiscussions")}
-                        style={{ flex: 1 }}
-                    />
-                </View>
-            </View>
         </ScrollView>
     );
 }
@@ -182,6 +192,7 @@ const styles = StyleSheet.create({
     html: { fontFamily: FONTS.body, fontSize: 15, lineHeight: 23, color: COLORS.textSoft },
     readMore: { alignSelf: "flex-start", minHeight: 44, justifyContent: "center" },
     readMoreText: { fontFamily: FONTS.bodySemibold, fontSize: 14, color: COLORS.accent },
-    actions: { gap: 10, marginTop: 2 },
+    // botões no topo; um pouco de espaço extra antes dos blocos de informação
+    actions: { gap: 10, marginBottom: 4 },
     actionsRow: { flexDirection: "row", gap: 10 },
 });

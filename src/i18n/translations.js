@@ -190,6 +190,7 @@ export const translations = {
     aboutGame: { pt: "Sobre o jogo", en: "About the game" },
     guidesShort: { pt: "Guias", en: "Guides" },
     discussionsShort: { pt: "Discussões", en: "Discussions" },
+    viewOnHltb: { pt: "Ver no HowLongToBeat", en: "View on HowLongToBeat" },
     back: { pt: "Voltar", en: "Back" },
     playtimePlayed: { pt: "{time} jogadas", en: "{time} played" },
     gameSections: { pt: "Seções do jogo", en: "Game sections" },

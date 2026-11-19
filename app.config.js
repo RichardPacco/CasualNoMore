@@ -3,7 +3,7 @@ export default ({ config }) => {
     ...config,
     name: "CasualNoMore",
     slug: "CasualNoMore",
-    version: "1.3.0",
+    version: "1.4.0",
     orientation: "portrait",
     icon: "./assets/images/app_icon.png",
     scheme: "casualnomore",

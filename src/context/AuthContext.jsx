@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { loadApiKey } from "@/src/config/apiKeyStore";
 
 const SAVED_ACCOUNTS_KEY = "@saved_accounts";
 const MAX_SAVED_ACCOUNTS = 3;
@@ -34,8 +35,15 @@ export function AuthProvider({ children }) {
         let mounted = true;
         (async () => {
             try {
-                console.log("[Auth] carregando steamId do AsyncStorage...");
-                const stored = await AsyncStorage.getItem("@steam_id");
+                console.log("[Auth] carregando steamId e API key do AsyncStorage...");
+                // A API key é carregada aqui, junto com o steamId: `loading` só vira
+                // false quando os dois estão prontos. Senão a tela inicial poderia
+                // ir para as tabs e chamar a Steam antes da key estar em memória.
+                // (loadApiKey já trata os próprios erros e retorna null.)
+                const [stored] = await Promise.all([
+                    AsyncStorage.getItem("@steam_id"),
+                    loadApiKey(),
+                ]);
                 console.log("[Auth] valor lido do AsyncStorage:", stored);
                 if (!mounted) return;
                 if (stored) setSteamIdState(stored);

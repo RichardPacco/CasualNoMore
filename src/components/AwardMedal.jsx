@@ -12,7 +12,8 @@ const SILVER = "#C9D3E0";
 /**
  * Medalha do card pelo nível (`award` do LibraryGame):
  * - "complete" (Steam, 100%) e "mastered" (RA, 100% hardcore): a medalha dourada;
- * - "completed" (RA, 100% softcore): a mesma medalha em prata;
+ * - "completed" (100% softcore): a mesma medalha em prata (sem uso hoje: só
+ *   hardcore conta no RA, decisão D2);
  * - "beaten" (RA, zerou): bandeira.
  * Props: award, size.
  */

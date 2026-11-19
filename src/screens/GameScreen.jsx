@@ -8,7 +8,6 @@ import AchievementsTab from './AchievementsTab';
 import GameDetailsTab from './GameDetailsTab';
 import { AppText } from "@/src/components/ui";
 import { AuthContext } from "@/src/context/AuthContext";
-import { useSettings } from "@/src/context/SettingsContext";
 import { useImageCdnFallback } from "@/src/hooks/useImageCdnFallback";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { getPlatform } from "@/src/platforms";
@@ -37,7 +36,6 @@ const placeholderImage = require("../../assets/images/placeholder_gamelist.jpg")
 export default function GameScreen({ route, navigation }) {
     const { platform: platformId = "steam", id } = route.params;
     const { accounts } = useContext(AuthContext);
-    const { settings } = useSettings();
     const isSteam = platformId === "steam";
     const platform = getPlatform(platformId);
     const connected = !!platform?.isConnected(accounts);
@@ -103,7 +101,7 @@ export default function GameScreen({ route, navigation }) {
     }
 
     // Linha abaixo do nome: tempo de jogo (Steam) ou console (RA) + conquistas
-    const { unlocked, total } = isSteam ? getGameCounts(game) : platform.toLibraryGame(game, settings.raMode);
+    const { unlocked, total } = isSteam ? getGameCounts(game) : platform.toLibraryGame(game);
     const firstMeta = isSteam
         ? (game.playtimeHidden || !(game.playtime_forever > 0)
             ? playtimeLine(game, tr)

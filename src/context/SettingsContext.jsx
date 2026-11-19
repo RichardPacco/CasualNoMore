@@ -5,11 +5,9 @@ const SETTINGS_KEY = "@settings";
 
 /**
  * Preferências do app (RETROACHIEVEMENTS_PLAN.md, seção 4.6):
- * - raMode: qual progresso do RA conta ("hardcore" ou "softcore", que soma os dois)
  * - hideHacks / hideSubsets: esconder hacks e subsets da biblioteca do RA
  */
 export const DEFAULT_SETTINGS = {
-    raMode: "hardcore",
     hideHacks: true,
     hideSubsets: false,
 };

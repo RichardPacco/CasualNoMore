@@ -98,7 +98,7 @@ Este documento serve de consulta durante a implementação. Ele está dividido e
 | Imagem do jogo | Capsule 231×87 e header 460×215 | Ícone **quadrado 96×96**; box art de tamanho variável; title/ingame são screenshots ~4:3 | O `GameCard` precisa de um modo de imagem quadrada |
 | Ícone de conquista | Ícone colorido e `icongray` | `Badge/<BadgeName>.png` e `_lock.png` | Mesma lógica: escolher pelo `achieved` |
 | Raridade | `GetGlobalAchievementPercentagesForApp` | `NumAwarded / NumDistinctPlayers` | Calcular no adaptador e gravar em `globalPercent` |
-| Modos | Um só | **Hardcore** e **softcore** | Configuração de qual modo conta no progresso |
+| Modos | Um só | **Hardcore** e **softcore** | Só hardcore conta no progresso (decisão D2) |
 | Pontos | Não tem | `Points` e `TrueRatio` (pontos ponderados pela raridade) | Mostrar na conquista, no jogo e no perfil |
 | Tipos de conquista | Não tem | progression / win_condition / missable | Etiquetas e filtro "Perdíveis" |
 | Medalha do card | 100% = medalha | mastered / completed / beaten | Medalhas diferentes por nível |
@@ -122,7 +122,7 @@ src/
     apiKeyStore.js              (passa a receber a plataforma)
   context/
     AuthContext.jsx             (contas multi-plataforma)
-    SettingsContext.jsx         ★ preferências (modo hardcore/softcore, esconder hacks/subsets)
+    SettingsContext.jsx         ★ preferências (esconder hacks/subsets)
   database/
     db.js                       (Steam, continua igual, e genericiza o pin)
     raDb.js                     ★ tabela ra_games_<ulid> e ra_friends_<ulid>
@@ -264,7 +264,7 @@ O adaptador de cada plataforma produz este objeto. É o único formato que `Game
 ```
 
 - **Steam:** `award` = `"complete"` quando 100%.
-- **RA:** `award` vem de `highestAwardKind`. `unlocked` depende do modo escolhido (hardcore → `numAwardedHardcore`, softcore → `numAwarded`).
+- **RA:** `award` vem de `highestAwardKind` (só `mastered` e `beaten-hardcore` ganham medalha). `unlocked` = `numAwardedHardcore` (só hardcore conta, decisão D2).
 
 ### 4.5 Formato comum de conquista: `Achievement`
 
@@ -276,7 +276,7 @@ Mantém os campos de hoje, que já são usados por `AchievementsTab`, `Achieveme
 | `name` | `displayName` | `Title` |
 | `description` | `description` | `Description` |
 | `icon` | ícone ou `icongray` | `Badge/<BadgeName>.png` ou `_lock.png` |
-| `achieved` | `achieved === 1` | conforme o modo: hardcore → `!!DateEarnedHardcore`; softcore → `!!(DateEarned \|\| DateEarnedHardcore)` |
+| `achieved` | `achieved === 1` | `!!DateEarnedHardcore` (só hardcore conta, decisão D2) |
 | `unlocktime` | segundos | `parseRaDate(DateEarnedHardcore \|\| DateEarned) / 1000` |
 | `globalPercent` | da API | `NumAwarded / NumDistinctPlayers * 100` (no modo hardcore: `NumAwardedHardcore / NumDistinctPlayersHardcore`) |
 | `points` ★ | — | `Points` |
@@ -285,13 +285,12 @@ Mantém os campos de hoje, que já são usados por `AchievementsTab`, `Achieveme
 | `type` ★ | — | `type` |
 | `order` ★ | — | `DisplayOrder` |
 
-> Guardar no banco **os dois estados** (`earned`, `earnedHardcore`) e calcular `achieved` na leitura. Assim, trocar entre hardcore e softcore não exige buscar de novo.
+> Só hardcore conta (decisão D2). A data de desbloqueio em softcore pode ser guardada só para exibir na ficha da conquista.
 
 ### 4.6 Preferências (`SettingsContext`, AsyncStorage `@settings`)
 
 | Chave | Valores | Padrão sugerido |
 |---|---|---|
-| `raMode` | `"hardcore"` / `"softcore"` | `"hardcore"` |
 | `hideHacks` | bool | `true` |
 | `hideSubsets` | bool | `false` |
 | `libraryPlatform` | `"all"` / `"steam"` / `"ra"` | `"all"` |
@@ -400,7 +399,7 @@ Cada etapa termina com o app funcionando e vira um commit. A Steam **não pode q
 > - `raDb.js`: a sincronização grava com `INSERT ... ON CONFLICT DO UPDATE` só nas colunas de progresso (fixado, conquistas e detalhes nunca são apagados). Tabelas criadas por `ensureCustomTable` do `db.js`, então o `clearDB` também as zera. `updateRaGameAchievements`/`updateRaGameDetails` ficam para a etapa 3.
 > - Sem `consoles.js`/`GetConsoleIDs`: o filtro de console usa os consoles que já vêm na biblioteca. Hubs (100) e Events (101) são ignorados na sincronização.
 > - Filtro de console com seleção única (Todos + cada console, com contagem). "Esconder hacks" e "Esconder subsets" ficam no mesmo painel e valem na hora (são preferências, em `SettingsContext`).
-> - `SettingsContext` (`@settings`) criado já nesta etapa: `raMode` (padrão hardcore, D2 ainda não confirmada), `hideHacks` (true) e `hideSubsets` (false) (D4).
+> - `SettingsContext` (`@settings`) criado já nesta etapa: `hideHacks` (true) e `hideSubsets` (false) (D4). Chegou a ter um `raMode` (hardcore/softcore), removido com a decisão D2 (só hardcore).
 > - Ícone quadrado (96x96) do RA nos três modos de exibição (box art só existe para os 50 jogos recentes).
 > - Tela do jogo do RA: capa (`heroImages` da plataforma), nome, console e progresso; as abas entram na etapa 3.
 
@@ -410,7 +409,7 @@ Cada etapa termina com o app funcionando e vira um commit. A Steam **não pode q
 - [x] Filtro por console e esconder hacks funcionam
 - [x] Pin funciona para os jogos do RA e persiste
 - [x] Puxar para atualizar sincroniza a plataforma ativa
-- [ ] Conferir com uma conta real se o `NumAwarded` da biblioteca já soma softcore + hardcore (necessário para o modo softcore)
+- [x] Conferido com uma conta real (79 masteries, 100% hardcore): progresso e medalhas batem com o site no modo hardcore
 
 ### Etapa 3 — Tela do jogo do RA
 
@@ -419,7 +418,7 @@ Cada etapa termina com o app funcionando e vira um commit. A Steam **não pode q
 - `src/hooks/useAchievements.js`: recebe `{ platform, id }`. No RA:
   - usa o cache se `achievementsStatus === "done"` e `achievementsSyncedAt` tem menos de X minutos
   - senão busca `getGameInfoAndUserProgress(ulid, id)`
-  - converte com `ra/adapter.toAchievements(info, settings.raMode)` e grava `achievements` + `details` + imagens
+  - converte com `ra/adapter.toAchievements(info)` e grava `achievements` + `details` + imagens
   - também atualiza `numAwarded`, `numAwardedHardcore` e `highestAwardKind` na linha do jogo, para a biblioteca refletir o resultado ao voltar
   - **não** buscar de novo ao trocar o idioma (o RA só tem inglês)
 - `src/screens/GameScreen.jsx`:
@@ -448,7 +447,6 @@ Cada etapa termina com o app funcionando e vira um commit. A Steam **não pode q
 
 **Pronto quando**
 - [ ] Abrir um jogo do RA mostra as conquistas com os ícones certos (bloqueadas em cinza)
-- [ ] Trocar hardcore/softcore muda o progresso sem buscar de novo
 - [ ] Raridade, pontos e tipos aparecem
 - [ ] Ao voltar para a biblioteca, o card mostra o progresso atualizado
 - [ ] A tela de jogo da Steam continua idêntica
@@ -467,7 +465,7 @@ Cada etapa termina com o app funcionando e vira um commit. A Steam **não pode q
   - linha de medalhas (`GetUserAwards`): masters, completions, beaten (HC/SC)
   - botão **"Conectar Steam"** / **"Conectar RetroAchievements"** para a plataforma que falta, abrindo o fluxo de login da etapa 1 já na plataforma certa
   - "Remover conta" separado por plataforma
-- Seção de **Configurações** no perfil: modo do RA (hardcore/softcore), esconder hacks, esconder subsets.
+- Seção de **Configurações** no perfil: esconder hacks, esconder subsets (os mesmos do painel de filtros).
 - `src/components/ClearDbModal.jsx`: apaga as tabelas das duas plataformas.
 - `src/components/RemoveAccountModal.jsx`: recebe `platform`.
 - `src/components/AboutModal.jsx`: crédito "Dados de conquistas retro: RetroAchievements.org".
@@ -540,7 +538,6 @@ Adicionar em `src/i18n/translations.js`, PT e EN:
 | `truePoints` | TruePoints | TruePoints |
 | `hardcore` | Hardcore | Hardcore |
 | `softcore` | Softcore | Softcore |
-| `raMode` | Modo de progresso do RA | RA progress mode |
 | `awardMastered` | Masterizado | Mastered |
 | `awardCompleted` | Completo | Completed |
 | `awardBeaten` | Zerado | Beaten |
@@ -576,7 +573,7 @@ Adicionar em `src/i18n/translations.js`, PT e EN:
 - **Usuário "Untracked"** (banido ou oculto do ranking): a API pode retornar dados limitados. Mostrar um aviso e não quebrar.
 - **Consoles "Hubs" e "Events"**: aparecem em algumas listas. Filtrar com `GetConsoleIDs?g=1` e ignorar os IDs que não são de jogos.
 - **Imagens quadradas e pequenas (96px)**: no modo grade podem ficar borradas em telas grandes. Avaliar usar `ImageBoxArt` quando já estiver no banco (vem do GameInfo e do RecentlyPlayed).
-- **Hardcore × softcore**: `NumAwarded` inclui as conquistas em hardcore. **Verificar** com uma conta real se o número da completion progress já soma os dois ou não, antes de fechar a lógica do modo softcore.
+- **Hardcore × softcore**: só hardcore conta (decisão D2), então o `NumAwarded` (soft + hard) não é usado no progresso.
 - **Privacidade**: a key do RA nunca vai para logs. Não logar URLs completas do `raFetch` (contêm `y=`).
 - **Termos de uso**: a API é pública para uso pessoal com a key do próprio usuário, que é o nosso caso. Creditar o RetroAchievements no "Sobre".
 
@@ -589,7 +586,7 @@ Confirmar antes ou durante a etapa indicada. Os padrões abaixo são as recomend
 | # | Decisão | Recomendação | Afeta a etapa |
 |---|---|---|---|
 | D1 | Biblioteca misturada com chip de plataforma **ou** uma aba por plataforma | ✅ **Decidido: separada por plataforma** (seletor no topo) | 2 |
-| D2 | O progresso padrão do RA conta só hardcore ou soft + hard | Hardcore, configurável no perfil | 3 |
+| D2 | O progresso padrão do RA conta só hardcore ou soft + hard | ✅ **Decidido: só hardcore**, sem opção de softcore | 3 |
 | D3 | Pode entrar no app só com o RA (sem Steam) | Sim | 0 e 1 |
 | D4 | Esconder hacks e subsets por padrão | ✅ **Decidido: hacks escondidos, subsets visíveis** | 2 |
 | D5 | Medalhas do RA: ícones próprios por nível ou reutilizar `completion_icon.png` com cores | Reutilizar com cores (dourada, prata, bandeira) | 2 |

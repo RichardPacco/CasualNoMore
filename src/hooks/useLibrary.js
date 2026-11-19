@@ -14,9 +14,8 @@ const ACTIVE_PLATFORM_KEY = "@library_platform";
  * de todas as plataformas conectadas sincronizam em segundo plano, e a tela
  * mostra uma por vez (`active`, escolhida no seletor e salva no aparelho).
  *
- * Os jogos vêm no formato comum (LibraryGame). No RA, o modo
- * hardcore/softcore e as opções de esconder hacks/subsets vêm das
- * preferências. As ações (atualizar, fixar, reler) vão para a plataforma do
+ * Os jogos vêm no formato comum (LibraryGame). No RA, as opções de
+ * esconder hacks/subsets vêm das preferências. As ações (atualizar, fixar, reler) vão para a plataforma do
  * próprio jogo.
  */
 export default function useLibrary() {
@@ -43,11 +42,11 @@ export default function useLibrary() {
     // ---------- jogos no formato comum ----------
     const steamGames = useMemo(() => steam.rows.map(PLATFORMS.steam.toLibraryGame), [steam.rows]);
 
-    const { raMode, hideHacks, hideSubsets } = settings;
+    const { hideHacks, hideSubsets } = settings;
     const raGames = useMemo(() => {
-        const all = ra.rows.map(row => PLATFORMS.ra.toLibraryGame(row, raMode));
+        const all = ra.rows.map(PLATFORMS.ra.toLibraryGame);
         return all.filter(g => !(hideHacks && g.flags.hack) && !(hideSubsets && g.flags.subset));
-    }, [ra.rows, raMode, hideHacks, hideSubsets]);
+    }, [ra.rows, hideHacks, hideSubsets]);
 
     // ---------- ações pela plataforma do jogo ----------
     // Os callbacks dependem só das funções (estáveis) de cada plataforma,

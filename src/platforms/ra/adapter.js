@@ -4,10 +4,10 @@ import { parseRaDate } from "@/src/utils/raDate";
 // Jogado nos últimos 14 dias = "Jogados recentemente" (como as 2 semanas da Steam)
 const RECENT_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 
-// Cache linha do banco -> LibraryGame, um por modo (hardcore/softcore).
-// As linhas são trocadas (nunca alteradas) quando o jogo muda, então a mesma
-// linha gera o mesmo objeto e o GameCard (memo) só re-renderiza o que mudou.
-const caches = { hardcore: new WeakMap(), softcore: new WeakMap() };
+// Cache linha do banco -> LibraryGame. As linhas são trocadas (nunca
+// alteradas) quando o jogo muda, então a mesma linha gera o mesmo objeto e o
+// GameCard (memo) só re-renderiza o que mudou.
+const cache = new WeakMap();
 
 /**
  * Marcações que o RA põe no título: "~Hack~", "~Homebrew~" e
@@ -22,16 +22,14 @@ export function raTitleFlags(title = "") {
 }
 
 /**
- * Medalha do card a partir do HighestAwardKind, de acordo com o modo:
- * - mastered (100% hardcore) vale nos dois modos;
- * - completed (100% softcore) e beaten softcore só contam no modo softcore.
+ * Medalha do card a partir do HighestAwardKind. Só hardcore conta (decisão
+ * D2): mastered (100% hardcore) e beaten hardcore. "completed" e "beaten
+ * softcore" são de softcore e não ganham medalha.
  */
-function awardFor(kind, mode) {
+function awardFor(kind) {
     switch (kind) {
         case "mastered": return "mastered";
-        case "completed": return mode === "softcore" ? "completed" : null;
         case "beaten-hardcore": return "beaten";
-        case "beaten-softcore": return mode === "softcore" ? "beaten" : null;
         default: return null;
     }
 }
@@ -39,16 +37,14 @@ function awardFor(kind, mode) {
 /**
  * Converte uma linha da tabela ra_games_<ulid> para o formato comum de jogo
  * da biblioteca (LibraryGame, ver RETROACHIEVEMENTS_PLAN.md, seção 4.4).
- * `mode`: "hardcore" conta só as conquistas em hardcore; "softcore" conta
- * todas (o NumAwarded do RA já inclui as de hardcore).
+ * Só as conquistas em hardcore contam no progresso (decisão D2).
  */
-export function toLibraryGame(row, mode = "hardcore") {
-    const cache = caches[mode] ?? caches.hardcore;
+export function toLibraryGame(row) {
     const cached = cache.get(row);
     if (cached) return cached;
 
     const total = row.maxPossible || 0;
-    const unlocked = Math.min(total, mode === "softcore" ? row.numAwarded || 0 : row.numAwardedHardcore || 0);
+    const unlocked = Math.min(total, row.numAwardedHardcore || 0);
     const percent = total > 0 ? (unlocked / total) * 100 : 0;
 
     // "Recente": quando jogou (RecentlyPlayed) ou, sem isso, a última conquista
@@ -66,7 +62,7 @@ export function toLibraryGame(row, mode = "hardcore") {
         unlocked,
         total,
         percent,
-        award: awardFor(row.highestAwardKind, mode),
+        award: awardFor(row.highestAwardKind),
         pinned: !!row.pinned,
         // Todo jogo da biblioteca do RA foi aberto com o emulador
         played: true,

@@ -36,7 +36,7 @@ const RaFriendRow = memo(function RaFriendRow({ friend, onPress }) {
         <Pressable
             onPress={() => onPress(friend)}
             accessibilityRole="button"
-            accessibilityLabel={friend.user}
+            accessibilityLabel={[friend.user, tr("points", { n: friend.points }), mutual ? tr("mutual") : null].filter(Boolean).join(", ")}
             style={({ pressed }) => [styles.row, { opacity: pressed ? 0.85 : 1 }]}
         >
             <Image source={{ uri: raUserPic(friend.user) }} style={styles.avatar} />

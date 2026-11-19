@@ -517,15 +517,15 @@ Cada etapa termina com o app funcionando e vira um commit. A Steam **não pode q
 - [x] Os jogos em comum aparecem com o progresso dos dois
 - [x] Os amigos da Steam continuam iguais
 
-### Etapa 6 — Acabamento
+### ✅ Etapa 6 — Acabamento
 
-- [ ] Traduções PT/EN de todos os textos novos (seção 6)
-- [ ] Estados vazios do RA: "Você ainda não jogou nada com RetroAchievements", com um link para o site
-- [ ] Mensagens de erro: key revogada (401) → aviso no perfil com "Atualizar key"; usuário "Untracked" → aviso
-- [ ] Acessibilidade: `accessibilityLabel` em selos, medalhas e etiquetas
-- [ ] Performance: com mais de 1000 jogos do RA + Steam, a busca e os filtros continuam rápidos (memoização em `useLibrary`)
-- [ ] Limpeza: código morto que sobrar do `GameList.jsx`, chaves de tradução sem uso
-- [ ] Atualizar a versão (ex.: 2.1.0) e o `android.versionCode`
+- [x] Traduções PT/EN de todos os textos novos (seção 6): conferido por script (nenhuma chave usada falta, todas com PT e EN, sem duplicadas)
+- [x] Estados vazios do RA: "Você ainda não jogou nada com RetroAchievements", com um link para o site (feito na etapa 2)
+- [x] Mensagens de erro: key revogada (401) → aviso no card do RA no Perfil com "Atualizar key" (abre o login do RA pedindo key nova, `resetKey=1`) e mensagem própria na biblioteca; usuário "Untracked" → aviso no card
+- [x] Acessibilidade: `accessibilityLabel` na etiqueta de tipo, nos números do card do RA e nas linhas de amigos do RA (as medalhas já tinham)
+- [x] Performance: sem mudança; a biblioteca já usa cache por linha (WeakMap no adaptador) e `useMemo` em filtros/busca. Não testado com mais de 1000 jogos
+- [x] Limpeza: 22 chaves de tradução sem uso, `ContextMenu.jsx`, `SearchBar.jsx` e o pacote `react-native-paper`. As bandeiras voltaram para o seletor de idioma; o `login_background.png` fica guardado, mesmo sem uso
+- [x] Atualizar a versão: 2.1.0 e `android.versionCode` 2
 
 ### Etapa 7 — Opcional, depois que tudo estiver estável
 

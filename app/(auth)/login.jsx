@@ -367,7 +367,7 @@ export default function Login() {
                     {!addMode && <PlatformPicker value={platform} onChange={setPlatform} disabled={loading} />}
 
                     {platform === "ra" ? (
-                        <RaLoginForm onConnected={finishLogin} />
+                        <RaLoginForm onConnected={finishLogin} ignoreSavedKey={params.resetKey === "1"} />
                     ) : showAccounts ? (
                         <>
                             {/* Modo contas (prancheta 03): chave salva e contas para login rápido */}

@@ -19,8 +19,9 @@ import { showToast } from "@/src/utils/toast";
  * muda quando o usuário troca de nome).
  * Com a key já salva, o passo 1 aparece concluído e o usuário da última conta
  * vem preenchido. `onConnected` é chamado depois de conectar.
+ * `ignoreSavedKey`: pede uma key nova mesmo havendo uma salva (key revogada).
  */
-export default function RaLoginForm({ onConnected }) {
+export default function RaLoginForm({ onConnected, ignoreSavedKey = false }) {
     const { t } = useLanguage();
     const { connect, savedAccounts, addSavedAccount } = useContext(AuthContext);
     const lastAccount = savedAccounts.find(a => a.platform === "ra");
@@ -33,8 +34,9 @@ export default function RaLoginForm({ onConnected }) {
 
     /** Carrega a key salva na montagem. */
     useEffect(() => {
+        if (ignoreSavedKey) return;
         loadApiKey("ra").then(key => { if (key) setSavedKey(key); });
-    }, []);
+    }, [ignoreSavedKey]);
 
     // As contas salvas podem chegar depois da montagem: preenche se vazio
     useEffect(() => {

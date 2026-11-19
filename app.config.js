@@ -3,7 +3,7 @@ export default ({ config }) => {
     ...config,
     name: "CasualNoMore",
     slug: "CasualNoMore",
-    version: "2.0.0",
+    version: "2.1.0",
     orientation: "portrait",
     icon: "./assets/images/app_icon.png",
     scheme: "casualnomore",
@@ -15,7 +15,7 @@ export default ({ config }) => {
     },
     android: {
       package: "com.casualnomore.app",
-      versionCode: 1,
+      versionCode: 2,
       adaptiveIcon: {
         foregroundImage: "./assets/images/app_icon.png",
         backgroundColor: "#0A0E15",

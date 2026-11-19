@@ -560,7 +560,7 @@ export default function GameList({ navigation }) {
                                 <AppText variant="subtitle" style={{ textAlign: "center" }}>{tr("noGamesTitle")}</AppText>
                                 <AppText variant="muted" style={{ textAlign: "center", fontSize: 14, lineHeight: 21 }}>
                                     {active === "ra"
-                                        ? (error ? tr("raConnectionError") : tr("raEmptyLibrary"))
+                                        ? (error === "key" ? tr("raKeyRevoked") : error ? tr("raConnectionError") : tr("raEmptyLibrary"))
                                         : tr("noGamesMessage")}
                                 </AppText>
                                 <Button

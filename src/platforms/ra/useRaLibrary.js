@@ -81,7 +81,8 @@ export default function useRaLibrary(account) {
         } catch (err) {
             console.warn("[RaLibrary] sincronização falhou", err?.message);
             if (!stale()) {
-                setError(true);
+                // "key" = key inválida/revogada (401); true = outro erro
+                setError(err?.status === 401 ? "key" : true);
                 if (!silent) showToast(trRef.current("raConnectionError"), "error");
             }
             return false;

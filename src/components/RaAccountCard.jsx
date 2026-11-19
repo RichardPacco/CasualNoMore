@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Image, Linking, StyleSheet, Text, View } from "react-native";
 import { getUserAwards, getUserProfile, getUserSummary, raMedia, raUserPic, raUserUrl } from "@/src/api/retroachievements";
@@ -17,6 +18,7 @@ import { COLORS, FONTS } from "@/src/theme/colors";
  */
 export default function RaAccountCard({ account, refreshKey = 0, onLoaded }) {
     const { t: tr } = useLanguage();
+    const router = useRouter();
     const [avatarFailed, setAvatarFailed] = useState(false);
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -31,7 +33,11 @@ export default function RaAccountCard({ account, refreshKey = 0, onLoaded }) {
         ]).then(([profile, summary, awards]) => {
             if (cancelled) return;
             const p = profile.value, s = summary.value, a = awards.value;
+            // 401 em qualquer chamada = a key foi revogada/trocada no site
+            const keyInvalid = [profile, summary, awards].some(r => r.status === "rejected" && r.reason?.status === 401);
             setStats({
+                keyInvalid,
+                untracked: !!Number(p?.Untracked ?? s?.Untracked ?? 0),
                 points: p?.TotalPoints ?? s?.TotalPoints,
                 truePoints: p?.TotalTruePoints ?? s?.TotalTruePoints,
                 rank: s?.Rank,
@@ -73,6 +79,22 @@ export default function RaAccountCard({ account, refreshKey = 0, onLoaded }) {
                 </View>
             </View>
 
+            {/* key revogada: leva ao login do RA para informar uma nova */}
+            {stats?.keyInvalid && (
+                <View style={styles.warning}>
+                    <Ionicons name="key-outline" size={18} color={COLORS.danger} />
+                    <Text style={styles.warningText}>{tr("raKeyRevoked")}</Text>
+                    <Button
+                        label={tr("raUpdateKey")}
+                        variant="secondary"
+                        onPress={() => router.push({ pathname: "/(auth)/login", params: { platform: "ra", mode: "add", resetKey: "1" } })}
+                    />
+                </View>
+            )}
+            {stats?.untracked && !stats?.keyInvalid && (
+                <Text style={styles.untracked}>{tr("raUntracked")}</Text>
+            )}
+
             {loading && !stats ? (
                 <ActivityIndicator size="small" color={COLORS.gold} />
             ) : (
@@ -101,7 +123,7 @@ export default function RaAccountCard({ account, refreshKey = 0, onLoaded }) {
 /** Um número do card (rótulo pequeno em cima, valor embaixo). */
 function Stat({ label, value, icon }) {
     return (
-        <View style={styles.stat}>
+        <View style={styles.stat} accessible accessibilityLabel={`${label}: ${value}`}>
             <Text style={styles.statLabel} numberOfLines={1}>{label}</Text>
             <View style={styles.statValueRow}>
                 {icon && <Ionicons name={icon} size={14} color={COLORS.gold} />}
@@ -120,6 +142,9 @@ const styles = StyleSheet.create({
     texts: { flex: 1, gap: 2 },
     platform: { fontFamily: FONTS.bodySemibold, fontSize: 13, color: COLORS.gold },
     status: { fontFamily: FONTS.body, fontSize: 12, color: COLORS.textMuted },
+    warning: { padding: 12, borderRadius: 14, backgroundColor: "rgba(248, 113, 113, 0.10)", borderWidth: 1, borderColor: "rgba(248, 113, 113, 0.35)", gap: 10 },
+    warningText: { fontFamily: FONTS.bodyMedium, fontSize: 13, lineHeight: 19, color: COLORS.text },
+    untracked: { fontFamily: FONTS.body, fontSize: 12, color: COLORS.gold },
     statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     stat: { minWidth: "30%", flexGrow: 1, padding: 10, borderRadius: 14, backgroundColor: COLORS.surface2, gap: 2 },
     statLabel: { fontFamily: FONTS.bodySemibold, fontSize: 10, letterSpacing: 1, textTransform: "uppercase", color: COLORS.textMuted },

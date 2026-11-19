@@ -22,7 +22,7 @@ export default function AchievementTypeTag({ type }) {
     const [icon, color, label] = def;
 
     return (
-        <View style={[styles.tag, { backgroundColor: `${color}1F` }]}>
+        <View style={[styles.tag, { backgroundColor: `${color}1F` }]} accessible accessibilityLabel={tr(label)}>
             <Ionicons name={icon} size={11} color={color} />
             <Text style={[styles.text, { color }]} numberOfLines={1}>{tr(label)}</Text>
         </View>

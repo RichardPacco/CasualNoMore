@@ -7,7 +7,8 @@ export default ({ config }) => {
     orientation: "portrait",
     icon: "./assets/images/app_icon.png",
     scheme: "casualnomore",
-    userInterfaceStyle: "automatic",
+    userInterfaceStyle: "dark",
+    backgroundColor: "#0A0E15",
     newArchEnabled: true,
     ios: {
       supportsTablet: true,
@@ -17,7 +18,7 @@ export default ({ config }) => {
       versionCode: 1,
       adaptiveIcon: {
         foregroundImage: "./assets/images/app_icon.png",
-        backgroundColor: "#1E1E1E",
+        backgroundColor: "#0A0E15",
       },
       edgeToEdgeEnabled: false,
     },
@@ -36,7 +37,7 @@ export default ({ config }) => {
           image: "./assets/images/app_icon.png",
           imageWidth: 160,
           resizeMode: "contain",
-          backgroundColor: "#030712",
+          backgroundColor: "#0A0E15",
         },
       ],
     ],

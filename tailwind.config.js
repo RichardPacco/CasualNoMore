@@ -1,4 +1,4 @@
-const { COLORS } = require("./src/theme/colors.js");
+const { COLORS, FONTS } = require("./src/theme/colors.js");
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
@@ -25,7 +25,35 @@ module.exports = {
         accent: COLORS.accent,
         'accent-strong': COLORS.accentStrong,
         danger: COLORS.danger,
-        warning: COLORS.warning
+        warning: COLORS.warning,
+
+        // Arcade Night (redesign)
+        bg: COLORS.bg,
+        surface: COLORS.surface,
+        'surface-2': COLORS.surface2,
+        line: COLORS.border,
+        'line-subtle': COLORS.borderSubtle,
+        ink: COLORS.text,
+        'ink-soft': COLORS.textSoft,
+        muted: COLORS.textMuted,
+        'on-accent': COLORS.onAccent,
+        gold: COLORS.gold,
+        success: COLORS.success
+      },
+      // Uma família por peso (ver FONTS em colors.js): use font-display,
+      // font-body-semibold etc. em vez de font-bold com fontes próprias.
+      fontFamily: {
+        display: [FONTS.display],
+        'display-semibold': [FONTS.displaySemibold],
+        'display-medium': [FONTS.displayMedium],
+        body: [FONTS.body],
+        'body-medium': [FONTS.bodyMedium],
+        'body-semibold': [FONTS.bodySemibold]
+      },
+      borderRadius: {
+        field: '14px',
+        row: '16px',
+        card: '20px'
       }
     },
   },

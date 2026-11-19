@@ -124,10 +124,18 @@ function GameCardComponent({ game, navigation, onOpen, onLongPress, onTogglePin,
                     {medal}
                     {pin}
                 </View>
-                <Text style={styles.meta} numberOfLines={1}>
-                    {countText ? `${totalPlaytimeText(game, tr)} · ${countText}` : totalPlaytimeText(game, tr)}
-                </Text>
-                {hasAchievements && <ProgressBar value={percent} height={4} style={{ marginTop: 4 }} />}
+                {/* sem tempo de jogo: contagem de conquistas e a barra com o % entre parênteses */}
+                {hasAchievements && (
+                    <>
+                        <Text style={styles.count} numberOfLines={1}>{tr("achievementsShort", { unlocked, total })}</Text>
+                        <View style={styles.barRow}>
+                            <ProgressBar value={percent} height={4} style={{ flex: 1 }} />
+                            <Text style={[styles.count, complete && { color: COLORS.gold }]}>
+                                ({percent.toFixed(1)}%)
+                            </Text>
+                        </View>
+                    </>
+                )}
             </Pressable>
         );
     }
@@ -198,6 +206,7 @@ const styles = StyleSheet.create({
         borderColor: "transparent",
         gap: 3,
     },
+    barRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 2 },
 
     // --- grade ---
     tile: {

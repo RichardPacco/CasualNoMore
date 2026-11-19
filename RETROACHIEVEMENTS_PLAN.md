@@ -411,7 +411,7 @@ Cada etapa termina com o app funcionando e vira um commit. A Steam **não pode q
 - [x] Puxar para atualizar sincroniza a plataforma ativa
 - [x] Conferido com uma conta real (79 masteries, 100% hardcore): progresso e medalhas batem com o site no modo hardcore
 
-### Etapa 3 — Tela do jogo do RA
+### ✅ Etapa 3 — Tela do jogo do RA
 
 **Arquivos**
 
@@ -445,11 +445,19 @@ Cada etapa termina com o app funcionando e vira um commit. A Steam **não pode q
   - Vitória → dourado, ícone `trophy-outline`
   - Perdível → vermelho, ícone `alert-circle-outline`
 
+> **Feito.** O que mudou em relação ao planejado:
+> - A busca fica num hook só, `src/platforms/ra/useRaGame.js`, chamado pela `GameScreen` e repassado às duas abas (uma chamada para Conquistas e Detalhes). Cache de 2 minutos; o botão de atualizar força a busca. O `useAchievements` da Steam ficou intacto (recebe `null` em jogos do RA).
+> - `raDb.saveRaGameInfo` grava conquistas, detalhes, imagens grandes e o progresso de uma vez (no lugar de `updateRaGameAchievements`/`updateRaGameDetails`).
+> - Adaptador: `toAchievements(info)` e `toDetails(info)`. O tipo da conquista é lido de forma tolerante (`type`/`Type`, qualquer caixa).
+> - Sem selo **HC**: só hardcore conta (D2). Conquista só em softcore aparece como "Só em softcore (não conta)".
+> - Chip **"Perdíveis"** é um liga/desliga que combina com Todas/Desbloqueadas/Bloqueadas (ex.: perdíveis bloqueadas), logo depois de "Todas".
+> - Aba Detalhes do RA em `src/screens/RaGameDetailsTab.jsx` (a da Steam continua em `GameDetailsTab.jsx`).
+
 **Pronto quando**
-- [ ] Abrir um jogo do RA mostra as conquistas com os ícones certos (bloqueadas em cinza)
-- [ ] Raridade, pontos e tipos aparecem
-- [ ] Ao voltar para a biblioteca, o card mostra o progresso atualizado
-- [ ] A tela de jogo da Steam continua idêntica
+- [x] Abrir um jogo do RA mostra as conquistas com os ícones certos (bloqueadas em cinza)
+- [x] Raridade, pontos e tipos aparecem
+- [x] Ao voltar para a biblioteca, o card mostra o progresso atualizado
+- [x] A tela de jogo da Steam continua idêntica
 
 ### Etapa 4 — Perfil e conexão da segunda plataforma
 

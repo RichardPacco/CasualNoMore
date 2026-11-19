@@ -3,6 +3,8 @@ import * as WebBrowser from "expo-web-browser";
 import { useRef, useState } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import Pressable from "@/src/components/ui/Pressable";
+import { raAchievementUrl } from "@/src/api/retroachievements";
+import AchievementTypeTag from "@/src/components/AchievementTypeTag";
 import { BottomSheet, rarityTier } from "@/src/components/ui";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS, FONTS } from "@/src/theme/colors";
@@ -18,7 +20,10 @@ function openInBrowser(url) {
 /**
  * Painel de uma conquista (redesign, prancheta 08): ícone grande com a cor da
  * raridade, nome, raridade e % dos jogadores, descrição, status e atalhos
- * para procurar um guia (Google, ChatGPT e guias da comunidade Steam).
+ * para procurar um guia (Google e ChatGPT).
+ * Conquistas do RetroAchievements (têm `points`) mostram também pontos,
+ * TruePoints, tipo, o desbloqueio em softcore (que não conta) e o link da
+ * conquista no site do RA.
  * Props: achievement (item da lista ou null), game, onClose.
  */
 export default function AchievementSheet({ achievement, game, onClose }) {
@@ -30,19 +35,24 @@ export default function AchievementSheet({ achievement, game, onClose }) {
     const tier = rarityTier(item?.globalPercent);
     const percentText = formatPercent(item?.globalPercent, language);
 
-    const iconUri = item && iconFailed
+    const isRa = item?.points !== undefined;
+    // CDN alternativa só existe para os ícones da Steam
+    const iconUri = item && iconFailed && !isRa
         ? achievementIconUri(game?.appid, (item.icon || "").split("/").pop(), true)
         : item?.icon;
 
     const status = !item ? "" : item.achieved
         ? (item.unlocktime ? tr("unlockedAt", { date: formatDate(item.unlocktime) }) : tr("achFilterUnlocked"))
-        : tr("achLocked");
+        : item.softcoreUnlocktime
+            ? tr("unlockedSoftcoreAt", { date: formatDate(item.softcoreUnlocktime) })
+            : tr("achLocked");
 
     // Busca pelo nome do jogo + conquista (mesma query do menu antigo)
     const query = item ? encodeURIComponent(`${game?.name} ${item.name} Achievement Guide`) : "";
     const links = item ? [
         { key: "google", label: tr("searchGoogle"), icon: "logo-google", url: `https://www.google.com/search?q=${query}` },
-        { key: "chatgpt", label: tr("searchChatGPT"), icon: "sparkles-outline", url: `https://chatgpt.com/?q=${query}` }
+        { key: "chatgpt", label: tr("searchChatGPT"), icon: "sparkles-outline", url: `https://chatgpt.com/?q=${query}` },
+        ...(isRa ? [{ key: "ra", label: tr("viewOnRa"), icon: "game-controller-outline", url: raAchievementUrl(item.id) }] : []),
     ] : [];
 
     return (
@@ -76,6 +86,15 @@ export default function AchievementSheet({ achievement, game, onClose }) {
 
                     <View style={{ gap: 6 }}>
                         <Text style={styles.desc}>{item.description || tr("hiddenDescription")}</Text>
+                        {isRa && (
+                            <View style={styles.raMeta}>
+                                <Text style={styles.points}>
+                                    {tr("points", { n: item.points })}
+                                    {item.trueRatio > 0 ? ` · ${tr("truePointsValue", { n: item.trueRatio })}` : ""}
+                                </Text>
+                                <AchievementTypeTag type={item.type} />
+                            </View>
+                        )}
                         <Text style={[styles.status, { color: item.achieved ? COLORS.accent : COLORS.textMuted }]}>
                             {status} · {game?.name}
                         </Text>
@@ -133,6 +152,8 @@ const styles = StyleSheet.create({
     },
     desc: { fontFamily: FONTS.body, fontSize: 15, lineHeight: 23, color: COLORS.textSoft },
     status: { fontFamily: FONTS.body, fontSize: 13 },
+    raMeta: { flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" },
+    points: { fontFamily: FONTS.bodySemibold, fontSize: 13, color: COLORS.gold },
     label: {
         fontFamily: FONTS.bodySemibold,
         fontSize: 12,

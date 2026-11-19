@@ -160,6 +160,47 @@ export async function deleteRaGamesNotPresent(ulid, presentIds) {
     return toDelete;
 }
 
+/**
+ * Grava o que a tela do jogo buscou (GetGameInfoAndUserProgress): conquistas
+ * já convertidas, detalhes, imagens grandes e o progresso atualizado (para a
+ * biblioteca refletir o resultado ao voltar). Retorna a linha nova.
+ */
+export async function saveRaGameInfo(ulid, gameId, { achievements, details, info }) {
+    const table = await ensureRaTable(ulid);
+    const db = await openDB();
+    const unlockedHardcore = (achievements || []).filter(a => a.achieved).length;
+    await db.runAsync(
+        `UPDATE ${table} SET
+            achievements = ?, achievementsStatus = 'done', achievementsSyncedAt = ?,
+            details = ?,
+            imageIcon = COALESCE(?, imageIcon),
+            imageTitle = COALESCE(?, imageTitle),
+            imageIngame = COALESCE(?, imageIngame),
+            imageBoxArt = COALESCE(?, imageBoxArt),
+            maxPossible = ?,
+            numAwardedHardcore = ?,
+            numAwarded = MAX(numAwarded, ?),
+            highestAwardKind = ?,
+            highestAwardDate = ?
+        WHERE gameId = ?`,
+        [
+            JSON.stringify(achievements || []), Date.now(),
+            details ? JSON.stringify(details) : null,
+            info?.ImageIcon ?? null,
+            info?.ImageTitle ?? null,
+            info?.ImageIngame ?? null,
+            info?.ImageBoxArt ?? null,
+            (achievements || []).length,
+            unlockedHardcore,
+            Number(info?.NumAwardedToUser) || 0,
+            info?.HighestAwardKind ?? null,
+            info?.HighestAwardDate ?? null,
+            gameId,
+        ]
+    );
+    return getRaGame(ulid, gameId);
+}
+
 /** Fixa/desfixa um jogo. Retorna o novo valor (0 ou 1). */
 export async function toggleRaPin(ulid, gameId) {
     try {

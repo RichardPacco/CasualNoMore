@@ -1,6 +1,7 @@
 import AchievementSheet from "@/src/components/AchievementSheet";
+import AchievementTypeTag from "@/src/components/AchievementTypeTag";
 import RadioSheet from "@/src/components/RadioSheet";
-import { AppText, Chip, ProgressBar, TextField, rarityColor } from "@/src/components/ui";
+import { AppText, Button, Chip, ProgressBar, TextField, rarityColor } from "@/src/components/ui";
 import useAchievements from "@/src/hooks/useAchievements";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS, FONTS } from "@/src/theme/colors";
@@ -28,17 +29,21 @@ function iconFallbackUri(uri, appid) {
  * raridade (apagado e com cadeado se bloqueada), nome, descrição, data de
  * desbloqueio e etiqueta com o % global. Toque ou toque longo abre o painel
  * da conquista com os atalhos de guia.
+ * Conquistas do RetroAchievements (têm `points`) mostram também os pontos e
+ * o tipo (Progressão, Vitória, Perdível).
  */
 function AchievementRowComponent({ item, game, onOpen }) {
     const { t: tr, language } = useLanguage();
     const [iconFailed, setIconFailed] = useState(false);
-    const iconUri = iconFailed ? iconFallbackUri(item.icon, game?.appid) : item.icon;
+    const isRa = item.points !== undefined;
+    // CDN alternativa só existe para os ícones da Steam
+    const iconUri = iconFailed && !isRa ? iconFallbackUri(item.icon, game?.appid) : item.icon;
 
     const rarity = rarityColor(item.globalPercent);
     const percentText = formatPercent(item.globalPercent, language);
     const status = item.achieved
         ? (item.unlocktime ? tr("unlockedAt", { date: formatDate(item.unlocktime) }) : tr("achFilterUnlocked"))
-        : tr("achLocked");
+        : item.softcoreUnlocktime ? tr("unlockedSoftcore") : tr("achLocked");
 
     return (
         <Pressable
@@ -69,6 +74,14 @@ function AchievementRowComponent({ item, game, onOpen }) {
                 <Text style={[styles.status, { color: item.achieved ? COLORS.accent : COLORS.textMuted }]}>
                     {status}
                 </Text>
+                {isRa && (item.type || item.points > 0) && (
+                    <View style={styles.raMeta}>
+                        {item.points > 0 && (
+                            <Text style={styles.points}>{tr("points", { n: item.points })}</Text>
+                        )}
+                        <AchievementTypeTag type={item.type} />
+                    </View>
+                )}
             </View>
 
             <Text style={[styles.pill, { color: rarity, backgroundColor: `${rarity}1F` }]}>{percentText}</Text>
@@ -78,19 +91,32 @@ function AchievementRowComponent({ item, game, onOpen }) {
 
 const AchievementRow = memo(AchievementRowComponent);
 
+/** Conquista perdível (RetroAchievements). */
+const isMissable = (a) => a.type === "missable";
+
 /**
  * Aba Conquistas (redesign, prancheta 07): progresso, busca, ordenação,
  * atualizar, chips de filtro e a lista; tocar numa conquista abre o painel
- * dela com os atalhos de guia (Google, ChatGPT, comunidade Steam).
+ * dela com os atalhos de guia (Google, ChatGPT).
+ *
+ * Steam: busca as conquistas aqui (useAchievements). RetroAchievements: a
+ * GameScreen já buscou (useRaGame) e manda em `data`; aí aparecem os pontos,
+ * o filtro "Perdíveis" e a ordem do autor do set.
  */
-export default function AchievementsTab({ game }) {
+export default function AchievementsTab({ game, data = null }) {
     const { steamId } = useContext(AuthContext);
-    const { mergedCheevos, loading, refresh, unlocked, total, percent } = useAchievements(game);
+    const isRa = !!data;
+    // sem `data` (Steam) busca aqui; com `data` o hook da Steam não faz nada
+    const steamData = useAchievements(isRa ? null : game);
+    const { mergedCheevos, loading, refresh, unlocked, total, percent } = data ?? steamData;
     const { t: tr } = useLanguage();
 
     // ---------- state ----------
     const [filter, setFilter] = useState("all");
-    const [sort, setSort] = useState("rarity");
+    // RA: mostrar só as perdíveis; combina com o filtro de status (ex.: perdíveis bloqueadas)
+    const [onlyMissable, setOnlyMissable] = useState(false);
+    // RA: ordem do autor do set (DisplayOrder); Steam: raridade
+    const [sort, setSort] = useState(isRa ? "default" : "rarity");
     const [sortVisible, setSortVisible] = useState(false);
     const [showTopButton, setShowTopButton] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
@@ -104,7 +130,10 @@ export default function AchievementsTab({ game }) {
         setRefreshing(true);
         try {
             const merged = await refresh();
-            if (merged && steamId) {
+            if (isRa) {
+                // useRaGame já grava no banco
+                if (!merged) showToast(tr("gameRefreshFailed"), "error");
+            } else if (merged && steamId) {
                 // Atualiza só as conquistas: a cópia do jogo recebida pela rota pode
                 // estar desatualizada (ex.: pinned mudou) e não deve sobrescrever o resto.
                 await updateGameAchievements(steamId, game.appid, merged);
@@ -115,44 +144,56 @@ export default function AchievementsTab({ game }) {
         } finally {
             setRefreshing(false);
         }
-    }, [refresh, steamId, game?.appid, tr]);
+    }, [refresh, isRa, steamId, game?.appid, tr]);
 
+    // RA: chip "Perdíveis" só se o set tiver conquistas perdíveis
+    const hasMissable = isRa && mergedCheevos.some(a => a.type === "missable");
+    const missableOn = hasMissable && onlyMissable;
+
+    // Filtro de status (um por vez); "Perdíveis" é um liga/desliga à parte
     const filterOptions = useMemo(() => [
         { label: tr("achFilterAll"), value: "all" },
         { label: tr("achFilterUnlocked"), value: "unlocked" },
         { label: tr("achFilterLocked"), value: "locked" },
     ], [tr]);
 
-    const sortOptions = useMemo(() => [
+    const sortOptions = useMemo(() => isRa ? [
+        { label: tr("achSortDefault"), value: "default" },
+        { label: tr("achSortRarity"), value: "rarity" },
+        { label: tr("achSortPoints"), value: "points" },
+        { label: tr("achSortUnlock"), value: "unlock" },
+        { label: tr("sortName"), value: "name" },
+    ] : [
         { label: tr("achSortRarity"), value: "rarity" },
         { label: tr("achSortUnlock"), value: "unlock" },
         { label: tr("sortName"), value: "name" },
         { label: tr("achSortReverse"), value: "reverse" },
-    ], [tr]);
+    ], [tr, isRa]);
 
+    /** Regra do filtro de status. */
+    const statusRule = useCallback((value) => {
+        switch (value) {
+            case "unlocked": return a => a.achieved;
+            case "locked": return a => !a.achieved;
+            default: return () => true;
+        }
+    }, []);
+
+    // Contagens: as de status respeitam o "Perdíveis" ligado, e a de
+    // "Perdíveis" respeita o status escolhido (sempre batem com a lista)
     const filterCounts = useMemo(() => {
-        /** Conta as conquistas de cada opção de filtro (desbloqueadas/bloqueadas). */
-        const countFor = (value) => {
-            switch (value) {
-                case "unlocked": return mergedCheevos.filter(a => a.achieved).length;
-                case "locked": return mergedCheevos.filter(a => !a.achieved).length;
-                default: return mergedCheevos.length;
-            }
-        };
-        return filterOptions.reduce((acc, opt) => {
-            acc[opt.value] = countFor(opt.value);
+        const base = missableOn ? mergedCheevos.filter(isMissable) : mergedCheevos;
+        const counts = filterOptions.reduce((acc, opt) => {
+            acc[opt.value] = base.filter(statusRule(opt.value)).length;
             return acc;
         }, {});
-    }, [mergedCheevos, filterOptions]);
+        counts.missable = mergedCheevos.filter(statusRule(filter)).filter(isMissable).length;
+        return counts;
+    }, [mergedCheevos, filterOptions, statusRule, filter, missableOn]);
 
     const filteredCheevos = useMemo(() => {
-        let result = mergedCheevos;
-
-        switch (filter) {
-            case "unlocked": result = result.filter(a => a.achieved); break;
-            case "locked": result = result.filter(a => !a.achieved); break;
-            default: break;
-        }
+        let result = mergedCheevos.filter(statusRule(filter));
+        if (missableOn) result = result.filter(isMissable);
 
         if (debouncedQuery && debouncedQuery.trim().length > 0) {
             const q = debouncedQuery.trim().toLowerCase();
@@ -175,11 +216,15 @@ export default function AchievementsTab({ game }) {
             case "reverse":
                 result = [...result].reverse();
                 break;
+            case "points":
+                result = [...result].sort((a, b) => (b.points || 0) - (a.points || 0));
+                break;
+            // "default": a ordem em que a lista já vem (RA: a do autor do set)
             default: break;
         }
 
         return result;
-    }, [mergedCheevos, filter, sort, debouncedQuery]);
+    }, [mergedCheevos, statusRule, filter, missableOn, sort, debouncedQuery]);
 
     // debounce search query
     useEffect(() => {
@@ -202,12 +247,17 @@ export default function AchievementsTab({ game }) {
     }
 
     if (mergedCheevos.length === 0) {
+        // RA: a busca falhou e não há cache -> erro com "tentar de novo"
+        const failed = isRa && data.error;
         return (
             <View style={styles.center}>
                 <View style={styles.emptyIcon}>
-                    <Ionicons name="trophy-outline" size={28} color={COLORS.accent} />
+                    <Ionicons name={failed ? "cloud-offline-outline" : "trophy-outline"} size={28} color={COLORS.accent} />
                 </View>
-                <AppText variant="body" style={{ textAlign: "center" }}>{tr("noAchievements")}</AppText>
+                <AppText variant="body" style={{ textAlign: "center" }}>
+                    {failed ? tr("raConnectionError") : tr("noAchievements")}
+                </AppText>
+                {failed && <Button label={tr("profileRetry")} onPress={onRefresh} loading={refreshing} />}
             </View>
         );
     }
@@ -224,7 +274,14 @@ export default function AchievementsTab({ game }) {
                             <Text style={styles.progressBig}>{unlocked}</Text>
                             <AppText variant="muted" style={{ fontSize: 14 }}>{tr("achProgressOf", { total })}</AppText>
                         </View>
-                        <Text style={styles.progressPct}>{Math.round(percent)}%</Text>
+                        <View style={{ alignItems: "flex-end" }}>
+                            <Text style={styles.progressPct}>{Math.round(percent)}%</Text>
+                            {isRa && data.points > 0 && (
+                                <AppText variant="muted" style={{ fontSize: 12 }}>
+                                    {tr("pointsOf", { earned: data.pointsEarned, total: data.points })}
+                                </AppText>
+                            )}
+                        </View>
                     </View>
                     <ProgressBar value={percent} height={6} />
                 </View>
@@ -283,14 +340,27 @@ export default function AchievementsTab({ game }) {
                     contentContainerStyle={styles.chips}
                     keyboardShouldPersistTaps="handled"
                 >
-                    {filterOptions.map(opt => (
-                        <Chip
-                            key={opt.value}
-                            label={opt.label}
-                            count={filterCounts[opt.value]}
-                            selected={filter === opt.value}
-                            onPress={() => setFilter(opt.value)}
-                        />
+                    {filterOptions.map((opt, index) => (
+                        <View key={opt.value} style={styles.chipGroup}>
+                            <Chip
+                                label={opt.label}
+                                count={filterCounts[opt.value]}
+                                selected={filter === opt.value}
+                                onPress={() => setFilter(opt.value)}
+                            />
+                            {/* "Perdíveis" logo depois de "Todas", para aparecer sem rolar */}
+                            {index === 0 && hasMissable && (
+                                <Chip
+                                    label={tr("filterMissable")}
+                                    count={filterCounts.missable}
+                                    selected={missableOn}
+                                    onPress={() => setOnlyMissable(v => !v)}
+                                    accessibilityRole="switch"
+                                    accessibilityState={{ checked: missableOn }}
+                                    style={!missableOn && styles.missableChip}
+                                />
+                            )}
+                        </View>
                     ))}
                 </ScrollView>
             </View>
@@ -386,6 +456,9 @@ const styles = StyleSheet.create({
     },
     // mesmo espaçamento dos chips da biblioteca
     chips: { gap: 8, paddingVertical: 5, paddingRight: 20 },
+    chipGroup: { flexDirection: "row", gap: 8 },
+    // "Perdíveis" desligado: borda vermelha, a cor da etiqueta de perdível
+    missableChip: { borderColor: COLORS.danger },
     // espaço no fim para a lista não ficar atrás da tab bar flutuante
     listContent: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 110 },
     row: {
@@ -414,6 +487,8 @@ const styles = StyleSheet.create({
     name: { fontFamily: FONTS.bodySemibold, fontSize: 15, color: COLORS.text },
     desc: { fontFamily: FONTS.body, fontSize: 12, lineHeight: 17, color: COLORS.textMuted },
     status: { fontFamily: FONTS.bodyMedium, fontSize: 11 },
+    raMeta: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 1 },
+    points: { fontFamily: FONTS.bodySemibold, fontSize: 11, color: COLORS.gold },
     pill: {
         fontFamily: FONTS.bodySemibold,
         fontSize: 12,

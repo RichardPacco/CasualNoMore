@@ -1,4 +1,4 @@
-import { raMedia } from "@/src/api/retroachievements";
+import { raBadge, raMedia } from "@/src/api/retroachievements";
 import { parseRaDate } from "@/src/utils/raDate";
 
 // Jogado nos últimos 14 dias = "Jogados recentemente" (como as 2 semanas da Steam)
@@ -75,4 +75,71 @@ export function toLibraryGame(row) {
     };
     cache.set(row, game);
     return game;
+}
+
+/**
+ * Tipo da conquista normalizado: "progression", "win_condition", "missable"
+ * ou null. Aceita variações de nome do campo e de escrita ("Missable",
+ * "win-condition"...), para não perder a etiqueta se a API mudar a forma.
+ */
+function achievementType(a) {
+    const raw = a?.type ?? a?.Type ?? a?.AchievementType ?? null;
+    if (!raw) return null;
+    const value = String(raw).trim().toLowerCase().replace(/[\s-]+/g, "_");
+    return value === "progression" || value === "win_condition" || value === "missable" ? value : null;
+}
+
+/**
+ * Converte as conquistas de GetGameInfoAndUserProgress para o formato comum
+ * (o mesmo da Steam: name, description, icon, achieved, unlocktime,
+ * globalPercent), mais os campos do RA: points, trueRatio, type, order e
+ * softcoreUnlocktime. Só hardcore conta (decisão D2): `achieved` = desbloqueada
+ * em hardcore; a raridade é entre os jogadores de hardcore.
+ * Volta na ordem do autor do set (DisplayOrder).
+ */
+export function toAchievements(info) {
+    const list = Object.values(info?.Achievements ?? {});
+    const playersHardcore = Number(info?.NumDistinctPlayersHardcore) || Number(info?.NumDistinctPlayers) || 0;
+
+    return list
+        .map(a => {
+            const hardcoreAt = parseRaDate(a.DateEarnedHardcore);
+            const softcoreAt = parseRaDate(a.DateEarned);
+            const achieved = !!hardcoreAt;
+            const awardedHardcore = Number(a.NumAwardedHardcore) || 0;
+            return {
+                apiname: String(a.ID),
+                id: Number(a.ID),
+                name: a.Title || "",
+                description: a.Description || "",
+                icon: raBadge(a.BadgeName, !achieved),
+                achieved,
+                unlocktime: achieved ? Math.floor(hardcoreAt / 1000) : 0,
+                // desbloqueada só em softcore: não conta, mas aparece na ficha
+                softcoreUnlocktime: !achieved && softcoreAt ? Math.floor(softcoreAt / 1000) : 0,
+                globalPercent: playersHardcore > 0 ? Math.min(100, (awardedHardcore / playersHardcore) * 100) : 0,
+                points: Number(a.Points) || 0,
+                trueRatio: Number(a.TrueRatio) || 0,
+                type: achievementType(a),
+                order: Number(a.DisplayOrder) || 0,
+            };
+        })
+        .sort((a, b) => a.order - b.order || a.id - b.id);
+}
+
+/** Informações do jogo (aba Detalhes) a partir de GetGameInfoAndUserProgress. */
+export function toDetails(info) {
+    if (!info) return null;
+    return {
+        consoleName: info.ConsoleName || null,
+        publisher: info.Publisher || null,
+        developer: info.Developer || null,
+        genre: info.Genre || null,
+        released: info.Released || null,
+        releasedGranularity: info.ReleasedAtGranularity || null,
+        guideUrl: info.GuideURL || null,
+        forumTopicId: Number(info.ForumTopicID) || null,
+        players: Number(info.NumDistinctPlayers) || 0,
+        playersHardcore: Number(info.NumDistinctPlayersHardcore) || 0,
+    };
 }

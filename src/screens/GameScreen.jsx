@@ -6,11 +6,14 @@ import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
 import Pressable from "@/src/components/ui/Pressable";
 import AchievementsTab from './AchievementsTab';
 import GameDetailsTab from './GameDetailsTab';
+import RaGameDetailsTab from './RaGameDetailsTab';
+import { raMedia } from "@/src/api/retroachievements";
 import { AppText } from "@/src/components/ui";
 import { AuthContext } from "@/src/context/AuthContext";
 import { useImageCdnFallback } from "@/src/hooks/useImageCdnFallback";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { getPlatform } from "@/src/platforms";
+import useRaGame from "@/src/platforms/ra/useRaGame";
 import { COLORS, FONTS } from "@/src/theme/colors";
 import { getGameCounts } from "@/src/utils/achievements";
 import { formatDuration, playtimeLine } from "@/src/utils/playtime";
@@ -29,9 +32,9 @@ const placeholderImage = require("../../assets/images/placeholder_gamelist.jpg")
  * recente, e nenhuma cópia antiga do jogo viaja pela navegação para depois
  * sobrescrever dados mais novos.
  *
- * A capa vem da plataforma (heroImages). No RetroAchievements, por enquanto,
- * só capa, nome e progresso: as abas (conquistas e detalhes) entram na
- * etapa 3 do RETROACHIEVEMENTS_PLAN.md.
+ * A capa vem da plataforma (heroImages). No RetroAchievements a tela busca
+ * o jogo uma vez (useRaGame) e repassa conquistas e detalhes para as duas
+ * abas; a capa é a tela de título, com o ícone do jogo ao lado do nome.
  */
 export default function GameScreen({ route, navigation }) {
     const { platform: platformId = "steam", id } = route.params;
@@ -59,8 +62,15 @@ export default function GameScreen({ route, navigation }) {
         return () => { cancelled = true; };
     }, [connected, platform, accounts, id]);
 
+    // RA: conquistas, detalhes e a linha atualizada (com as imagens grandes)
+    const raGame = useRaGame(!isSteam ? game : null, accounts.ra);
+    // linha mostrada: no RA a que o useRaGame atualizou, mantendo o fixado local
+    const shown = !isSteam && raGame.row && game
+        ? { ...raGame.row, pinned: game.pinned }
+        : game;
+
     // Capa: lista de URLs a tentar em ordem, montada pela plataforma
-    const headerCandidates = game && platform?.heroImages ? platform.heroImages(game) : [];
+    const headerCandidates = shown && platform?.heroImages ? platform.heroImages(shown) : [];
     const { stage, onError } = useImageCdnFallback(
         `${platformId}:${id}|${headerCandidates.join("|")}`,
         headerCandidates.length
@@ -101,13 +111,16 @@ export default function GameScreen({ route, navigation }) {
     }
 
     // Linha abaixo do nome: tempo de jogo (Steam) ou console (RA) + conquistas
-    const { unlocked, total } = isSteam ? getGameCounts(game) : platform.toLibraryGame(game);
+    const { unlocked, total } = isSteam ? getGameCounts(game) : platform.toLibraryGame(shown);
     const firstMeta = isSteam
         ? (game.playtimeHidden || !(game.playtime_forever > 0)
             ? playtimeLine(game, tr)
             : tr("playtimePlayed", { time: formatDuration(game.playtime_forever) }))
-        : game.consoleName;
-    const name = isSteam ? game.name : game.title;
+        : shown.consoleName;
+    const name = isSteam ? game.name : shown.title;
+    // as abas usam `name` (busca de guias, HowLongToBeat)
+    const tabGame = isSteam ? game : { ...shown, name };
+    const raIcon = !isSteam ? raMedia(shown.imageIcon) : null;
     const meta = [firstMeta, total > 0 ? tr("achievementsShort", { unlocked, total }) : null]
         .filter(Boolean)
         .join(" · ");
@@ -153,20 +166,16 @@ export default function GameScreen({ route, navigation }) {
                     </Pressable>
                 </View>
                 {!compact && (
-                    <View style={styles.heroTexts}>
-                        <AppText variant="title" style={styles.heroTitle} numberOfLines={2}>{name}</AppText>
-                        <Text style={styles.heroMeta} numberOfLines={1}>{meta}</Text>
+                    <View style={styles.heroTextsRow}>
+                        {raIcon && <Image source={{ uri: raIcon }} style={styles.heroIcon} />}
+                        <View style={styles.heroTexts}>
+                            <AppText variant="title" style={styles.heroTitle} numberOfLines={2}>{name}</AppText>
+                            <Text style={styles.heroMeta} numberOfLines={1}>{meta}</Text>
+                        </View>
                     </View>
                 )}
             </View>
 
-            {!isSteam ? (
-                <View style={styles.fallbackBody}>
-                    <AppText variant="muted" style={{ textAlign: "center", fontSize: 14, lineHeight: 21 }}>
-                        {tr("gameScreenRaSoon")}
-                    </AppText>
-                </View>
-            ) : (
             <Tab.Navigator
                 tabBar={(props) => <SegmentedTabBar {...props} label={tr("gameSections")} />}
                 screenOptions={{ sceneStyle: { backgroundColor: COLORS.bg } }}
@@ -175,13 +184,14 @@ export default function GameScreen({ route, navigation }) {
                 })}
             >
                 <Tab.Screen name="Detalhes" options={{ title: tr("details") }}>
-                    {() => <GameDetailsTab game={game} navigation={navigation} />}
+                    {() => isSteam
+                        ? <GameDetailsTab game={game} navigation={navigation} />
+                        : <RaGameDetailsTab game={tabGame} details={raGame.details} loading={raGame.loading} />}
                 </Tab.Screen>
                 <Tab.Screen name="Conquistas" options={{ title: tr("achievements") }}>
-                    {() => <AchievementsTab game={game} />}
+                    {() => <AchievementsTab game={tabGame} data={isSteam ? null : raGame} />}
                 </Tab.Screen>
             </Tab.Navigator>
-            )}
         </View>
     );
 }
@@ -237,7 +247,10 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
-    heroTexts: { paddingHorizontal: 20, paddingBottom: 6, gap: 2 },
+    heroTextsRow: { flexDirection: "row", alignItems: "flex-end", gap: 12, paddingHorizontal: 20, paddingBottom: 6 },
+    heroTexts: { flex: 1, minWidth: 0, gap: 2 },
+    // ícone do jogo (RA) ao lado do nome
+    heroIcon: { width: 56, height: 56, borderRadius: 12, borderWidth: 2, borderColor: COLORS.bg, backgroundColor: COLORS.surface2 },
     heroTitle: {
         fontSize: 28,
         textShadowColor: "rgba(0, 0, 0, 0.7)",

@@ -1,6 +1,6 @@
 import { getGameStoreDetails } from "@/src/api/steam";
 import { AuthContext } from "@/src/context/AuthContext";
-import { getGame, parseJson, saveGame } from "@/src/database/db";
+import { getGame, parseJson, updateGameDetails } from "@/src/database/db";
 import { useImageCdnFallback } from "@/src/hooks/useImageCdnFallback";
 import { getLanguageStore } from "@/src/i18n/langStore";
 import { useLanguage } from "@/src/i18n/LanguageContext";
@@ -10,6 +10,8 @@ import { useContext, useEffect, useState } from 'react';
 import { Image, Linking, ScrollView, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import RenderHTML from 'react-native-render-html';
 import { headerUri } from "@/src/utils/cdn";
+
+const placeholderImage = require("../../assets/images/placeholder_gamelist.jpg");
 
 
 /**
@@ -27,7 +29,20 @@ export default function GameDetailsTab({ game }) {
 
     const [showFull, setShowFull] = useState(false);
 
-    const { stage, onError } = useImageCdnFallback(game?.appid);
+    // Header: URL da loja salva (GetItems) ou a que o appdetails traz, ambas com
+    // hash (funcionam para jogos novos); depois os CDNs antigos; senão placeholder.
+    const headerCandidates = [
+        ...new Set([
+            game?.headerUrl,
+            gameDetail?.header_image,
+            headerUri(game?.appid, false),
+            headerUri(game?.appid, true),
+        ].filter(Boolean)),
+    ];
+    const { stage, onError } = useImageCdnFallback(
+        `${game?.appid}|${headerCandidates.join("|")}`,
+        headerCandidates.length
+    );
 
     useEffect(() => {
         if (!game) return;
@@ -35,7 +50,9 @@ export default function GameDetailsTab({ game }) {
         let cancelled = false;
         const currentLang = getLanguageStore();
         const details = parseJson(game?.details);
-        const staleGameDetails = details && game.lang !== currentLang;
+        // Os detalhes têm o próprio idioma (detailsLang), separado do lang da
+        // linha, que vale para schema/conquistas.
+        const staleGameDetails = details && game.detailsLang !== currentLang;
 
         /**
          * Carrega os detalhes da loja: do objeto do jogo, do cache do banco
@@ -54,7 +71,7 @@ export default function GameDetailsTab({ game }) {
                 cached = await getGame(steamId, game.appid);
                 if (cancelled) return;
             }
-            if (cached?.details && cached.lang === currentLang) {
+            if (cached?.details && cached.detailsLang === currentLang) {
                 setGameDetail(cached.details);
                 return;
             }
@@ -65,7 +82,9 @@ export default function GameDetailsTab({ game }) {
                 if (cancelled) return;
                 setGameDetail(details);
                 if (details && steamId) {
-                    await saveGame(steamId, { ...game, details, detailsStatus: "done", lang: currentLang });
+                    // Atualiza só os detalhes. Não usa a cópia do jogo da rota (pode estar
+                    // desatualizada) nem muda a coluna lang, que vale para schema/conquistas.
+                    await updateGameDetails(steamId, game.appid, details, currentLang);
                 }
             } catch (err) {
                 console.warn(`No Details for ${game.name}`, err);
@@ -91,7 +110,9 @@ export default function GameDetailsTab({ game }) {
                 <TouchableOpacity onPress={openSteamPage}>
 
                     <Image
-                        source={{ uri: headerUri(game.appid, stage === 1) }}
+                        source={stage >= headerCandidates.length
+                            ? placeholderImage
+                            : { uri: headerCandidates[stage] }}
                         onError={onError}
                         style={{
                             width: "100%",

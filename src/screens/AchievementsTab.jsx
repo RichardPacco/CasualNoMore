@@ -15,7 +15,7 @@ import * as WebBrowser from "expo-web-browser";
 import { memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Dimensions, Image, Keyboard, Text, TouchableOpacity, useColorScheme, View } from "react-native";
 import { AuthContext } from "@/src/context/AuthContext";
-import { saveGame } from "@/src/database/db";
+import { updateGameAchievements } from "@/src/database/db";
 
 const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
 
@@ -177,7 +177,6 @@ export default function AchievementsTab({ game }) {
     // ---------- state ----------
     const [filter, setFilter] = useState("all");
     const [sort, setSort] = useState("rarity");
-    const [reverse, setReverse] = useState(false);
     const [filterVisible, setFilterVisible] = useState(false);
     const [sortVisible, setSortVisible] = useState(false);
     const [showTopButton, setShowTopButton] = useState(false);
@@ -196,14 +195,9 @@ export default function AchievementsTab({ game }) {
         try {
             const merged = await refresh();
             if (merged && steamId) {
-                await saveGame(steamId, {
-                    ...game,
-                    achievements: merged,
-                    achievementsStatus: "done",
-                    unlocked: merged.filter(a => a.achieved).length,
-                    totalAchievements: merged.length,
-                    lang: game?.lang,
-                });
+                // Atualiza só as conquistas: a cópia do jogo recebida pela rota pode
+                // estar desatualizada (ex.: pinned mudou) e não deve sobrescrever o resto.
+                await updateGameAchievements(steamId, game.appid, merged);
             }
         } catch (err) {
             console.error("[AchievementsTab] refresh failed", err);
@@ -211,7 +205,7 @@ export default function AchievementsTab({ game }) {
         } finally {
             setRefreshing(false);
         }
-    }, [refresh, steamId, game, tr]);
+    }, [refresh, steamId, game?.appid, tr]);
 
     const filterOptions = useMemo(() => [
         { label: tr("filterAll"), value: "all" },

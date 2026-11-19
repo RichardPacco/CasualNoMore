@@ -1,5 +1,6 @@
 import { getApiKeyStore } from "@/src/config/apiKeyStore";
 import { steamLangCode } from "@/src/i18n/langStore";
+import { storeAssetUrl } from "@/src/utils/cdn";
 const BASE_URL = "https://api.steampowered.com";
 
 /** Retorna a API key configurada, lançando erro se ausente. */
@@ -125,6 +126,45 @@ export async function getGameStoreDetails(appId) {
     if (!json || !json[appId] || !json[appId].success) return null;
 
     return json[appId].data;
+}
+
+/**
+ * Busca as URLs das imagens da loja (cápsula e header) de vários jogos.
+ * Jogos novos guardam cada imagem numa pasta com hash
+ * (.../apps/{appid}/{hash}/capsule_231x87.jpg), então a URL não pode ser
+ * montada só com o appid: vem do IStoreBrowseService/GetItems, que aceita
+ * vários appids por chamada e não precisa de API key.
+ * Retorna Map appid -> { capsuleUrl, headerUrl }; jogos sem dados ficam de fora.
+ * Lotes que falharem são ignorados (a tela cai nos CDNs antigos).
+ */
+export async function getStoreAssets(appids, lang = steamLangCode()) {
+    const result = new Map();
+    const unique = [...new Set((appids || []).filter(Boolean))];
+    const BATCH = 100; // testado até 250; 100 deixa a URL do GET curta
+
+    for (let i = 0; i < unique.length; i += BATCH) {
+        const ids = unique.slice(i, i + BATCH).map(appid => ({ appid }));
+        const input = {
+            ids,
+            context: { language: lang, country_code: "US" },
+            data_request: { include_assets: true },
+        };
+        const url = `${BASE_URL}/IStoreBrowseService/GetItems/v1/?input_json=${encodeURIComponent(JSON.stringify(input))}`;
+        try {
+            const json = await fetchJson(url);
+            for (const item of json?.response?.store_items ?? []) {
+                const assets = item?.assets;
+                if (!item?.appid || !assets?.asset_url_format) continue;
+                result.set(item.appid, {
+                    capsuleUrl: storeAssetUrl(assets.asset_url_format, assets.small_capsule),
+                    headerUrl: storeAssetUrl(assets.asset_url_format, assets.header),
+                });
+            }
+        } catch (err) {
+            console.warn("[getStoreAssets] lote falhou:", err.message);
+        }
+    }
+    return result;
 }
 
 /** Busca a lista de amigos; retorna null se for privada ou houver erro. */

@@ -1,21 +1,33 @@
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Image, Text, TouchableOpacity, View } from "react-native";
+import { getStoreAssets } from "@/src/api/steam";
 import SearchBar from "@/src/components/SearchBar";
 import { useImageCdnFallback } from "@/src/hooks/useImageCdnFallback";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { useTheme } from "@/src/theme/styles";
-import { capsuleUri } from "@/src/utils/cdn";
+import { capsuleUri, imageCandidates } from "@/src/utils/cdn";
 
-/** Linha de um jogo com imagem (cápsula) e nome. */
-function GameRow({ item, t }) {
-    const { stage, onError } = useImageCdnFallback(item.appid);
+const placeholderImage = require("../../assets/images/placeholder_gamelist.jpg");
+
+/**
+ * Linha de um jogo com imagem (cápsula) e nome. `capsuleUrl` = URL da loja
+ * (com hash, funciona para jogos novos), quando já buscada; senão CDNs antigos.
+ */
+function GameRow({ item, t, capsuleUrl }) {
+    const candidates = imageCandidates(capsuleUrl, fb => capsuleUri(item.appid, fb));
+    const { stage, onError } = useImageCdnFallback(
+        `${item.appid}|${capsuleUrl ?? ""}`,
+        candidates.length
+    );
 
     return (
         <View className={`${t.cardBg} p-2 rounded-xl flex-row items-center mb-4`}>
             <Image
-                source={{ uri: capsuleUri(item.appid, stage === 1) }}
+                source={stage >= candidates.length
+                    ? placeholderImage
+                    : { uri: candidates[stage] }}
                 onError={onError}
                 className="w-40 h-20 rounded-md"
                 style={{ aspectRatio: 231 / 87 }}
@@ -42,8 +54,22 @@ export default function CommonGames({ route, navigation }) {
     const [searchQuery, setSearchQuery] = useState("");
 
     const isAll = mode === "all";
-    const games = isAll ? (friend?.games?.games || []) : (friend?.commonGames || []);
+    const games = useMemo(
+        () => isAll ? (friend?.games?.games || []) : (friend?.commonGames || []),
+        [isAll, friend]
+    );
     const friendName = friend?.profile?.personaname || tr("friendFallback");
+
+    // URLs das imagens da loja dos jogos exibidos (appid -> { capsuleUrl }).
+    // Esses jogos não estão no banco do usuário, então busca ao abrir a tela.
+    const [assets, setAssets] = useState(() => new Map());
+    useEffect(() => {
+        let cancelled = false;
+        getStoreAssets(games.map(g => g.appid)).then(map => {
+            if (!cancelled) setAssets(map);
+        });
+        return () => { cancelled = true; };
+    }, [games]);
 
     const filteredGames = games
         .filter(g =>
@@ -91,7 +117,10 @@ export default function CommonGames({ route, navigation }) {
                 keyExtractor={(item) => item.appid.toString()}
                 maintainVisibleContentPosition={{ disabled: true }}
                 contentContainerStyle={{ paddingTop: 12, paddingBottom: 70 }}
-                renderItem={({ item }) => <GameRow item={item} t={t} />}
+                extraData={assets}
+                renderItem={({ item }) => (
+                    <GameRow item={item} t={t} capsuleUrl={assets.get(item.appid)?.capsuleUrl} />
+                )}
                 ListEmptyComponent={
                     <Text className={`${t.textSecondary} text-center mt-8`}>
                         {isAll ? tr("noGames") : tr("noCommonGames")}

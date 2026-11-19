@@ -1,9 +1,9 @@
-import { getOwnedGames, GetSchemaForGame } from "@/src/api/steam";
+import { getOwnedGames, GetSchemaForGame, getStoreAssets } from "@/src/api/steam";
 import GameCard from "@/src/components/GameCard";
 import PullToRefresh from "@/src/components/PullToRefresh";
 import RadioSheet from "@/src/components/RadioSheet";
 import { AuthContext } from "@/src/context/AuthContext";
-import { getAllGames, parseJson, saveGame, saveGamesBatch, togglePin as dbTogglePin, getPinnedAppIds } from "@/src/database/db";
+import { deleteGamesNotOwned, getAllGames, getGame, parseJson, saveGame, saveGamesBatch, togglePin as dbTogglePin, getPinnedAppIds } from "@/src/database/db";
 import { getLanguageStore } from "@/src/i18n/langStore";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS } from "@/src/theme/colors";
@@ -15,6 +15,37 @@ import { FlashList } from "@shopify/flash-list";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Keyboard, Text, TouchableOpacity, useColorScheme, View } from "react-native";
 import SearchBar from "@/src/components/SearchBar";
+
+/** Jogo tem conquistas e todas foram desbloqueadas. */
+function isCompleted(g) {
+    const { unlocked, total } = getGameCounts(g);
+    return total > 0 && unlocked === total;
+}
+
+/**
+ * Definição única de cada filtro da lista (valor -> regra). Usada tanto para
+ * filtrar quanto para contar, então os números do menu sempre batem com a
+ * lista exibida. Para um filtro novo: a regra aqui + a opção em filterOptions.
+ */
+const GAME_FILTERS = {
+    all: () => true,
+    played: g => g.playtime_forever > 0,
+    neverPlayed: g => g.playtime_forever === 0,
+    withAchievements: g => getGameCounts(g).total > 0,
+    withoutAchievements: g => getGameCounts(g).total === 0,
+    completed: isCompleted,
+    notCompleted: g => getGameCounts(g).total > 0 && !isCompleted(g),
+    progress: g => {
+        const { unlocked, total } = getGameCounts(g);
+        return total > 0 && unlocked > 0 && unlocked !== total;
+    },
+    pinned: g => !!g.pinned,
+};
+
+/** Regra do filtro pelo valor; valor desconhecido = sem filtro. */
+function filterRule(value) {
+    return GAME_FILTERS[value] ?? GAME_FILTERS.all;
+}
 
 /**
  * Tela principal com a lista de jogos do usuário, incluindo busca,
@@ -51,8 +82,19 @@ export default function GameList({ navigation, route }) {
     // antiga continuaria rodando em paralelo (progresso e lista "bugados").
     const loadGenRef = useRef(0);
 
-    // cancellation ref usado pelo refreshRecentGames (cancela no unmount)
-    const cancelledRef = useRef(false);
+    // Lista de trabalho da carga em andamento ({ gamesList, gameMap }), ou null
+    // quando nenhuma carga está rodando. Permite que outras partes da tela
+    // (ex.: volta da GameScreen) atualizem a cópia que a carga vai gravar, e
+    // que o refresh de recentes saiba que não deve rodar em paralelo.
+    const activeLoadRef = useRef(null);
+
+    // Trava síncrona do refresh de recentes (o state demora um render para
+    // atualizar, então dois toques rápidos passariam pela checagem do state).
+    const refreshingRecentRef = useRef(false);
+
+    // Sempre a lista mais recente, para callbacks que rodam depois de awaits.
+    const gamesRef = useRef(games);
+    gamesRef.current = games;
 
     /**
      * Completa um jogo com toda a informação disponível:
@@ -120,6 +162,12 @@ export default function GameList({ navigation, route }) {
             playtimeHidden,
             unlocked, totalAchievements: total,
             schema, schemaStatus, achievements, achievementsStatus, details, detailsStatus,
+            // idioma dos detalhes da loja: zerado junto com eles quando stale
+            detailsLang: details ? (cached?.detailsLang ?? null) : null,
+            // URLs das imagens da loja (com hash): as recém-buscadas vêm no
+            // baseGame (getStoreAssets); senão mantém as do cache.
+            capsuleUrl: baseGame.capsuleUrl ?? cached?.capsuleUrl ?? null,
+            headerUrl: baseGame.headerUrl ?? cached?.headerUrl ?? null,
             lang,
             pinned: cached?.pinned || (pinnedIds?.has(baseGame.appid) ? 1 : 0),
         };
@@ -129,8 +177,10 @@ export default function GameList({ navigation, route }) {
      * Força refetch completo de um jogo (playtime, schema, conquistas).
      * `existing` (jogo atual da lista) serve de fallback se algo falhar.
      */
-    const forceRefreshGame = useCallback(async (baseGame, existing, pinnedIds = null) => {
+    const forceRefreshGame = useCallback(async (baseGame, existing, pinnedIds = null, isStale = () => false) => {
         const fresh = await enrichGame(baseGame, existing, true, pinnedIds);
+        // Descarta o resultado se o refresh foi substituído durante a busca
+        if (isStale()) return;
 
         setGames(prev => prev.map(g => g.appid === fresh.appid ? fresh : g));
         await saveGame(steamId, fresh);
@@ -143,8 +193,12 @@ export default function GameList({ navigation, route }) {
         showToast(tr("gameRefreshing"), "info");
         try {
             const owned = await getOwnedGames(steamId);
-            const baseGame = owned?.games?.find(g => g.appid === game.appid);
-            if (!baseGame) throw new Error("game not in owned list");
+            const ownedGame = owned?.games?.find(g => g.appid === game.appid);
+            if (!ownedGame) throw new Error("game not in owned list");
+
+            // Rebusca também as URLs das imagens (o hash muda se a arte mudar)
+            const assets = await getStoreAssets([game.appid]);
+            const baseGame = { ...ownedGame, ...assets.get(game.appid) };
 
             await forceRefreshGame(baseGame, game);
             showToast(tr("gameRefreshed"), "success");
@@ -171,14 +225,25 @@ export default function GameList({ navigation, route }) {
      * `silent` sem toasts (disparo automático ao abrir a lista).
      */
     const refreshRecentGames = useCallback(async (silent = false) => {
-        if (refreshingRecent) return;
+        // Nunca roda junto com a carga completa (as duas gravariam os mesmos
+        // jogos e a última a terminar venceria) nem duas vezes ao mesmo tempo.
+        if (refreshingRecentRef.current || activeLoadRef.current) return;
+        refreshingRecentRef.current = true;
         setRefreshingRecent(true);
+
+        // Mesma geração da carga: se uma nova carga começar (pull-to-refresh,
+        // troca de idioma) ou a tela desmontar, este refresh para de escrever.
+        const gen = loadGenRef.current;
+        const isStale = () => loadGenRef.current !== gen;
+
         if (!silent) showToast(tr("gameRecentRefresh"), "info");
         try {
             const owned = await getOwnedGames(steamId);
+            if (isStale()) return;
             if (!owned?.games) throw new Error("no games");
 
             const pinnedIds = new Set(await getPinnedAppIds(steamId));
+            if (isStale()) return;
 
             const toRefresh = owned.games.filter(g =>
                 (g.playtime_2weeks || 0) > 0 || pinnedIds.has(g.appid)
@@ -188,30 +253,64 @@ export default function GameList({ navigation, route }) {
                 return;
             }
 
-            for (const baseGame of toRefresh) {
-                if (cancelledRef.current) break;
-                const existing = games.find(g => g.appid === baseGame.appid);
-                await forceRefreshGame(baseGame, existing, pinnedIds);
+            // Rebusca as URLs das imagens desses jogos (o hash muda se a arte mudar)
+            const assets = await getStoreAssets(toRefresh.map(g => g.appid));
+            if (isStale()) return;
+
+            for (const ownedGame of toRefresh) {
+                if (isStale()) return;
+                const baseGame = { ...ownedGame, ...assets.get(ownedGame.appid) };
+                const existing = gamesRef.current.find(g => g.appid === baseGame.appid);
+                await forceRefreshGame(baseGame, existing, pinnedIds, isStale);
             }
 
-            if (!silent) showToast(tr("gameRecentRefreshed"), "success");
+            if (!silent && !isStale()) showToast(tr("gameRecentRefreshed"), "success");
         } catch (err) {
             console.error("[GameList] refreshRecentGames failed", err);
-            if (!silent) showToast(tr("gameRefreshFailed"), "error");
+            if (!silent && !isStale()) showToast(tr("gameRefreshFailed"), "error");
         } finally {
+            refreshingRecentRef.current = false;
             setRefreshingRecent(false);
         }
-    }, [steamId, forceRefreshGame, refreshingRecent, tr, games]);
+    }, [steamId, forceRefreshGame, tr]);
 
     /**
      * Verifica se o jogo foi jogado nas últimas 2 semanas (playtime_2weeks > 0).
      */
     const isRecentGame = useCallback((g) => (g.playtime_2weeks || 0) > 0, []);
 
-    // Ref para disparar o refresh de recentes ao abrir a lista sem re-renderizar
-    // o useEffect (a identidade de refreshRecentGames muda com refreshingRecent/games).
+    // Ref para disparar o refresh de recentes ao abrir a lista sem colocar
+    // refreshRecentGames nas dependências do useEffect de carga.
     const refreshRecentRef = useRef(null);
     refreshRecentRef.current = refreshRecentGames;
+
+    // appid do último jogo aberto: ao voltar para a lista, essa linha é relida
+    // do banco para refletir o que a GameScreen salvou (conquistas, detalhes).
+    const lastOpenedRef = useRef(null);
+
+    /**
+     * Abre a GameScreen passando só o appid (a tela lê o jogo do banco).
+     */
+    const openGame = useCallback((game) => {
+        lastOpenedRef.current = game.appid;
+        navigation.navigate("GameScreen", { appid: game.appid });
+    }, [navigation]);
+
+    useEffect(() => {
+        return navigation.addListener("focus", async () => {
+            const appid = lastOpenedRef.current;
+            if (!appid || !steamId) return;
+            lastOpenedRef.current = null;
+            const row = await getGame(steamId, appid);
+            if (!row) return;
+            // Se uma carga está rodando, atualiza também a cópia dela; senão o
+            // próximo lote da carga traria de volta a versão antiga do jogo.
+            const active = activeLoadRef.current;
+            const idx = active?.gameMap.get(appid);
+            if (idx !== undefined) active.gamesList[idx] = row;
+            setGames(prev => prev.map(g => g.appid === appid ? row : g));
+        });
+    }, [navigation, steamId]);
 
     /**
      * Renderiza um card de jogo na lista virtualizada (FlashList).
@@ -221,11 +320,12 @@ export default function GameList({ navigation, route }) {
             <GameCard
                 game={item}
                 navigation={navigation}
+                onOpen={openGame}
                 onLongPress={refreshSingleGame}
                 onTogglePin={togglePinGame}
             />
         ),
-        [navigation, refreshSingleGame, togglePinGame]
+        [navigation, openGame, refreshSingleGame, togglePinGame]
     );
 
     const filterOptions = useMemo(() => [
@@ -247,61 +347,16 @@ export default function GameList({ navigation, route }) {
         { label: tr("sortProgress"), value: "progress" },
     ], [tr]);
 
+    // Quantos jogos se encaixam em cada opção de filtro (mesma regra da lista)
     const filterCounts = useMemo(() => {
-        /**
-         * Conta quantos jogos se encaixam em cada opção de filtro.
-         */
-        const countFor = (value) => {
-            switch (value) {
-                case "played": return games.filter(g => g.playtime_forever > 0).length;
-                case "neverPlayed": return games.filter(g => g.playtime_forever === 0).length;
-                case "withAchievements": return games.filter(g => getGameCounts(g).total > 0).length;
-                case "withoutAchievements": return games.filter(g => getGameCounts(g).total === 0).length;
-                case "completed": return games.filter(g => {
-                    const { unlocked, total } = getGameCounts(g);
-                    return total > 0 && unlocked === total;
-                }).length;
-                case "notCompleted": return games.filter(g => {
-                    const { unlocked, total } = getGameCounts(g);
-                    return total > 0 && unlocked !== total;
-                }).length;
-                case "progress": return games.filter(g => {
-                    const { unlocked, total } = getGameCounts(g);
-                    return total > 0 && unlocked > 0 && unlocked !== total;
-                }).length;
-                case "pinned": return games.filter(g => g.pinned).length;
-                default: return games.length;
-            }
-        };
         return filterOptions.reduce((acc, opt) => {
-            acc[opt.value] = countFor(opt.value);
+            acc[opt.value] = games.filter(filterRule(opt.value)).length;
             return acc;
         }, {});
     }, [games, filterOptions]);
 
     const filteredGames = useMemo(() => {
-        let result = games;
-
-        switch (filter) {
-            case "played": result = result.filter(g => g.playtime_forever > 0); break;
-            case "neverPlayed": result = result.filter(g => g.playtime_forever === 0); break;
-            case "withAchievements": result = result.filter(g => getGameCounts(g).total > 0); break;
-            case "withoutAchievements": result = result.filter(g => getGameCounts(g).total === 0); break;
-            case "completed": result = result.filter(g => {
-                const { unlocked, total } = getGameCounts(g);
-                return total > 0 && unlocked === total;
-            }); break;
-            case "notCompleted": result = result.filter(g => {
-                const { unlocked, total } = getGameCounts(g);
-                return total > 0 && unlocked !== total;
-            }); break;
-            case "progress": result = result.filter(g => {
-                const { unlocked, total } = getGameCounts(g);
-                return total > 0 && unlocked > 0 && unlocked !== total;
-            }); break;
-            case "pinned": result = result.filter(g => g.pinned); break;
-            default: break;
-        }
+        let result = filter === "all" ? games : games.filter(filterRule(filter));
 
         // apply search by name (debounced)
         if (debouncedQuery && debouncedQuery.trim().length > 0) {
@@ -362,18 +417,20 @@ export default function GameList({ navigation, route }) {
      * cada jogo com schema, conquistas e progresso (com cache e lotes).
      */
     const loadGames = useCallback(async () => {
-        if (!steamId) return;
+        if (!steamId) return false;
         const gen = ++loadGenRef.current;
-        cancelledRef.current = false;
+
+        // Map appid -> índice na lista: lookups O(1) no lugar do findIndex
+        const gameMap = new Map();
+        const gamesList = [];
+        const work = { gamesList, gameMap };
+        activeLoadRef.current = work;
 
         try {
             // 1️⃣ Load games from DB
             const cachedGames = await getAllGames(steamId);
-            if (loadGenRef.current !== gen) return;
+            if (loadGenRef.current !== gen) return false;
 
-            // Map appid -> índice na lista: lookups O(1) no lugar do findIndex
-            const gameMap = new Map();
-            const gamesList = [];
             for (const g of cachedGames) {
                 if (!gameMap.has(g.appid)) {
                     gameMap.set(g.appid, gamesList.length);
@@ -389,10 +446,10 @@ export default function GameList({ navigation, route }) {
 
             // 2️⃣ Fetch fresh games from Steam
             const fresh = await getOwnedGames(steamId);
-            if (loadGenRef.current !== gen) return;
+            if (loadGenRef.current !== gen) return false;
             if (!fresh?.games) {
                 if (gamesList.length === 0) setLoading(false);
-                return;
+                return false;
             }
 
             const total = fresh.games.length;
@@ -400,7 +457,7 @@ export default function GameList({ navigation, route }) {
 
             // Processa primeiro os jogos mais relevantes (mais jogados recentemente)
             // para que o topo da lista ganhe dados (progresso) antes do resto
-            const freshGames = [...fresh.games].sort((a, b) => {
+            const sortedFresh = [...fresh.games].sort((a, b) => {
                 const a2 = a.playtime_2weeks || 0;
                 const b2 = b.playtime_2weeks || 0;
                 if (b2 !== a2) return b2 - a2;
@@ -410,6 +467,18 @@ export default function GameList({ navigation, route }) {
                 return (a.name || "").localeCompare(b.name || "");
             });
 
+            // URLs das imagens da loja só para quem ainda não tem no cache
+            // (jogos novos na conta ou nunca buscados): em lotes de 100 por chamada.
+            const missingAssets = sortedFresh
+                .filter(g => {
+                    const idx = gameMap.get(g.appid);
+                    return !(idx !== undefined && gamesList[idx].capsuleUrl);
+                })
+                .map(g => g.appid);
+            const assets = await getStoreAssets(missingAssets);
+            if (loadGenRef.current !== gen) return false;
+            const freshGames = sortedFresh.map(g => ({ ...g, ...assets.get(g.appid) }));
+
             // Enriquecimento em paralelo (poucos por vez para não estourar a API)
             // e atualização da UI + persistência em lotes (reduz re-renders e I/O).
             const CONCURRENCY = 5;  // quantos jogos são enriquecidos ao mesmo tempo
@@ -418,7 +487,7 @@ export default function GameList({ navigation, route }) {
             let updatedAny = false;
 
             for (let i = 0; i < freshGames.length; i += CONCURRENCY) {
-                if (loadGenRef.current !== gen) return;
+                if (loadGenRef.current !== gen) return false;
 
                 const chunk = freshGames.slice(i, i + CONCURRENCY);
                 const enrichedChunk = await Promise.all(chunk.map(baseGame => {
@@ -426,7 +495,7 @@ export default function GameList({ navigation, route }) {
                     const cachedEntry = idx !== undefined ? gamesList[idx] : null;
                     return enrichGame(baseGame, cachedEntry);
                 }));
-                if (loadGenRef.current !== gen) return;
+                if (loadGenRef.current !== gen) return false;
 
                 for (const enriched of enrichedChunk) {
                     const idx = gameMap.get(enriched.appid);
@@ -439,7 +508,9 @@ export default function GameList({ navigation, route }) {
                             || prev.schemaStatus !== enriched.schemaStatus
                             || prev.achievementsStatus !== enriched.achievementsStatus
                             || prev.detailsStatus !== enriched.detailsStatus
-                            || prev.lang !== enriched.lang;
+                            || prev.lang !== enriched.lang
+                            || prev.capsuleUrl !== enriched.capsuleUrl
+                            || prev.headerUrl !== enriched.headerUrl;
                         if (!changed) continue;
                         gamesList[idx] = enriched;
                     } else {
@@ -461,13 +532,29 @@ export default function GameList({ navigation, route }) {
                 }
             }
 
+            if (loadGenRef.current !== gen) return false;
+
+            // 3️⃣ Remove do cache (e da tela) os jogos que saíram da biblioteca.
+            // Só chega aqui com a lista da Steam em mãos: lista privada ou erro
+            // retornam antes, então o cache nunca é apagado por engano.
+            const removed = await deleteGamesNotOwned(steamId, fresh.games.map(g => g.appid));
+            if (loadGenRef.current !== gen) return false;
+            if (removed.length > 0) {
+                const removedSet = new Set(removed);
+                setGames(prev => prev.filter(g => !removedSet.has(g.appid)));
+            }
+
             // Finish sync: clear progress header even if nothing was updated
-            if (loadGenRef.current !== gen) return;
             setProgress({ current: total, total });
             setLoading(false);
+            return true;
         } catch (err) {
             console.error("[GameList] loadGames failed", err);
             setLoading(false);
+            return false;
+        } finally {
+            // Só libera se ninguém tiver iniciado uma carga nova nesse meio-tempo
+            if (activeLoadRef.current === work) activeLoadRef.current = null;
         }
     }, [steamId, enrichGame]);
 
@@ -486,16 +573,19 @@ export default function GameList({ navigation, route }) {
 
     useEffect(() => {
         if (!steamId) return;
-        loadGames();
         // Sempre que a lista abre, força refresh completo dos jogos recentes
-        // e fixados, independente de ter mudado algo.
-        refreshRecentRef.current?.(true);
+        // e fixados — mas só DEPOIS da carga completa terminar, para as duas
+        // não buscarem e gravarem os mesmos jogos em paralelo. Se a carga foi
+        // substituída (troca de idioma, unmount), o refresh não roda.
+        loadGames().then(completed => {
+            if (completed) refreshRecentRef.current?.(true);
+        });
         return () => {
-            // Cancela a carga em andamento (troca de idioma ou unmount):
-            // a execução antiga detecta a geração nova e para de escrever.
+            // Cancela a carga e o refresh de recentes em andamento (troca de
+            // idioma ou unmount): as execuções antigas detectam a geração nova
+            // e param de escrever.
             // eslint-disable-next-line react-hooks/exhaustive-deps -- incremento intencional do counter
             loadGenRef.current++;
-            cancelledRef.current = true;
         };
     }, [steamId, loadGames, language]);
 
@@ -580,6 +670,7 @@ export default function GameList({ navigation, route }) {
                                             key={g.appid}
                                             game={g}
                                             navigation={navigation}
+                                            onOpen={openGame}
                                             onLongPress={refreshSingleGame}
                                             onTogglePin={togglePinGame}
                                         />
@@ -604,6 +695,7 @@ export default function GameList({ navigation, route }) {
                                             key={g.appid}
                                             game={g}
                                             navigation={navigation}
+                                            onOpen={openGame}
                                             onLongPress={refreshSingleGame}
                                             onTogglePin={togglePinGame}
                                         />
@@ -633,12 +725,15 @@ export default function GameList({ navigation, route }) {
             {/* floating buttons: refresh recent + filter + sort + scroll to top */}
             <View className="absolute bottom-24 right-6 gap-3">
                 <TouchableOpacity
-                    onPress={refreshRecentGames}
-                    disabled={refreshingRecent}
+                    onPress={() => refreshRecentGames(false)}
+                    // desativado também durante a sincronização completa, que já
+                    // atualiza tudo (inclusive os recentes)
+                    disabled={refreshingRecent || progress.current < progress.total}
                     activeOpacity={0.8}
                     accessibilityLabel={tr("refreshRecentGames")}
                     className={`w-12 h-12 rounded-xl items-center justify-center border ${t.elevatedCardBg} ${t.cardBorder}`}
                     style={{
+                        opacity: !refreshingRecent && progress.current < progress.total ? 0.5 : 1,
                         elevation: 6,
                         shadowColor: "#000",
                         shadowOpacity: 0.25,

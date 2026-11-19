@@ -8,7 +8,7 @@ import RemoveAccountModal from "@/src/components/RemoveAccountModal";
 import AboutModal from "@/src/components/AboutModal";
 import { AuthContext } from "@/src/context/AuthContext";
 import { clearDB } from "@/src/database/db";
-import { useLanguage } from "@/src/i18n/LanguageContext";
+import { DEFAULT_LANGUAGE, useLanguage } from "@/src/i18n/LanguageContext";
 import { showToast } from "@/src/utils/toast";
 import { COLORS } from "@/src/theme/colors";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -24,9 +24,9 @@ const loginBackground = require("../../assets/images/login_background.png");
  * Tela de login: entrada de SteamID/vanity e API key, com contas salvas para login rápido.
  */
 export default function Login() {
-    const { setSteamId, savedAccounts, addSavedAccount, removeSavedAccount } = useContext(AuthContext);
+    const { setSteamId, clearSteamId, savedAccounts, addSavedAccount, removeSavedAccount, clearSavedAccounts } = useContext(AuthContext);
     const router = useRouter();
-    const { t } = useLanguage();
+    const { t, setLanguage } = useLanguage();
 
     const [input, setInput] = useState("");
     const [apiKey, setApiKey] = useState("");
@@ -72,10 +72,23 @@ export default function Login() {
         showToast(t("loginApiKeyRemoved"), "info");
     };
 
-    /** Limpa o cache (AsyncStorage), disparado pelo botão de limpar cache. */
+    /**
+     * Limpa o cache (AsyncStorage), disparado pelo botão de limpar cache.
+     * Também zera as cópias em memória (API key, contas salvas, steamId), senão a
+     * tela continuaria mostrando dados que já não existem no armazenamento.
+     * O idioma também volta ao padrão, como numa instalação nova.
+     * A API key fica no SecureStore, que o AsyncStorage.clear() não alcança,
+     * então é apagada à parte (memória + armazenamento seguro).
+     */
     const handleClearCache = async () => {
         try {
             await AsyncStorage.clear();
+            await saveApiKeyStore("");
+            setApiKey("");
+            setKeyInput("");
+            await clearSavedAccounts();
+            await clearSteamId();
+            await setLanguage(DEFAULT_LANGUAGE);
             showToast(t("loginCacheCleared"));
         } catch (e) {
             Alert.alert(t("loginError"), t("loginClearCacheFailed"));
@@ -140,17 +153,30 @@ export default function Login() {
         });
     };
 
-    /** Login rápido com uma conta salva (toque no avatar): define o steamId e vai para as tabs. */
+    /**
+     * Login rápido com uma conta salva (toque no avatar): valida o perfil como
+     * no login normal (o perfil pode ter ficado privado desde que foi salvo),
+     * atualiza nome/avatar salvos e vai para as tabs.
+     */
     const handleQuickLogin = async (account) => {
+        if (loading) return;
         if (!apiKey) {
             showToast(t("loginApiKeyMissing"), "warning");
             return;
         }
 
         setLoading(true);
-        await addSavedAccount(account);
-        await setSteamId(account.steamId);
-        router.replace("/(tabs)/GameStack");
+        try {
+            // validateSteamProfile já mostra o toast de erro/privado
+            const playerSummary = await validateSteamProfile(account.steamId);
+            if (!playerSummary) return;
+
+            await saveAccount(playerSummary, account.steamId);
+            await setSteamId(account.steamId);
+            router.replace("/(tabs)/GameStack");
+        } finally {
+            setLoading(false);
+        }
     };
 
     /** Marca a conta para remoção (disparado pelo toque longo no avatar). */
@@ -392,11 +418,11 @@ export default function Login() {
                                     style={{ backgroundColor: "#222" }}
                                     theme={{
                                         colors: {
-                                        primary: COLORS.accent,
-                                    },
-                                }}
-                                textColor="#fff"
-                                onSubmitEditing={handleSubmit}
+                                            primary: COLORS.accent,
+                                        },
+                                    }}
+                                    textColor="#fff"
+                                    onSubmitEditing={handleSubmit}
                                     right={
                                         <TextInput.Icon
                                             icon={() =>

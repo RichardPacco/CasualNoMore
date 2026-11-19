@@ -150,6 +150,7 @@ export const translations = {
     gameRefreshing: { pt: "Atualizando jogo...", en: "Updating game..." },
     gameRefreshed: { pt: "Jogo atualizado!", en: "Game updated!" },
     gameRefreshFailed: { pt: "Falha ao atualizar o jogo.", en: "Failed to update the game." },
+    gameNotFound: { pt: "Jogo não encontrado no cache. Volte e puxe a lista para atualizar.", en: "Game not found in the cache. Go back and pull the list to refresh." },
     gameRefreshHint: { pt: "Segure para atualizar", en: "Press and hold to refresh" },
 
     // --- pull to refresh ---

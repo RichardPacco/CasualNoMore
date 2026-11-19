@@ -58,10 +58,13 @@ export async function ensureTable(steamId) {
       achievementsStatus TEXT,
       details TEXT,
       detailsStatus TEXT,
+      detailsLang TEXT,
       lang TEXT,
       unlocked INTEGER,
       totalAchievements INTEGER,
-      pinned INTEGER DEFAULT 0
+      pinned INTEGER DEFAULT 0,
+      capsuleUrl TEXT,
+      headerUrl TEXT
     );
   `);
         createdTables.add(tableName);
@@ -84,7 +87,7 @@ export async function ensureTableFriends(steamId) {
         console.log(`[db] Criando tabela se não existir: ${tableName}`);
         await db.execAsync(`
         CREATE TABLE IF NOT EXISTS ${tableName} (
-            steamId INTEGER PRIMARY KEY NOT NULL,
+            steamId TEXT PRIMARY KEY NOT NULL,
             profile TEXT,
             games TEXT,
             commonGames TEXT
@@ -101,29 +104,66 @@ export async function ensureTableFriends(steamId) {
 
 
 
+// Fila das transações: o expo-sqlite não permite abrir uma transação enquanto
+// outra está aberta na mesma conexão (ex.: GameList e Friends salvando lotes ao
+// mesmo tempo). Cada transação espera a anterior terminar.
+let transactionQueue = Promise.resolve();
+
+/** Roda `fn` dentro de uma transação (tudo ou nada), uma transação por vez. */
+async function runInTransaction(fn) {
+    const db = await openDB();
+    const run = transactionQueue.then(() => db.withTransactionAsync(() => fn(db)));
+    transactionQueue = run.catch(() => { }); // uma falha não trava a fila
+    return run;
+}
+
+// Colunas da tabela de jogos, na ordem dos valores de gameRowValues.
+// Ao adicionar uma coluna: CREATE TABLE em ensureTable + aqui + gameRowValues.
+const GAME_COLUMNS = [
+    "appid", "name", "playtime_forever", "playtime_2weeks", "playtimeHidden",
+    "schema", "schemaStatus", "achievements", "achievementsStatus",
+    "details", "detailsStatus", "detailsLang", "lang",
+    "unlocked", "totalAchievements", "pinned",
+    "capsuleUrl", "headerUrl",
+];
+
+/** SQL do INSERT OR REPLACE de um jogo completo na tabela informada. */
+function gameInsertSql(tableName) {
+    const placeholders = GAME_COLUMNS.map(() => "?").join(", ");
+    return `INSERT OR REPLACE INTO ${tableName} (${GAME_COLUMNS.join(", ")}) VALUES (${placeholders})`;
+}
+
+/** Converte um jogo nos valores da linha, na ordem de GAME_COLUMNS. */
+function gameRowValues(game) {
+    const achievementsList = Array.isArray(game.achievements) ? game.achievements : [];
+    return [
+        game.appid,
+        game.name,
+        game.playtime_forever || 0,
+        game.playtime_2weeks || 0,
+        game.playtimeHidden ? 1 : 0,
+        toJson(game.schema),
+        game.schemaStatus || "pending",
+        toJson(game.achievements),
+        game.achievementsStatus || "pending",
+        toJson(game.details),
+        game.detailsStatus || "pending",
+        game.detailsLang || null,
+        game.lang || null,
+        game.unlocked ?? achievementsList.filter(a => a.achieved).length,
+        game.totalAchievements ?? achievementsList.length,
+        game.pinned ? 1 : 0,
+        game.capsuleUrl || null,
+        game.headerUrl || null,
+    ];
+}
+
 /** Salva ou atualiza um jogo na tabela do steamId. */
 export async function saveGame(steamId, game) {
     try {
         const db = await openDB();
         const tableName = await ensureTable(steamId);
-        const schemaString = toJson(game.schema);
-        const schemaStatus = game.schemaStatus || "pending"; // default if not set
-        const achievementsString = toJson(game.achievements);
-        const achievementsStatus = game.achievementsStatus || "pending";
-        const detailsString = toJson(game.details);
-        const detailsStatus = game.detailsStatus || "pending";
-        const playtimeHidden = game.playtimeHidden ? 1 : 0;
-        const achievementsList = Array.isArray(game.achievements) ? game.achievements : [];
-        const totalAchievements = game.totalAchievements ?? achievementsList.length;
-        const unlocked = game.unlocked ?? achievementsList.filter(a => a.achieved).length;
-        const pinned = game.pinned ? 1 : 0;
-
-        console.log(`[db] Salvando jogo: ${game.name || game.appid} na tabela ${tableName}`);
-        await db.runAsync(
-            `INSERT OR REPLACE INTO ${tableName} (appid, name, playtime_forever, playtime_2weeks, playtimeHidden, schema, schemaStatus, achievements, achievementsStatus, details, detailsStatus, lang, unlocked, totalAchievements, pinned)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [game.appid, game.name, game.playtime_forever || 0, game.playtime_2weeks || 0, playtimeHidden, schemaString, schemaStatus, achievementsString, achievementsStatus, detailsString, detailsStatus, game.lang || null, unlocked, totalAchievements, pinned]
-        );
+        await db.runAsync(gameInsertSql(tableName), gameRowValues(game));
         console.log(`[db] Jogo salvo: ${game.name || game.appid}`);
     } catch (err) {
         console.error(`[db] Failed to save game: ${game.name || game.appid}`, err);
@@ -164,43 +204,95 @@ export async function getGame(steamId, appid) {
 }
 
 
-/** Salva vários jogos de uma vez na tabela do steamId (inserções em paralelo). */
+/**
+ * Salva vários jogos de uma vez na tabela do steamId, numa única transação:
+ * mais rápido (um commit só) e tudo-ou-nada (um erro não deixa o lote pela metade).
+ */
 export async function saveGamesBatch(steamId, games) {
+    if (!games?.length) return;
     try {
-        const db = await openDB();
         const tableName = await ensureTable(steamId);
-
-        // Prepare statements for all games
-        const insertPromises = games.map(game => {
-            const schemaString = toJson(game.schema);
-            const schemaStatus = game.schemaStatus || "pending";
-            const achievementsString = toJson(game.achievements);
-            const achievementsStatus = game.achievementsStatus || "pending";
-            const detailsString = toJson(game.details);
-            const detailsStatus = game.detailsStatus || "pending";
-            const playtimeHidden = game.playtimeHidden ? 1 : 0;
-            const achievementsList = Array.isArray(game.achievements) ? game.achievements : [];
-            const totalAchievements = game.totalAchievements ?? achievementsList.length;
-            const unlocked = game.unlocked ?? achievementsList.filter(a => a.achieved).length;
-            const pinned = game.pinned ? 1 : 0;
-
-            console.log(`[db] Salvando jogo: ${game.name || game.appid} na tabela ${tableName}`);
-            return db.runAsync(
-                `INSERT OR REPLACE INTO ${tableName} 
-                (appid, name, playtime_forever, playtime_2weeks, playtimeHidden, schema, schemaStatus, achievements, achievementsStatus, details, detailsStatus, lang, unlocked, totalAchievements, pinned)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [game.appid, game.name, game.playtime_forever || 0, game.playtime_2weeks || 0, playtimeHidden, schemaString, schemaStatus, achievementsString, achievementsStatus, detailsString, detailsStatus, game.lang || null, unlocked, totalAchievements, pinned]
-            ).then(() => {
-                console.log(`[db] Jogo salvo: ${game.name || game.appid}`);
-            });
+        const sql = gameInsertSql(tableName);
+        await runInTransaction(async (db) => {
+            for (const game of games) {
+                await db.runAsync(sql, gameRowValues(game));
+            }
         });
-
-        await Promise.all(insertPromises);
+        console.log(`[db] ${games.length} jogos salvos na tabela ${tableName}`);
     } catch (err) {
         console.error("[db] Failed to save games batch", err);
     }
 }
 
+/**
+ * Remove do cache os jogos que não estão mais na biblioteca (reembolsados,
+ * removidos, fim de fim de semana grátis). `ownedAppIds` = appids que a Steam
+ * acabou de retornar. Retorna os appids removidos.
+ */
+export async function deleteGamesNotOwned(steamId, ownedAppIds) {
+    try {
+        const tableName = await ensureTable(steamId);
+        const owned = new Set(ownedAppIds);
+        const db = await openDB();
+        const rows = await db.getAllAsync(`SELECT appid FROM ${tableName}`);
+        const toDelete = rows.map(r => r.appid).filter(id => !owned.has(id));
+        if (toDelete.length === 0) return [];
+
+        // Em lotes, para não passar do limite de parâmetros do SQLite
+        const CHUNK = 500;
+        await runInTransaction(async (txDb) => {
+            for (let i = 0; i < toDelete.length; i += CHUNK) {
+                const chunk = toDelete.slice(i, i + CHUNK);
+                await txDb.runAsync(
+                    `DELETE FROM ${tableName} WHERE appid IN (${chunk.map(() => "?").join(", ")})`,
+                    chunk
+                );
+            }
+        });
+        console.log(`[db] ${toDelete.length} jogos fora da biblioteca removidos de ${tableName}`);
+        return toDelete;
+    } catch (err) {
+        console.error("[db] deleteGamesNotOwned failed", err);
+        return [];
+    }
+}
+
+
+/**
+ * Atualiza só os detalhes da loja de um jogo (e o idioma deles, detailsLang),
+ * sem tocar nas outras colunas (pinned, conquistas, lang...). Evita sobrescrever dados mais novos com uma
+ * cópia antiga do jogo. Não faz nada se o jogo ainda não estiver salvo.
+ */
+export async function updateGameDetails(steamId, appid, details, lang) {
+    try {
+        const db = await openDB();
+        const tableName = await ensureTable(steamId);
+        await db.runAsync(
+            `UPDATE ${tableName} SET details = ?, detailsStatus = ?, detailsLang = ? WHERE appid = ?`,
+            [toJson(details), details ? "done" : "pending", details ? lang : null, appid]
+        );
+    } catch (err) {
+        console.error("[db] updateGameDetails failed", appid, err);
+    }
+}
+
+/**
+ * Atualiza só as conquistas (e os contadores) de um jogo, sem tocar nas
+ * outras colunas. Não faz nada se o jogo ainda não estiver salvo.
+ */
+export async function updateGameAchievements(steamId, appid, achievements) {
+    try {
+        const db = await openDB();
+        const tableName = await ensureTable(steamId);
+        const list = Array.isArray(achievements) ? achievements : [];
+        await db.runAsync(
+            `UPDATE ${tableName} SET achievements = ?, achievementsStatus = 'done', unlocked = ?, totalAchievements = ? WHERE appid = ?`,
+            [toJson(list), list.filter(a => a.achieved).length, list.length, appid]
+        );
+    } catch (err) {
+        console.error("[db] updateGameAchievements failed", appid, err);
+    }
+}
 
 /** Alterna o estado pinned de um jogo. Retorna o novo valor (0 ou 1). */
 export async function togglePin(steamId, appid) {
@@ -270,45 +362,44 @@ export async function clearDB() {
 
 
 
+/** SQL do INSERT OR REPLACE de um amigo na tabela informada. */
+function friendInsertSql(tableName) {
+    return `INSERT OR REPLACE INTO ${tableName} (steamId, profile, games, commonGames) VALUES (?, ?, ?, ?)`;
+}
+
+/** Converte um amigo nos valores da linha (steamId, profile, games, commonGames). */
+function friendRowValues(friend) {
+    return [
+        friend.steamId,
+        friend.profile ? JSON.stringify(friend.profile) : null,
+        friend.games ? JSON.stringify(friend.games) : null,
+        friend.commonGames ? JSON.stringify(friend.commonGames) : null,
+    ];
+}
+
 /** Salva o perfil de um amigo na tabela do dono. */
 export async function saveFriendProfile(steamId, friend) {
     try {
         const db = await openDB();
         const tableName = await ensureTableFriends(steamId);
-
-        const profileJson = friend.profile ? JSON.stringify(friend.profile) : null;
-        const gamesJson = friend.games ? JSON.stringify(friend.games) : null;
-        const commonJson = friend.commonGames ? JSON.stringify(friend.commonGames) : null;
-
-        await db.runAsync(
-            `INSERT OR REPLACE INTO ${tableName} (steamId, profile, games, commonGames) VALUES (?, ?, ?, ?)`,
-            [friend.steamId, profileJson, gamesJson, commonJson]
-        );
-
+        await db.runAsync(friendInsertSql(tableName), friendRowValues(friend));
         console.log(`[db] Friend profile saved: ${friend.steamId}`);
     } catch (err) {
         console.error(`[db] Failed to save friend profile: ${friend?.steamId}`, err);
     }
 }
 
-/** Salva vários perfis de amigos de uma vez na tabela do dono. */
+/** Salva vários perfis de amigos de uma vez na tabela do dono, numa única transação. */
 export async function saveFriendsBatch(steamId, friends) {
+    if (!friends?.length) return;
     try {
-        const db = await openDB();
         const tableName = await ensureTableFriends(steamId);
-
-        const insertPromises = friends.map(friend => {
-            const profileJson = friend.profile ? JSON.stringify(friend.profile) : null;
-            const gamesJson = friend.games ? JSON.stringify(friend.games) : null;
-            const commonJson = friend.commonGames ? JSON.stringify(friend.commonGames) : null;
-
-            return db.runAsync(
-                `INSERT OR REPLACE INTO ${tableName} (steamId, profile, games, commonGames) VALUES (?, ?, ?, ?)`,
-                [friend.steamId, profileJson, gamesJson, commonJson]
-            );
+        const sql = friendInsertSql(tableName);
+        await runInTransaction(async (db) => {
+            for (const friend of friends) {
+                await db.runAsync(sql, friendRowValues(friend));
+            }
         });
-
-        await Promise.all(insertPromises);
         console.log(`[db] ${friends.length} friend profiles saved`);
     } catch (err) {
         console.error("[db] Failed to save friends batch", err);

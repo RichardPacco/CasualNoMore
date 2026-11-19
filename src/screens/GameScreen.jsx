@@ -1,20 +1,28 @@
 import { Ionicons } from "@expo/vector-icons";
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
+import { LinearGradient } from "expo-linear-gradient";
 import { useContext, useEffect, useState } from "react";
-import { ActivityIndicator, Modal, Text, TouchableOpacity, View, Linking } from "react-native";
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import AchievementsTab from './AchievementsTab';
 import GameDetailsTab from './GameDetailsTab';
+import { AppText } from "@/src/components/ui";
 import { AuthContext } from "@/src/context/AuthContext";
-import { getGame } from "@/src/database/db";
+import { getGame, togglePin as dbTogglePin } from "@/src/database/db";
+import { useImageCdnFallback } from "@/src/hooks/useImageCdnFallback";
 import { useLanguage } from "@/src/i18n/LanguageContext";
-import { COLORS } from "@/src/theme/colors";
-import { useTheme } from "@/src/theme/styles";
+import { COLORS, FONTS } from "@/src/theme/colors";
+import { getGameCounts } from "@/src/utils/achievements";
+import { headerUri } from "@/src/utils/cdn";
+import { formatDuration, playtimeLine } from "@/src/utils/playtime";
+import { showToast } from "@/src/utils/toast";
 
 const Tab = createMaterialTopTabNavigator();
+const placeholderImage = require("../../assets/images/placeholder_gamelist.jpg");
 
 /**
- * Tela de detalhes de um jogo com abas (Detalhes e Conquistas)
- * e menu de links da comunidade Steam.
+ * Tela do jogo (redesign, prancheta 06): capa grande com voltar e fixar,
+ * nome e tempo de jogo, e as abas Detalhes e Conquistas num seletor
+ * segmentado.
  *
  * Recebe só o `appid` pela rota e lê o jogo do banco ao abrir. Assim a tela
  * sempre parte do estado salvo mais recente, e nenhuma cópia antiga do jogo
@@ -27,9 +35,6 @@ export default function GameScreen({ route, navigation }) {
 
     const [game, setGame] = useState(null);
     const [loadingGame, setLoadingGame] = useState(true);
-    const [modalVisible, setModalVisible] = useState(false);
-
-    const t = useTheme();
 
     useEffect(() => {
         let cancelled = false;
@@ -43,153 +48,166 @@ export default function GameScreen({ route, navigation }) {
         return () => { cancelled = true; };
     }, [steamId, appid]);
 
-    const guidesUrl = `https://steamcommunity.com/app/${appid}/guides/`;
-    const discussionsUrl = `https://steamcommunity.com/app/${appid}/discussions/`;
+    // Capa: URL da loja salva, a que o appdetails trouxe, depois os CDNs antigos
+    const headerCandidates = [
+        ...new Set([
+            game?.headerUrl,
+            game?.details?.header_image,
+            headerUri(appid, false),
+            headerUri(appid, true),
+        ].filter(Boolean)),
+    ];
+    const { stage, onError } = useImageCdnFallback(
+        `${appid}|${headerCandidates.join("|")}`,
+        headerCandidates.length
+    );
 
-    /** Abre no navegador o guia do jogo no Steam Community. */
-    const openGuides = () => {
-        Linking.openURL(guidesUrl).catch(err => console.error("Failed to open guides URL:", err));
+    /** Fixa/desfixa o jogo (a biblioteca relê a linha ao voltar). */
+    const togglePin = async () => {
+        if (!steamId || !game) return;
+        const pinned = await dbTogglePin(steamId, appid);
+        setGame(g => ({ ...g, pinned }));
+        showToast(pinned ? tr("gamePinned") : tr("gameUnpinned"), "success");
     };
 
-    /** Abre no navegador as discussões do jogo no Steam Community. */
-    const openDiscussions = () => {
-        Linking.openURL(discussionsUrl).catch(err => console.error("Failed to open discussions URL:", err));
-    };
+    const backButton = (
+        <Pressable
+            onPress={() => navigation.goBack()}
+            accessibilityRole="button"
+            accessibilityLabel={tr("back")}
+            style={({ pressed }) => [styles.roundButton, { opacity: pressed ? 0.8 : 1 }]}
+        >
+            <Ionicons name="chevron-back" size={22} color={COLORS.text} />
+        </Pressable>
+    );
 
     if (loadingGame || !game) {
         return (
-            <View className={`flex-1 ${t.pageBg} p-4`}>
-                <TouchableOpacity
-                    onPress={() => navigation.goBack()}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                    <Ionicons name="arrow-back-outline" size={25} color={t.textInline} />
-                </TouchableOpacity>
-                <View className="flex-1 items-center justify-center px-6">
+            <View style={styles.screen}>
+                <View style={styles.fallbackTop}>{backButton}</View>
+                <View style={styles.fallbackBody}>
                     {loadingGame ? (
                         <ActivityIndicator size="large" color={COLORS.accent} />
                     ) : (
-                        <Text style={{ color: t.textInline, textAlign: "center" }}>
-                            {tr("gameNotFound")}
-                        </Text>
+                        <AppText variant="body" style={{ textAlign: "center" }}>{tr("gameNotFound")}</AppText>
                     )}
                 </View>
             </View>
         );
     }
 
+    const { unlocked, total } = getGameCounts(game);
+    const played = game.playtimeHidden || !(game.playtime_forever > 0)
+        ? playtimeLine(game, tr)
+        : tr("playtimePlayed", { time: formatDuration(game.playtime_forever) });
+    const meta = [played, total > 0 ? tr("achievementsShort", { unlocked, total }) : null]
+        .filter(Boolean)
+        .join(" · ");
+
     return (
-
-        <View className={`flex-1 ${t.pageBg} p-4`}>
-
-            <Modal
-                transparent
-                animationType="fade"
-                visible={modalVisible}
-                onRequestClose={() => setModalVisible(false)}
-            >
-                <TouchableOpacity
-                    style={{
-                        flex: 1,
-                        backgroundColor: 'rgba(0,0,0,0.3)',
-                        justifyContent: 'flex-start',
-                        alignItems: 'flex-end',
-                    }}
-                    activeOpacity={1}
-                    onPressOut={() => setModalVisible(false)}
-                >
-                    <View
-                        style={{
-                            width: 200,
-                            backgroundColor: t.surface,
-                            marginTop: 60, // adjust to appear below status bar
-                            marginRight: 16,
-                            borderRadius: 8,
-                            paddingVertical: 8,
-                            shadowColor: '#000',
-                            shadowOffset: { width: 0, height: 2 },
-                            shadowOpacity: 0.25,
-                            shadowRadius: 4,
-                            elevation: 5,
-                            borderWidth: t.isDark ? 0 : 1,
-                            borderColor: t.borderInline,
-                        }}
+        <View style={styles.screen}>
+            {/* Capa com degradê, voltar, fixar, nome e tempo de jogo */}
+            <View style={styles.hero}>
+                <Image
+                    source={stage >= headerCandidates.length ? placeholderImage : { uri: headerCandidates[stage] }}
+                    onError={onError}
+                    style={StyleSheet.absoluteFill}
+                    resizeMode="cover"
+                />
+                <LinearGradient
+                    colors={["rgba(10,14,21,0)", "rgba(10,14,21,0)", COLORS.bg]}
+                    locations={[0, 0.45, 1]}
+                    style={StyleSheet.absoluteFill}
+                />
+                <View style={styles.heroButtons}>
+                    {backButton}
+                    <Pressable
+                        onPress={togglePin}
+                        accessibilityRole="button"
+                        accessibilityLabel={game.pinned ? tr("unpinGame") : tr("pinGame")}
+                        accessibilityState={{ selected: !!game.pinned }}
+                        style={({ pressed }) => [styles.roundButton, { opacity: pressed ? 0.8 : 1 }]}
                     >
-                        <TouchableOpacity
-                            onPress={() => { setModalVisible(false); openGuides(); }}
-                            style={{ padding: 12, flexDirection: 'row', alignItems: 'center' }}
-                        >
-                            <Ionicons name="book-outline" size={18} color={t.textInline} style={{ marginRight: 8 }} />
-                            <Text style={{ color: t.textInline }}>{tr("communityGuides")}</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            onPress={() => { setModalVisible(false); openDiscussions(); }}
-                            style={{ padding: 12, flexDirection: 'row', alignItems: 'center' }}
-                        >
-                            <Ionicons name="chatbubbles-outline" size={18} color={t.textInline} style={{ marginRight: 8 }} />
-                            <Text style={{ color: t.textInline }}>{tr("steamDiscussions")}</Text>
-                        </TouchableOpacity>
-                    </View>
-                </TouchableOpacity>
-            </Modal>
-
-
-            {/* Back button + Title */}
-            <View className="flex-row items-center justify-between mb-4">
-                {/* Back button */}
-                <TouchableOpacity
-                    onPress={() => navigation.goBack()}
-                    style={{ flexDirection: 'row', alignItems: 'center' }}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                    <Ionicons name="arrow-back-outline" size={25} color={t.textInline} style={{ marginRight: 8 }} />
-                </TouchableOpacity>
-
-                {/* Title */}
-                <View style={{ flex: 1, marginHorizontal: 8 }}>
-                    <Text
-                        style={{ color: t.textInline, fontSize: 18, fontWeight: 'bold' }}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                    >
-                        {game.name} - {tr("achievements")}
-                    </Text>
+                        <Ionicons
+                            name={game.pinned ? "pin" : "pin-outline"}
+                            size={18}
+                            color={game.pinned ? COLORS.gold : COLORS.text}
+                        />
+                    </Pressable>
                 </View>
-
-                {/* Three-dot menu */}
-                <TouchableOpacity onPress={() => setModalVisible(true)}>
-                    <Ionicons name="ellipsis-vertical" size={25} color={t.textInline} />
-                </TouchableOpacity>
+                <View style={styles.heroTexts}>
+                    <AppText variant="title" style={styles.heroTitle} numberOfLines={2}>{game.name}</AppText>
+                    <Text style={styles.heroMeta} numberOfLines={1}>{meta}</Text>
+                </View>
             </View>
 
-            {/* Tabs */}
             <Tab.Navigator
-                screenOptions={{
-                    tabBarStyle: {
-                        backgroundColor: t.surface,
-                        borderRadius: 10,           // Rounded corners
-                        overflow: 'hidden',         // Ensure the rounding applies
-                        height: 50,                 // Adjust height if needed
-                    },
-                    tabBarIndicatorStyle: {
-                        backgroundColor: COLORS.accent,
-                        borderRadius: 10,           // Rounded indicator
-                        height: '100%',             // Makes the indicator fill the tab bar height
-                    },
-                    tabBarLabelStyle: {
-                        color: t.textInline,
-                        fontWeight: 'bold',
-                    },
-                }}
+                tabBar={(props) => <SegmentedTabBar {...props} label={tr("gameSections")} />}
+                screenOptions={{ sceneStyle: { backgroundColor: COLORS.bg } }}
             >
-
-                <Tab.Screen name="Detalhes" options={{ tabBarLabel: tr("details") }}>
+                <Tab.Screen name="Detalhes" options={{ title: tr("details") }}>
                     {() => <GameDetailsTab game={game} navigation={navigation} />}
                 </Tab.Screen>
-                <Tab.Screen name="Conquistas" options={{ tabBarLabel: tr("achievements") }}>
+                <Tab.Screen name="Conquistas" options={{ title: tr("achievements") }}>
                     {() => <AchievementsTab game={game} />}
                 </Tab.Screen>
             </Tab.Navigator>
         </View>
     );
 }
+
+/** Abas do jogo como seletor segmentado (Detalhes | Conquistas). */
+function SegmentedTabBar({ state, descriptors, navigation, label }) {
+    return (
+        <View style={styles.segmentWrap}>
+            <View style={styles.segment} accessibilityRole="tablist" accessibilityLabel={label}>
+                {state.routes.map((route, index) => {
+                    const focused = state.index === index;
+                    const title = descriptors[route.key].options.title ?? route.name;
+                    return (
+                        <Pressable
+                            key={route.key}
+                            onPress={() => {
+                                const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
+                                if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
+                            }}
+                            accessibilityRole="tab"
+                            accessibilityState={{ selected: focused }}
+                            style={[styles.segmentItem, focused && styles.segmentItemOn]}
+                        >
+                            <Text style={[styles.segmentLabel, focused ? styles.segmentLabelOn : styles.segmentLabelOff]}>
+                                {title}
+                            </Text>
+                        </Pressable>
+                    );
+                })}
+            </View>
+        </View>
+    );
+}
+
+const styles = StyleSheet.create({
+    screen: { flex: 1, backgroundColor: COLORS.bg },
+    hero: { height: 200, backgroundColor: COLORS.surface2, justifyContent: "space-between" },
+    heroButtons: { flexDirection: "row", justifyContent: "space-between", padding: 16 },
+    roundButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: "rgba(10, 14, 21, 0.6)",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    heroTexts: { paddingHorizontal: 20, paddingBottom: 6, gap: 2 },
+    heroTitle: { fontSize: 28 },
+    heroMeta: { fontFamily: FONTS.body, fontSize: 13, color: COLORS.textSoft },
+    segmentWrap: { paddingHorizontal: 20, paddingTop: 14, backgroundColor: COLORS.bg },
+    segment: { flexDirection: "row", gap: 4, padding: 4, borderRadius: 14, backgroundColor: COLORS.surface },
+    segmentItem: { flex: 1, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+    segmentItemOn: { backgroundColor: COLORS.border },
+    segmentLabel: { fontSize: 14 },
+    segmentLabelOn: { fontFamily: FONTS.bodySemibold, color: COLORS.text },
+    segmentLabelOff: { fontFamily: FONTS.bodyMedium, color: COLORS.textSoft },
+    fallbackTop: { padding: 16 },
+    fallbackBody: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 },
+});

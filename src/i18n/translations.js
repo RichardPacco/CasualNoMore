@@ -166,6 +166,13 @@ export const translations = {
     genre: { pt: "Gênero", en: "Genre" },
     release: { pt: "Lançamento", en: "Release" },
     viewInStore: { pt: "Ver na Loja", en: "View in Store" },
+    viewInSteamStore: { pt: "Ver na loja Steam", en: "View on the Steam Store" },
+    aboutGame: { pt: "Sobre o jogo", en: "About the game" },
+    guidesShort: { pt: "Guias", en: "Guides" },
+    discussionsShort: { pt: "Discussões", en: "Discussions" },
+    back: { pt: "Voltar", en: "Back" },
+    playtimePlayed: { pt: "{time} jogadas", en: "{time} played" },
+    gameSections: { pt: "Seções do jogo", en: "Game sections" },
 
     // --- achievements ---
     hiddenDescription: { pt: "Descrição Oculta", en: "Hidden Description" },

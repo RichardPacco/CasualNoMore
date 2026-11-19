@@ -1,12 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import { memo, useContext, useEffect, useMemo, useState } from "react";
-import { Image, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
 import Pressable from "@/src/components/ui/Pressable";
 import { getStoreAssets } from "@/src/api/steam";
 import { AppText, ProgressBar, TextField } from "@/src/components/ui";
 import { AuthContext } from "@/src/context/AuthContext";
-import { getGamesProgress } from "@/src/database/db";
+import { getGamesProgress, loadFriend } from "@/src/database/db";
 import { useImageCdnFallback } from "@/src/hooks/useImageCdnFallback";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS, FONTS } from "@/src/theme/colors";
@@ -56,10 +56,25 @@ const GameRow = memo(GameRowComponent);
  * Jogos de um amigo (redesign, prancheta 10): cabeçalho com avatar e status,
  * seletor "Em comum | Todos do amigo", busca e a lista com o seu progresso
  * nos jogos que vocês dois têm.
+ *
+ * Recebe só o `friendId` (SteamID do amigo) pela rota e lê o amigo do banco,
+ * onde a lista de amigos já o salvou.
  */
 export default function CommonGames({ route, navigation }) {
-    const { friend } = route.params;
+    const { friendId } = route.params;
     const { steamId } = useContext(AuthContext);
+    const [friend, setFriend] = useState(null);
+    const [loadingFriend, setLoadingFriend] = useState(true);
+    useEffect(() => {
+        if (!steamId || !friendId) return;
+        let cancelled = false;
+        loadFriend(steamId, friendId).then(row => {
+            if (cancelled) return;
+            setFriend(row);
+            setLoadingFriend(false);
+        });
+        return () => { cancelled = true; };
+    }, [steamId, friendId]);
     const { t: tr } = useLanguage();
     const [mode, setMode] = useState(route.params?.mode === "all" ? "all" : "common");
     const [searchQuery, setSearchQuery] = useState("");
@@ -181,6 +196,9 @@ export default function CommonGames({ route, navigation }) {
                 />
             </View>
 
+            {loadingFriend ? (
+                <ActivityIndicator size="large" color={COLORS.accent} style={{ marginTop: 40 }} />
+            ) : (
             <FlashList
                 key={mode}
                 data={filteredGames}
@@ -204,6 +222,7 @@ export default function CommonGames({ route, navigation }) {
                     </View>
                 }
             />
+            )}
         </View>
     );
 }

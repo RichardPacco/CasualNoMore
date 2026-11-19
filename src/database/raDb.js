@@ -215,3 +215,88 @@ export async function toggleRaPin(ulid, gameId) {
         return 0;
     }
 }
+
+// ---------- amigos (seguindo / seguidores) ----------
+
+const FRIENDS_COLUMNS_SQL = `
+    ulid TEXT PRIMARY KEY NOT NULL,
+    user TEXT,
+    points INTEGER DEFAULT 0,
+    following INTEGER DEFAULT 0,
+    follower INTEGER DEFAULT 0,
+    games TEXT,
+    gamesSyncedAt INTEGER
+`;
+
+/** Garante a tabela de amigos da conta (`ra_friends_<ulid>`) e retorna o nome. */
+function ensureRaFriendsTable(ulid) {
+    return ensureCustomTable(tableFor(ulid).replace("ra_games_", "ra_friends_"), FRIENDS_COLUMNS_SQL);
+}
+
+/** Converte uma linha de amigo do banco. */
+function friendFromRow(row) {
+    if (!row) return null;
+    return { ...row, following: !!row.following, follower: !!row.follower, games: parseJson(row.games) };
+}
+
+/** Amigos salvos da conta, por pontos (maior primeiro). */
+export async function getRaFriends(ulid) {
+    try {
+        const table = await ensureRaFriendsTable(ulid);
+        const db = await openDB();
+        const rows = await db.getAllAsync(`SELECT ulid, user, points, following, follower FROM ${table} ORDER BY points DESC`);
+        return rows.map(friendFromRow);
+    } catch (err) {
+        console.error("[raDb] getRaFriends failed", err);
+        return [];
+    }
+}
+
+/** Um amigo salvo (com os jogos dele, se já buscados), ou null. */
+export async function getRaFriend(ulid, friendUlid) {
+    try {
+        const table = await ensureRaFriendsTable(ulid);
+        const db = await openDB();
+        return friendFromRow(await db.getFirstAsync(`SELECT * FROM ${table} WHERE ulid = ?`, [friendUlid]));
+    } catch (err) {
+        console.error("[raDb] getRaFriend failed", err);
+        return null;
+    }
+}
+
+/**
+ * Grava a lista de seguindo/seguidores: atualiza nome, pontos e relação
+ * (mantendo os jogos já buscados) e remove quem saiu das duas listas.
+ */
+export async function saveRaFriends(ulid, list) {
+    const table = await ensureRaFriendsTable(ulid);
+    const present = new Set(list.map(f => f.ulid));
+    await runInTransaction(async (db) => {
+        for (const f of list) {
+            await db.runAsync(
+                `INSERT INTO ${table} (ulid, user, points, following, follower) VALUES (?, ?, ?, ?, ?)
+                 ON CONFLICT(ulid) DO UPDATE SET user = excluded.user, points = excluded.points,
+                    following = excluded.following, follower = excluded.follower`,
+                [f.ulid, f.user, f.points || 0, f.following ? 1 : 0, f.follower ? 1 : 0]
+            );
+        }
+        const rows = await db.getAllAsync(`SELECT ulid FROM ${table}`);
+        for (const r of rows) {
+            if (!present.has(r.ulid)) await db.runAsync(`DELETE FROM ${table} WHERE ulid = ?`, [r.ulid]);
+        }
+    });
+}
+
+/** Grava a biblioteca de um amigo (itens de GetUserCompletionProgress). */
+export async function saveRaFriendGames(ulid, friendUlid, games) {
+    try {
+        const table = await ensureRaFriendsTable(ulid);
+        const db = await openDB();
+        await db.runAsync(
+            `UPDATE ${table} SET games = ?, gamesSyncedAt = ? WHERE ulid = ?`,
+            [JSON.stringify(games || []), Date.now(), friendUlid]
+        );
+    } catch (err) {
+        console.error("[raDb] saveRaFriendGames failed", err);
+    }
+}

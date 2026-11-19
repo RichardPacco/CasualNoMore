@@ -490,7 +490,7 @@ Cada etapa termina com o app funcionando e vira um commit. A Steam **não pode q
 - [x] Remover uma plataforma mantém a outra funcionando (feito na etapa 1)
 - [x] O perfil do RA mostra pontos, rank e medalhas
 
-### Etapa 5 — Amigos do RA e jogos em comum
+### ✅ Etapa 5 — Amigos do RA e jogos em comum
 
 **Arquivos**
 
@@ -506,10 +506,16 @@ Cada etapa termina com o app funcionando e vira um commit. A Steam **não pode q
   - comparação lado a lado: meu % × % dele, nível de medalha dos dois
   - "Todos os jogos dele": a lista inteira dele
 
+> **Feito.** O que mudou em relação ao planejado:
+> - Amigos do RA numa tela própria, `src/screens/RaFriends.jsx`, aberta pela `Friends` (seletor Steam | RetroAchievements com as duas conectadas). Chips "Seguindo" e "Seguidores" no lugar de um segundo segmento; selo "Mútuo"; ordem por pontos. Sem RichPresence na lista.
+> - Jogos do amigo do RA numa tela própria, `src/screens/RaCommonGames.jsx` (rota `RaCommonGames` com `friendUlid` e `friendUser`), em vez de adaptar a `CommonGames` da Steam. Progresso hardcore dos dois com barra e medalha; jogos do amigo mais recentes primeiro; hacks/subsets seguem as preferências.
+> - `ra_friends_<ulid>` em `raDb.js`: `ulid`, `user`, `points`, `following`, `follower`, `games` (JSON da completion progress dele) e `gamesSyncedAt` (no lugar de `profile`/`relation`).
+> - **E1 feito na Steam:** a `CommonGames` recebe só `friendId` e lê o amigo do banco (`loadFriend`).
+
 **Pronto quando**
-- [ ] A lista de seguindo e seguidores do RA carrega e fica em cache
-- [ ] Os jogos em comum aparecem com o progresso dos dois
-- [ ] Os amigos da Steam continuam iguais
+- [x] A lista de seguindo e seguidores do RA carrega e fica em cache
+- [x] Os jogos em comum aparecem com o progresso dos dois
+- [x] Os amigos da Steam continuam iguais
 
 ### Etapa 6 — Acabamento
 

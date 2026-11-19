@@ -1,5 +1,7 @@
 import { getFriendList, getOwnedGames, getPlayerSummary } from "@/src/api/steam";
+import PlatformPicker from "@/src/components/PlatformPicker";
 import PullToRefresh from "@/src/components/PullToRefresh";
+import RaFriends from "@/src/screens/RaFriends";
 import { AppText, ProgressBar, TextField } from "@/src/components/ui";
 import { AuthContext } from "@/src/context/AuthContext";
 import { loadFriend, saveFriendsBatch } from "@/src/database/db";
@@ -98,8 +100,13 @@ const FriendRow = memo(FriendRowComponent);
  * status e jogos em comum; tocar abre a tela de jogos do amigo.
  */
 export default function Friends({ navigation }) {
-    const { steamId } = useContext(AuthContext);
+    const { steamId, accounts } = useContext(AuthContext);
     const { t: tr } = useLanguage();
+    // plataforma mostrada (seletor só com as duas conectadas)
+    const [platform, setPlatform] = useState(steamId ? "steam" : "ra");
+    const bothConnected = !!steamId && !!accounts.ra;
+    const showRa = !!accounts.ra && (!steamId || platform === "ra");
+    const picker = bothConnected ? <PlatformPicker value={platform} onChange={setPlatform} /> : null;
 
     const [friends, setFriends] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -122,7 +129,8 @@ export default function Friends({ navigation }) {
 
     /** Abre a tela de jogos do amigo (começa em "Em comum"). */
     const openFriend = useCallback((friend) => {
-        navigation.navigate("CommonGames", { friend });
+        // só o id: a tela lê o amigo do banco (E1, nenhuma cópia antiga viaja pela rota)
+        navigation.navigate("CommonGames", { friendId: friend.steamid });
     }, [navigation]);
 
     /**
@@ -289,8 +297,10 @@ export default function Friends({ navigation }) {
         [openFriend]
     );
 
-    // Sem conta Steam (ex.: só RetroAchievements): os amigos do RA entram na
-    // etapa 5 do RETROACHIEVEMENTS_PLAN.md
+    // RetroAchievements: seguindo/seguidores (tela própria)
+    if (showRa) return <RaFriends navigation={navigation} header={picker} />;
+
+    // Sem nenhuma conta com amigos (não deveria acontecer nas abas)
     if (!steamId) {
         return (
             <View style={styles.screen}>
@@ -316,6 +326,7 @@ export default function Friends({ navigation }) {
                         <AppText variant="muted">{tr("friendsSubtitle", { count: friends.length })}</AppText>
                     )}
                 </View>
+                {picker}
                 <TextField
                     value={searchQuery}
                     onChangeText={setSearchQuery}

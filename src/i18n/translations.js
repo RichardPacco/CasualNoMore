@@ -156,7 +156,6 @@ export const translations = {
     // --- biblioteca (redesign) ---
     libraryTitle: { pt: "Biblioteca", en: "Library" },
     librarySubtitle: { pt: "{count} jogos · {completed} completos", en: "{count} games · {completed} perfected" },
-    continueHunting: { pt: "Continuar caçando", en: "Keep hunting" },
     allGamesSeparator: { pt: "Todos os jogos", en: "All games" },
     moreFilters: { pt: "Mais filtros", en: "More filters" },
     sortButton: { pt: "Ordenar: {sort}", en: "Sort: {sort}" },

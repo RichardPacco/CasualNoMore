@@ -1,5 +1,4 @@
 import { getOwnedGames, GetSchemaForGame, getStoreAssets } from "@/src/api/steam";
-import ContinueHuntingCard from "@/src/components/ContinueHuntingCard";
 import GameCard from "@/src/components/GameCard";
 import { AppText, Button, Chip, ProgressBar, TextField } from "@/src/components/ui";
 import PullToRefresh from "@/src/components/PullToRefresh";
@@ -54,8 +53,8 @@ function filterRule(value) {
 
 /**
  * Biblioteca (redesign, prancheta 04): lista de jogos do usuário com busca,
- * chips de filtro, ordenação, destaque "Continuar caçando", fixados,
- * recentes e progresso de conquistas.
+ * chips de filtro, ordenação, seções de fixados e jogados recentemente,
+ * e progresso de conquistas.
  */
 export default function GameList({ navigation, route }) {
     const { steamId } = useContext(AuthContext);
@@ -645,15 +644,11 @@ export default function GameList({ navigation, route }) {
     // ---------- blocos do topo da lista (redesign, prancheta 04) ----------
     const syncing = progress.current < progress.total;
 
-    // "Continuar caçando": o jogo mais jogado nas últimas 2 semanas, só na
-    // ordenação padrão e sem busca ativa.
-    const heroGame = sort === "recentPlaytime" && !debouncedQuery.trim() && recentBlock?.recent.length
-        ? recentBlock.recent[0]
-        : null;
-    const pinnedRows = pinnedBlock.pinned.filter(g => g !== heroGame);
-    const recentRows = recentBlock ? recentBlock.recent.filter(g => !g.pinned && g !== heroGame) : [];
+    // Seções do topo: fixados e jogados recentemente (só na ordenação padrão)
+    const pinnedRows = pinnedBlock.pinned;
+    const recentRows = recentBlock ? recentBlock.recent.filter(g => !g.pinned) : [];
     const listData = recentBlock ? recentBlock.rest.filter(g => !g.pinned) : pinnedBlock.rest;
-    const hasTopBlocks = !!heroGame || pinnedRows.length > 0 || recentRows.length > 0;
+    const hasTopBlocks = pinnedRows.length > 0 || recentRows.length > 0;
 
     // Chips rápidos; os outros filtros ficam em "Mais filtros"
     const QUICK_FILTERS = ["all", "progress", "completed"];
@@ -784,17 +779,6 @@ export default function GameList({ navigation, route }) {
                                         </AppText>
                                     </View>
                                     <ProgressBar value={progress.total ? (progress.current / progress.total) * 100 : 0} />
-                                </View>
-                            )}
-
-                            {heroGame && (
-                                <View style={styles.section}>
-                                    <AppText variant="label">{tr("continueHunting")}</AppText>
-                                    <ContinueHuntingCard
-                                        game={heroGame}
-                                        onOpen={openGame}
-                                        onLongPress={refreshSingleGame}
-                                    />
                                 </View>
                             )}
 

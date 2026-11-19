@@ -21,6 +21,12 @@ import Pressable from "@/src/components/ui/Pressable";
 // Configurações de privacidade do perfil na Steam (para deixar os jogos públicos)
 const STEAM_PRIVACY_URL = "https://steamcommunity.com/my/edit/settings";
 
+// Jogos enriquecidos ao mesmo tempo na sincronização (cada um faz ~4 chamadas
+// à Steam). O turbo não trata erro 429: se a Steam limitar, os jogos que
+// falharem ficam pendentes e são buscados de novo na próxima sincronização.
+const CONCURRENCY_NORMAL = 5;
+const CONCURRENCY_TURBO = 20;
+
 // Modos de exibição da biblioteca (salvos no aparelho com esta chave)
 const VIEW_MODE_KEY = "@library_view_mode";
 const VIEW_MODES = ["compact", "card", "grid"];
@@ -78,6 +84,15 @@ export default function GameList({ navigation, route }) {
     const [sort, setSort] = useState("recentPlaytime");
     const [refreshing, setRefreshing] = useState(false);
     const [refreshingRecent, setRefreshingRecent] = useState(false);
+
+    // Turbo: mais jogos ao mesmo tempo na sincronização. O state é para o
+    // botão; o ref é lido pelo laço de carga a cada rodada.
+    const [turbo, setTurbo] = useState(false);
+    const turboRef = useRef(false);
+    const toggleTurbo = useCallback(() => {
+        turboRef.current = !turboRef.current;
+        setTurbo(turboRef.current);
+    }, []);
     // painel único de filtrar e ordenar (aberto por "Mais filtros" ou pelo botão de ordenar)
     const [sheetVisible, setSheetVisible] = useState(false);
 
@@ -517,15 +532,18 @@ export default function GameList({ navigation, route }) {
 
             // Enriquecimento em paralelo (poucos por vez para não estourar a API)
             // e atualização da UI + persistência em lotes (reduz re-renders e I/O).
-            const CONCURRENCY = 5;  // quantos jogos são enriquecidos ao mesmo tempo
+            // Quantos jogos são enriquecidos ao mesmo tempo: lido a cada rodada,
+            // então ligar/desligar o turbo vale na hora, no meio da sincronização.
             const UI_BATCH = 10;    // a cada quantos jogos a lista é re-renderizada
             let batchToSave = [];
             let updatedAny = false;
 
-            for (let i = 0; i < freshGames.length; i += CONCURRENCY) {
+            for (let i = 0; i < freshGames.length;) {
                 if (loadGenRef.current !== gen) return false;
 
-                const chunk = freshGames.slice(i, i + CONCURRENCY);
+                const step = turboRef.current ? CONCURRENCY_TURBO : CONCURRENCY_NORMAL;
+                const next = i + step;
+                const chunk = freshGames.slice(i, next);
                 const enrichedChunk = await Promise.all(chunk.map(baseGame => {
                     const idx = gameMap.get(baseGame.appid);
                     const cachedEntry = idx !== undefined ? gamesList[idx] : null;
@@ -558,14 +576,16 @@ export default function GameList({ navigation, route }) {
                     batchToSave.push(enriched);
                 }
 
-                setProgress({ current: Math.min(i + CONCURRENCY, total), total });
+                setProgress({ current: Math.min(next, total), total });
 
                 // Atualiza a lista e persiste em lotes, não a cada jogo
-                if (updatedAny && (batchToSave.length >= UI_BATCH || i + CONCURRENCY >= freshGames.length)) {
+                if (updatedAny && (batchToSave.length >= UI_BATCH || next >= freshGames.length)) {
                     setGames([...gamesList]);
                     await saveGamesBatch(steamId, batchToSave);
                     batchToSave = [];
                 }
+
+                i = next;
             }
 
             if (loadGenRef.current !== gen) return false;
@@ -633,6 +653,23 @@ export default function GameList({ navigation, route }) {
 
 
     // ---------- UI ----------
+    // Botão turbo dos cards de sincronização: liga/desliga mais jogos ao mesmo tempo
+    const turboButton = (
+        <Pressable
+            onPress={toggleTurbo}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: turbo }}
+            accessibilityLabel={tr("turboA11y")}
+            hitSlop={{ top: 6, bottom: 6 }}
+            style={({ pressed }) => [styles.turbo, turbo && styles.turboOn, { opacity: pressed ? 0.8 : 1 }]}
+        >
+            <Ionicons name={turbo ? "flash" : "flash-outline"} size={14} color={turbo ? COLORS.gold : COLORS.textSoft} />
+            <AppText variant="muted" style={[styles.turboLabel, { color: turbo ? COLORS.gold : COLORS.textSoft }]}>
+                {tr("turbo")}
+            </AppText>
+        </Pressable>
+    );
+
     // Primeira sincronização (banco ainda vazio): título, card de progresso e
     // linhas-esqueleto no lugar da lista (redesign, prancheta 13).
     if (loading && games.length === 0) {
@@ -656,7 +693,10 @@ export default function GameList({ navigation, route }) {
                             )}
                         </View>
                         <ProgressBar value={pct} height={6} />
-                        <AppText variant="muted" style={{ fontSize: 12 }}>{tr("syncHint")}</AppText>
+                        <View style={styles.syncTop}>
+                            <AppText variant="muted" style={{ fontSize: 12, flex: 1 }}>{tr("syncHint")}</AppText>
+                            {turboButton}
+                        </View>
                     </View>
                     <View style={{ gap: 8 }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
                         {[0.6, 0.45, 0.7].map((w, i) => (
@@ -839,6 +879,7 @@ export default function GameList({ navigation, route }) {
                                         <AppText variant="muted" style={{ flex: 1 }}>
                                             {tr("loadingGames", { current: progress.current, total: progress.total })}
                                         </AppText>
+                                        {turboButton}
                                     </View>
                                     <ProgressBar value={progress.total ? (progress.current / progress.total) * 100 : 0} />
                                 </View>
@@ -980,6 +1021,19 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     syncTop: { flexDirection: "row", alignItems: "center", gap: 10 },
+    // botão turbo: pílula pequena, dourada quando ligada
+    turbo: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
+        height: 32,
+        paddingHorizontal: 10,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+    },
+    turboOn: { borderColor: COLORS.gold, backgroundColor: "rgba(255, 179, 0, 0.12)" },
+    turboLabel: { fontFamily: FONTS.bodySemibold, fontSize: 12 },
     helpLink: { minHeight: 44, justifyContent: "center", paddingHorizontal: 8 },
     skeletonRow: { flexDirection: "row", alignItems: "center", gap: 12, padding: 10, borderRadius: 16, backgroundColor: COLORS.surface },
     skeletonCapsule: { width: 92, height: 34, borderRadius: 8, backgroundColor: COLORS.surface2 },

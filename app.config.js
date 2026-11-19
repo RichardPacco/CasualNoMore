@@ -31,6 +31,8 @@ export default ({ config }) => {
       "expo-router",
       "expo-web-browser",
       "expo-secure-store",
+      // Android: até 20 requisições simultâneas por servidor (OkHttp limita a 5)
+      ["./plugins/withOkHttpConcurrency", { maxRequestsPerHost: 20 }],
       [
         "expo-splash-screen",
         {

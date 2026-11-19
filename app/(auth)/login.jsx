@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { getPlayerSummary, resolveVanityURL } from "@/src/api/steam";
-import { loadApiKey, saveApiKeyStore } from "@/src/config/apiKeyStore";
+import { loadApiKey, saveApiKey } from "@/src/config/apiKeyStore";
 import LanguageSelector from "@/src/components/LanguageSelector";
 import MaintenanceSheet from "@/src/components/MaintenanceSheet";
 import { AppText, Button, TextField } from "@/src/components/ui";
@@ -40,7 +40,7 @@ const MAX_ACCOUNT_SLOTS = 3;
  * Cache e banco ficam no painel de manutenção (ícone de engrenagem).
  */
 export default function Login() {
-    const { setSteamId, clearSteamId, savedAccounts, addSavedAccount, removeSavedAccount, clearSavedAccounts } = useContext(AuthContext);
+    const { setSteamId, clearSteamId, disconnect, savedAccounts, addSavedAccount, removeSavedAccount, clearSavedAccounts } = useContext(AuthContext);
     const router = useRouter();
     const { t, setLanguage } = useLanguage();
 
@@ -64,7 +64,7 @@ export default function Login() {
     /** Carrega a API key salva do armazenamento na montagem. */
     useEffect(() => {
         (async () => {
-            const stored = await loadApiKey();
+            const stored = await loadApiKey("steam");
             if (stored) {
                 setApiKey(stored);
                 setKeyInput(stored);
@@ -82,7 +82,7 @@ export default function Login() {
         setKeyInput(text);
         const trimmed = text.trim();
         if (/^[0-9A-Fa-f]{32}$/.test(trimmed)) {
-            await saveApiKeyStore(trimmed);
+            await saveApiKey("steam", trimmed);
             setApiKey(trimmed);
             showToast(t("loginApiKeySaved"), "success");
         }
@@ -90,7 +90,7 @@ export default function Login() {
 
     /** Remove a API key salva e limpa os campos. */
     const removeSavedApiKey = async () => {
-        await saveApiKeyStore("");
+        await saveApiKey("steam", "");
         setApiKey("");
         setKeyInput("");
         showToast(t("loginApiKeyRemoved"), "info");
@@ -101,17 +101,19 @@ export default function Login() {
      * Também zera as cópias em memória (API key, contas salvas, steamId), senão a
      * tela continuaria mostrando dados que já não existem no armazenamento.
      * O idioma também volta ao padrão, como numa instalação nova.
-     * A API key fica no SecureStore, que o AsyncStorage.clear() não alcança,
-     * então é apagada à parte (memória + armazenamento seguro).
+     * As API keys ficam no SecureStore, que o AsyncStorage.clear() não alcança,
+     * então são apagadas à parte (memória + armazenamento seguro).
      */
     const handleClearCache = async () => {
         try {
             await AsyncStorage.clear();
-            await saveApiKeyStore("");
+            await saveApiKey("steam", "");
+            await saveApiKey("ra", "");
             setApiKey("");
             setKeyInput("");
             await clearSavedAccounts();
             await clearSteamId();
+            await disconnect("ra");
             await setLanguage(DEFAULT_LANGUAGE);
             showToast(t("loginCacheCleared"));
         } catch (e) {

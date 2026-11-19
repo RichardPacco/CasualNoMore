@@ -5,10 +5,8 @@ import Pressable from "@/src/components/ui/Pressable";
 import { ProgressBar } from "@/src/components/ui";
 import { useImageCdnFallback } from "@/src/hooks/useImageCdnFallback";
 import { useLanguage } from "@/src/i18n/LanguageContext";
+import { getPlatform } from "@/src/platforms";
 import { COLORS, FONTS } from "@/src/theme/colors";
-import { getGameCounts } from "@/src/utils/achievements";
-import { capsuleUri, headerUri, imageCandidates } from "@/src/utils/cdn";
-import { totalPlaytimeText } from "@/src/utils/playtime";
 
 const placeholderImage = require("../../assets/images/placeholder_gamelist.jpg");
 // medalha de jogo completo (100% das conquistas), a mesma de antes do redesign
@@ -23,33 +21,32 @@ const completionIcon = require("../../assets/images/completion_icon.png");
  *   cima (medalha e alfinete sobre a imagem) e nome, barra e contagem embaixo.
  * Jogos fixados ganham borda dourada. Toque abre o jogo; toque longo
  * atualiza; o alfinete fixa/desfixa.
- * Props: game, navigation, onOpen (opcional; senão navega com o appid),
+ * Props: game (LibraryGame, o formato comum de jogo de qualquer plataforma),
+ * navigation, onOpen (opcional; senão navega com plataforma e id),
  * onLongPress, onTogglePin, variant.
  */
 function GameCardComponent({ game, navigation, onOpen, onLongPress, onTogglePin, variant = "card" }) {
     const { t: tr } = useLanguage();
     const isGrid = variant === "grid";
 
-    // Imagem: na grade a capa larga (header 460x215), nos cards a cápsula
-    // (231x87). URL da loja (com hash, funciona para jogos novos) primeiro;
-    // depois os CDNs antigos montados pelo appid; todas falharam -> placeholder.
-    const storeUrl = isGrid ? game.headerUrl : game.capsuleUrl;
-    const legacyUri = isGrid ? (fb => headerUri(game.appid, fb)) : (fb => capsuleUri(game.appid, fb));
-    const candidates = imageCandidates(storeUrl, legacyUri);
+    // Imagem: na grade a capa larga, nos cards a cápsula. Cada plataforma
+    // manda a lista de URLs a tentar em ordem; todas falharam -> placeholder.
+    const { candidates } = isGrid ? game.gridImage : game.image;
     const { stage, onError } = useImageCdnFallback(
-        `${game.appid}|${variant}|${storeUrl ?? ""}`,
+        `${game.key}|${variant}|${candidates[0] ?? ""}`,
         candidates.length
     );
     const imageSource = stage >= candidates.length ? placeholderImage : { uri: candidates[stage] };
 
-    const { unlocked, total, percent } = getGameCounts(game);
+    const { unlocked, total, percent } = game;
     const hasAchievements = total > 0;
-    const complete = hasAchievements && unlocked === total;
+    const complete = !!game.award;
+    const subtitle = getPlatform(game.platform)?.subtitle(game, tr) ?? "";
     const countText = hasAchievements
         ? tr("achievementsCount", { unlocked, total, percent: percent.toFixed(1) })
         : null;
 
-    const open = () => onOpen ? onOpen(game) : navigation.navigate("GameScreen", { appid: game.appid });
+    const open = () => onOpen ? onOpen(game) : navigation.navigate("GameScreen", { platform: game.platform, id: game.id });
 
     const medal = complete ? (
         <Image
@@ -100,7 +97,7 @@ function GameCardComponent({ game, navigation, onOpen, onLongPress, onTogglePin,
                 </View>
                 <View style={styles.tileBody}>
                     <Text style={styles.tileName} numberOfLines={2}>{game.name}</Text>
-                    <Text style={styles.meta} numberOfLines={1}>{totalPlaytimeText(game, tr)}</Text>
+                    <Text style={styles.meta} numberOfLines={1}>{subtitle}</Text>
                     {hasAchievements && (
                         <>
                             <ProgressBar value={percent} height={6} style={{ marginTop: 4 }} />
@@ -156,7 +153,7 @@ function GameCardComponent({ game, navigation, onOpen, onLongPress, onTogglePin,
                     {medal}
                     {pin}
                 </View>
-                <Text style={styles.meta} numberOfLines={1}>{totalPlaytimeText(game, tr)}</Text>
+                <Text style={styles.meta} numberOfLines={1}>{subtitle}</Text>
                 {hasAchievements && (
                     <>
                         <ProgressBar value={percent} height={8} style={{ marginTop: 4 }} />

@@ -1,11 +1,11 @@
-import { getApiKeyStore } from "@/src/config/apiKeyStore";
+import { getApiKey as getStoredApiKey } from "@/src/config/apiKeyStore";
 import { steamLangCode } from "@/src/i18n/langStore";
 import { storeAssetUrl } from "@/src/utils/cdn";
 const BASE_URL = "https://api.steampowered.com";
 
 /** Retorna a API key configurada, lançando erro se ausente. */
 function getApiKey() {
-    const key = getApiKeyStore();
+    const key = getStoredApiKey("steam");
     if (!key) {
         throw new Error("API key da Steam não configurada — informe sua chave na tela de login");
     }

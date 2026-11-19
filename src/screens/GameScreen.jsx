@@ -8,9 +8,9 @@ import AchievementsTab from './AchievementsTab';
 import GameDetailsTab from './GameDetailsTab';
 import { AppText } from "@/src/components/ui";
 import { AuthContext } from "@/src/context/AuthContext";
-import { getGame, togglePin as dbTogglePin } from "@/src/database/db";
 import { useImageCdnFallback } from "@/src/hooks/useImageCdnFallback";
 import { useLanguage } from "@/src/i18n/LanguageContext";
+import { getPlatform } from "@/src/platforms";
 import { COLORS, FONTS } from "@/src/theme/colors";
 import { getGameCounts } from "@/src/utils/achievements";
 import { headerUri } from "@/src/utils/cdn";
@@ -25,13 +25,20 @@ const placeholderImage = require("../../assets/images/placeholder_gamelist.jpg")
  * nome e tempo de jogo, e as abas Detalhes e Conquistas num seletor
  * segmentado.
  *
- * Recebe só o `appid` pela rota e lê o jogo do banco ao abrir. Assim a tela
- * sempre parte do estado salvo mais recente, e nenhuma cópia antiga do jogo
- * viaja pela navegação para depois sobrescrever dados mais novos.
+ * Recebe só a plataforma e o id do jogo pela rota (`{ platform, id }`) e lê o
+ * jogo do banco ao abrir. Assim a tela sempre parte do estado salvo mais
+ * recente, e nenhuma cópia antiga do jogo viaja pela navegação para depois
+ * sobrescrever dados mais novos.
+ *
+ * Por enquanto o conteúdo (capa, abas) é o da Steam; o do RetroAchievements
+ * entra na etapa 3 do RETROACHIEVEMENTS_PLAN.md.
  */
 export default function GameScreen({ route, navigation }) {
-    const { appid } = route.params;
-    const { steamId } = useContext(AuthContext);
+    const { platform: platformId = "steam", id } = route.params;
+    const appid = id;
+    const { accounts } = useContext(AuthContext);
+    const platform = getPlatform(platformId);
+    const connected = !!platform?.isConnected(accounts);
     const { t: tr } = useLanguage();
 
     const [game, setGame] = useState(null);
@@ -44,13 +51,13 @@ export default function GameScreen({ route, navigation }) {
         let cancelled = false;
         (async () => {
             setLoadingGame(true);
-            const row = steamId ? await getGame(steamId, appid) : null;
+            const row = connected ? await platform.getGame(accounts, id) : null;
             if (cancelled) return;
             setGame(row);
             setLoadingGame(false);
         })();
         return () => { cancelled = true; };
-    }, [steamId, appid]);
+    }, [connected, platform, accounts, id]);
 
     // Capa: URL da loja salva, a que o appdetails trouxe, depois os CDNs antigos
     const headerCandidates = [
@@ -68,8 +75,8 @@ export default function GameScreen({ route, navigation }) {
 
     /** Fixa/desfixa o jogo (a biblioteca relê a linha ao voltar). */
     const togglePin = async () => {
-        if (!steamId || !game) return;
-        const pinned = await dbTogglePin(steamId, appid);
+        if (!connected || !game) return;
+        const pinned = await platform.togglePin(accounts, id);
         setGame(g => ({ ...g, pinned }));
         showToast(pinned ? tr("gamePinned") : tr("gameUnpinned"), "success");
     };

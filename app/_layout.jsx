@@ -31,7 +31,7 @@ Appearance.setColorScheme?.("dark");
 /**
  * Layout raiz: carrega as fontes do redesign, providers (Language, Auth) e o
  * Stack de telas (index, tabs, login).
- * A API key salva é carregada pelo AuthProvider, junto com o steamId.
+ * As API keys salvas são carregadas pelo AuthProvider, junto com as contas.
  */
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({

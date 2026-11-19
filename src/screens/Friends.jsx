@@ -39,9 +39,10 @@ async function fetchFriendData(id, myGames) {
     ]);
     if (!friendProfile || !games) return null;
 
-    const commonGames = myGames.filter(myGame =>
-        games.games?.some(friendGame => friendGame.appid === myGame.appid)
-    );
+    // Set com os appids do amigo: cada consulta é O(1), então o total é
+    // proporcional ao tamanho das bibliotecas (antes era meus jogos × jogos dele).
+    const friendAppIds = new Set((games.games ?? []).map(g => g.appid));
+    const commonGames = myGames.filter(myGame => friendAppIds.has(myGame.appid));
 
     return { steamId: id, profile: friendProfile, games, commonGames };
 }

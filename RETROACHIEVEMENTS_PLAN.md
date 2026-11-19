@@ -530,6 +530,8 @@ Cada etapa termina com o app funcionando e vira um commit. A Steam **não pode q
 
 ### Etapa 7 — Opcional, depois que tudo estiver estável
 
+- ✅ **Comentários das conquistas do RA** (fora do plano original): botão "Comentários" na ficha da conquista abre `src/screens/RaAchievementComments.jsx` (`API_GetComments`, `t=2`), mais novos primeiro, páginas de 10. Os comentários automáticos do usuário "Server" (edições da conquista) ficam de fora. A API não tem endpoint de changelog
+
 - Seção "Últimas conquistas" (`GetUserSummary` com `a=10&g=5`, ou `API_GetAchievementsEarnedBetween`)
 - Conquista da semana (`API_GetAchievementOfTheWeek`)
 - Lista "Quero jogar" (`API_GetUserWantToPlayList`)

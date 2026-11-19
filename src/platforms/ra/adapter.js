@@ -113,6 +113,7 @@ export function toAchievements(info) {
                 name: a.Title || "",
                 description: a.Description || "",
                 icon: raBadge(a.BadgeName, !achieved),
+                badgeName: a.BadgeName || null,
                 achieved,
                 unlocktime: achieved ? Math.floor(hardcoreAt / 1000) : 0,
                 // desbloqueada só em softcore: não conta, mas aparece na ficha

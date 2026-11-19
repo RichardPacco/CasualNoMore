@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 import * as WebBrowser from "expo-web-browser";
 import { useRef, useState } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
@@ -23,12 +24,14 @@ function openInBrowser(url) {
  * para procurar um guia (Google e ChatGPT).
  * Conquistas do RetroAchievements (têm `points`) mostram também pontos,
  * RetroPoints, tipo, o desbloqueio em softcore (que não conta) e o link da
- * conquista no site do RA.
+ * conquista no site do RA, além do botão "Comentários" (abre a tela
+ * RaAchievementComments).
  * Props: achievement (item da lista ou null), game, onClose.
  */
 export default function AchievementSheet({ achievement, game, onClose }) {
     const { t: tr, language } = useLanguage();
     const sheetRef = useRef(null);
+    const navigation = useNavigation();
     const [iconFailed, setIconFailed] = useState(false);
 
     const item = achievement;
@@ -99,6 +102,25 @@ export default function AchievementSheet({ achievement, game, onClose }) {
                             {status} · {game?.name}
                         </Text>
                     </View>
+
+                    {isRa && (
+                        <Pressable
+                            onPress={() => {
+                                sheetRef.current?.close();
+                                navigation.navigate("RaAchievementComments", {
+                                    achievementId: item.id,
+                                    title: item.name,
+                                    badgeName: item.badgeName ?? null,
+                                });
+                            }}
+                            accessibilityRole="button"
+                            style={({ pressed }) => [styles.link, { opacity: pressed ? 0.8 : 1 }]}
+                        >
+                            <Ionicons name="chatbubbles-outline" size={20} color={COLORS.text} />
+                            <Text style={styles.linkLabel}>{tr("raCommentsAndChangelog")}</Text>
+                            <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+                        </Pressable>
+                    )}
 
                     <View style={{ gap: 8 }}>
                         <Text style={styles.label}>{tr("findGuide")}</Text>

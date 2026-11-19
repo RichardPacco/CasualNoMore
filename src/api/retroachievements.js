@@ -181,6 +181,30 @@ export function getUsersFollowingMe() {
     return fetchAllPages("GetUsersFollowingMe");
 }
 
+/**
+ * Comentários de uma conquista (`kind` 2; 1 = jogo), do mais novo para o mais
+ * antigo, todas as páginas. Retorna [{ User, ULID, Submitted, CommentText }].
+ * Aceita as duas grafias da resposta (Results/results, User/user...).
+ */
+export async function getComments(id, kind = 2) {
+    const all = [];
+    for (let offset = 0; ;) {
+        const page = await raFetch("GetComments", { t: kind, i: id, c: PAGE_SIZE, o: offset, sort: "-submitted" });
+        const items = page?.Results ?? page?.results ?? [];
+        for (const c of items) {
+            all.push({
+                User: c.User ?? c.user ?? "",
+                ULID: c.ULID ?? c.ulid ?? null,
+                Submitted: c.Submitted ?? c.submitted ?? null,
+                CommentText: c.CommentText ?? c.commentText ?? "",
+            });
+        }
+        offset += items.length;
+        const total = Number(page?.Total ?? page?.total ?? all.length);
+        if (items.length < PAGE_SIZE || offset >= total) return all;
+    }
+}
+
 /** Consoles ativos que são de jogos (sem Hubs/Events). */
 export async function getConsoleIds() {
     const list = await raFetch("GetConsoleIDs", { a: 1, g: 1 });

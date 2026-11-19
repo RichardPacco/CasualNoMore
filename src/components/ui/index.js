@@ -1,5 +1,6 @@
 // Componentes base do redesign "Arcade Night" (prancheta 00 · Fundamentos).
 export { default as AppText } from "./AppText";
+export { default as BottomSheet } from "./BottomSheet";
 export { default as Button } from "./Button";
 export { default as Card } from "./Card";
 export { default as Chip } from "./Chip";

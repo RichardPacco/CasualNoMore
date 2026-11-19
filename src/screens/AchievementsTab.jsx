@@ -1,4 +1,4 @@
-import ContextMenu from "@/src/components/ContextMenu";
+import AchievementSheet from "@/src/components/AchievementSheet";
 import RadioSheet from "@/src/components/RadioSheet";
 import { AppText, Chip, ProgressBar, TextField, rarityColor } from "@/src/components/ui";
 import useAchievements from "@/src/hooks/useAchievements";
@@ -6,16 +6,14 @@ import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS, FONTS } from "@/src/theme/colors";
 import { achievementIconUri } from "@/src/utils/cdn";
 import { formatDate } from "@/src/utils/formatDate";
+import { formatPercent } from "@/src/utils/formatPercent";
 import { showToast } from "@/src/utils/toast";
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
-import * as WebBrowser from "expo-web-browser";
 import { memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Dimensions, Image, Keyboard, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, Keyboard, Pressable, StyleSheet, Text, View } from "react-native";
 import { AuthContext } from "@/src/context/AuthContext";
 import { updateGameAchievements } from "@/src/database/db";
-
-const { width: WINDOW_W, height: WINDOW_H } = Dimensions.get("window");
 
 /** Gera a URI de fallback (CDN alternativa) do ícone da conquista. */
 function iconFallbackUri(uri, appid) {
@@ -25,21 +23,12 @@ function iconFallbackUri(uri, appid) {
 }
 
 /**
- * Percentual global formatado com uma casa decimal, no separador do idioma
- * (71,4% em pt, 71.4% em en). A Steam pode mandar número ou texto.
- */
-function formatPercent(value, language) {
-    const n = Number(value) || 0;
-    const text = n.toFixed(1);
-    return `${language === "pt" ? text.replace(".", ",") : text}%`;
-}
-
-/**
  * Linha de uma conquista (redesign, prancheta 07): ícone com borda na cor da
  * raridade (apagado e com cadeado se bloqueada), nome, descrição, data de
- * desbloqueio e etiqueta com o % global. Toque longo abre o menu de guia.
+ * desbloqueio e etiqueta com o % global. Toque ou toque longo abre o painel
+ * da conquista com os atalhos de guia.
  */
-function AchievementRowComponent({ item, game, onOpenMenu }) {
+function AchievementRowComponent({ item, game, onOpen }) {
     const { t: tr, language } = useLanguage();
     const [iconFailed, setIconFailed] = useState(false);
     const iconUri = iconFailed ? iconFallbackUri(item.icon, game?.appid) : item.icon;
@@ -52,7 +41,8 @@ function AchievementRowComponent({ item, game, onOpenMenu }) {
 
     return (
         <Pressable
-            onLongPress={(e) => onOpenMenu?.(item, e.nativeEvent.pageX, e.nativeEvent.pageY)}
+            onPress={() => onOpen?.(item)}
+            onLongPress={() => onOpen?.(item)}
             delayLongPress={350}
             accessibilityRole="button"
             accessibilityLabel={`${item.name}, ${status}, ${tr("achRarityA11y", { percent: percentText })}`}
@@ -89,8 +79,8 @@ const AchievementRow = memo(AchievementRowComponent);
 
 /**
  * Aba Conquistas (redesign, prancheta 07): progresso, busca, ordenação,
- * atualizar, chips de filtro e a lista; toque longo numa conquista abre o
- * menu de guias (Google/ChatGPT).
+ * atualizar, chips de filtro e a lista; tocar numa conquista abre o painel
+ * dela com os atalhos de guia (Google, ChatGPT, comunidade Steam).
  */
 export default function AchievementsTab({ game }) {
     const { steamId } = useContext(AuthContext);
@@ -104,10 +94,10 @@ export default function AchievementsTab({ game }) {
     const [showTopButton, setShowTopButton] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [debouncedQuery, setDebouncedQuery] = useState("");
-    const [guideMenu, setGuideMenu] = useState(null);
+    // conquista aberta no painel de detalhes/guia (null = fechado)
+    const [selected, setSelected] = useState(null);
     const [refreshing, setRefreshing] = useState(false);
     const listRef = useRef(null);
-    const containerRef = useRef(null);
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
@@ -196,45 +186,11 @@ export default function AchievementsTab({ game }) {
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
-    /** Abre o menu de guias, convertendo as coordenadas da janela para o container. */
-    const openGuideMenu = useCallback((item, pageX, pageY) => {
-        // Converte coordenadas da janela (pageX/pageY) para o sistema do
-        // container (leva em conta safe area / status bar).
-        containerRef.current?.measureInWindow((cx, cy, cw, ch) => {
-            setGuideMenu({ item, x: pageX - cx, y: pageY - cy, width: cw, height: ch });
-        });
-    }, []);
-
     /** Renderiza uma linha de conquista na lista (FlashList). */
     const renderRow = useCallback(
-        ({ item }) => <AchievementRow item={item} game={game} onOpenMenu={openGuideMenu} />,
-        [game, openGuideMenu]
+        ({ item }) => <AchievementRow item={item} game={game} onOpen={setSelected} />,
+        [game]
     );
-
-    /** Monta a query de busca pelo guia da conquista (nome do jogo + conquista). */
-    const guideQuery = useCallback((item) => {
-        return encodeURIComponent(`${game.name} ${item.name} Guide`);
-    }, [game]);
-
-    /** Abre o navegador pesquisando o guia da conquista no Google. */
-    const searchGoogle = useCallback((item) => {
-        WebBrowser.openBrowserAsync(`https://www.google.com/search?q=${guideQuery(item)}`)
-            .catch(err => console.error("Failed to open browser:", err));
-    }, [guideQuery]);
-
-    /** Abre o navegador pesquisando o guia da conquista no ChatGPT. */
-    const searchChatGPT = useCallback((item) => {
-        WebBrowser.openBrowserAsync(`https://chatgpt.com/?q=${guideQuery(item)}`)
-            .catch(err => console.error("Failed to open browser:", err));
-    }, [guideQuery]);
-
-    const guideMenuOptions = useMemo(() => {
-        if (!guideMenu) return [];
-        return [
-            { label: tr("searchGoogle"), icon: "logo-google", onPress: () => searchGoogle(guideMenu.item) },
-            { label: tr("searchChatGPT"), icon: "sparkles", onPress: () => searchChatGPT(guideMenu.item) },
-        ];
-    }, [guideMenu, tr, searchGoogle, searchChatGPT]);
 
     if (loading) {
         return (
@@ -258,7 +214,7 @@ export default function AchievementsTab({ game }) {
     const sortLabel = sortOptions.find(o => o.value === sort)?.label ?? "";
 
     return (
-        <View ref={containerRef} style={styles.screen}>
+        <View style={styles.screen}>
             <View style={styles.header}>
                 {/* Progresso */}
                 <View style={styles.progress}>
@@ -371,14 +327,10 @@ export default function AchievementsTab({ game }) {
                 onSelect={setSort}
             />
 
-            <ContextMenu
-                visible={!!guideMenu}
-                x={guideMenu?.x ?? 0}
-                y={guideMenu?.y ?? 0}
-                bounds={{ width: guideMenu?.width ?? WINDOW_W, height: guideMenu?.height ?? WINDOW_H }}
-                title={guideMenu?.item?.name}
-                options={guideMenuOptions}
-                onClose={() => setGuideMenu(null)}
+            <AchievementSheet
+                achievement={selected}
+                game={game}
+                onClose={() => setSelected(null)}
             />
         </View>
     );

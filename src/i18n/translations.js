@@ -189,6 +189,14 @@ export const translations = {
     achProgressOf: { pt: "de {total} desbloqueadas", en: "of {total} unlocked" },
     refreshAchievements: { pt: "Atualizar conquistas", en: "Refresh achievements" },
     achRarityA11y: { pt: "{percent} dos jogadores", en: "{percent} of players" },
+    findGuide: { pt: "Procurar um guia", en: "Find a guide" },
+    steamCommunityGuides: { pt: "Guias da comunidade Steam", en: "Steam community guides" },
+    rarity_pearlescent: { pt: "Perolada", en: "Pearlescent" },
+    rarity_legendary: { pt: "Lendária", en: "Legendary" },
+    rarity_epic: { pt: "Épica", en: "Epic" },
+    rarity_rare: { pt: "Rara", en: "Rare" },
+    rarity_uncommon: { pt: "Incomum", en: "Uncommon" },
+    rarity_common: { pt: "Comum", en: "Common" },
 
     // --- guide search ---
     searchGoogle: { pt: "Buscar no Google", en: "Search on Google" },

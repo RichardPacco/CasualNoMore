@@ -111,8 +111,9 @@ export default function Friends({ navigation }) {
             }
         }
 
+        // Progresso conta só os amigos sendo buscados agora (pode ser um subconjunto)
         const total = friendIds.length;
-        setProgress({ current: friendList.length, total });
+        setProgress({ current: 0, total });
 
         const CONCURRENCY = 5; // quantos amigos são buscados ao mesmo tempo
         const UI_BATCH = 5;    // a cada quantos amigos a lista é re-renderizada
@@ -172,8 +173,8 @@ export default function Friends({ navigation }) {
     }, [steamId]);
 
     /**
-     * Carrega a lista de amigos: cache do banco exibido na hora e, se não
-     * houver cache, busca completa na Steam.
+     * Carrega a lista de amigos: cache do banco exibido na hora e, em seguida,
+     * busca na Steam os amigos que ainda não estão no cache.
      */
     const loadFriends = useCallback(async () => {
         if (!steamId) return;
@@ -202,10 +203,15 @@ export default function Friends({ navigation }) {
                 }
             }
             setFriends(cachedFriends); // show immediately
+            // O refreshFriends parte de friendsRef; o useEffect que o sincroniza só
+            // roda depois do render, então atualiza já para não perder o cache.
+            friendsRef.current = cachedFriends;
 
-            // Só faz o fetch completo quando não há cache (evita refazer tudo ao reentrar)
-            if (cachedFriends.length === 0) {
-                await refreshFriends(friendIds);
+            // Busca na Steam só os amigos que ainda não estão no cache (amigos novos
+            // ou nunca carregados). Os já cacheados são atualizados no pull-to-refresh.
+            const missingIds = friendIds.filter((_, i) => !cachedResults[i]);
+            if (missingIds.length > 0) {
+                await refreshFriends(missingIds);
             }
         } catch (err) {
             console.error("[Friends] Failed to load:", err);

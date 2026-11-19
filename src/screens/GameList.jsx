@@ -3,7 +3,7 @@ import GameCard from "@/src/components/GameCard";
 import PullToRefresh from "@/src/components/PullToRefresh";
 import RadioSheet from "@/src/components/RadioSheet";
 import { AuthContext } from "@/src/context/AuthContext";
-import { getAllGames, getGame, parseJson, saveGame, saveGamesBatch, togglePin as dbTogglePin, getPinnedAppIds } from "@/src/database/db";
+import { deleteGamesNotOwned, getAllGames, getGame, parseJson, saveGame, saveGamesBatch, togglePin as dbTogglePin, getPinnedAppIds } from "@/src/database/db";
 import { getLanguageStore } from "@/src/i18n/langStore";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS } from "@/src/theme/colors";
@@ -519,8 +519,19 @@ export default function GameList({ navigation, route }) {
                 }
             }
 
-            // Finish sync: clear progress header even if nothing was updated
             if (loadGenRef.current !== gen) return false;
+
+            // 3️⃣ Remove do cache (e da tela) os jogos que saíram da biblioteca.
+            // Só chega aqui com a lista da Steam em mãos: lista privada ou erro
+            // retornam antes, então o cache nunca é apagado por engano.
+            const removed = await deleteGamesNotOwned(steamId, fresh.games.map(g => g.appid));
+            if (loadGenRef.current !== gen) return false;
+            if (removed.length > 0) {
+                const removedSet = new Set(removed);
+                setGames(prev => prev.filter(g => !removedSet.has(g.appid)));
+            }
+
+            // Finish sync: clear progress header even if nothing was updated
             setProgress({ current: total, total });
             setLoading(false);
             return true;

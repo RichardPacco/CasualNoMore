@@ -51,8 +51,19 @@ export default function GameList({ navigation, route }) {
     // antiga continuaria rodando em paralelo (progresso e lista "bugados").
     const loadGenRef = useRef(0);
 
-    // cancellation ref usado pelo refreshRecentGames (cancela no unmount)
-    const cancelledRef = useRef(false);
+    // Lista de trabalho da carga em andamento ({ gamesList, gameMap }), ou null
+    // quando nenhuma carga está rodando. Permite que outras partes da tela
+    // (ex.: volta da GameScreen) atualizem a cópia que a carga vai gravar, e
+    // que o refresh de recentes saiba que não deve rodar em paralelo.
+    const activeLoadRef = useRef(null);
+
+    // Trava síncrona do refresh de recentes (o state demora um render para
+    // atualizar, então dois toques rápidos passariam pela checagem do state).
+    const refreshingRecentRef = useRef(false);
+
+    // Sempre a lista mais recente, para callbacks que rodam depois de awaits.
+    const gamesRef = useRef(games);
+    gamesRef.current = games;
 
     /**
      * Completa um jogo com toda a informação disponível:
@@ -131,8 +142,10 @@ export default function GameList({ navigation, route }) {
      * Força refetch completo de um jogo (playtime, schema, conquistas).
      * `existing` (jogo atual da lista) serve de fallback se algo falhar.
      */
-    const forceRefreshGame = useCallback(async (baseGame, existing, pinnedIds = null) => {
+    const forceRefreshGame = useCallback(async (baseGame, existing, pinnedIds = null, isStale = () => false) => {
         const fresh = await enrichGame(baseGame, existing, true, pinnedIds);
+        // Descarta o resultado se o refresh foi substituído durante a busca
+        if (isStale()) return;
 
         setGames(prev => prev.map(g => g.appid === fresh.appid ? fresh : g));
         await saveGame(steamId, fresh);
@@ -173,14 +186,25 @@ export default function GameList({ navigation, route }) {
      * `silent` sem toasts (disparo automático ao abrir a lista).
      */
     const refreshRecentGames = useCallback(async (silent = false) => {
-        if (refreshingRecent) return;
+        // Nunca roda junto com a carga completa (as duas gravariam os mesmos
+        // jogos e a última a terminar venceria) nem duas vezes ao mesmo tempo.
+        if (refreshingRecentRef.current || activeLoadRef.current) return;
+        refreshingRecentRef.current = true;
         setRefreshingRecent(true);
+
+        // Mesma geração da carga: se uma nova carga começar (pull-to-refresh,
+        // troca de idioma) ou a tela desmontar, este refresh para de escrever.
+        const gen = loadGenRef.current;
+        const isStale = () => loadGenRef.current !== gen;
+
         if (!silent) showToast(tr("gameRecentRefresh"), "info");
         try {
             const owned = await getOwnedGames(steamId);
+            if (isStale()) return;
             if (!owned?.games) throw new Error("no games");
 
             const pinnedIds = new Set(await getPinnedAppIds(steamId));
+            if (isStale()) return;
 
             const toRefresh = owned.games.filter(g =>
                 (g.playtime_2weeks || 0) > 0 || pinnedIds.has(g.appid)
@@ -191,27 +215,28 @@ export default function GameList({ navigation, route }) {
             }
 
             for (const baseGame of toRefresh) {
-                if (cancelledRef.current) break;
-                const existing = games.find(g => g.appid === baseGame.appid);
-                await forceRefreshGame(baseGame, existing, pinnedIds);
+                if (isStale()) return;
+                const existing = gamesRef.current.find(g => g.appid === baseGame.appid);
+                await forceRefreshGame(baseGame, existing, pinnedIds, isStale);
             }
 
-            if (!silent) showToast(tr("gameRecentRefreshed"), "success");
+            if (!silent && !isStale()) showToast(tr("gameRecentRefreshed"), "success");
         } catch (err) {
             console.error("[GameList] refreshRecentGames failed", err);
-            if (!silent) showToast(tr("gameRefreshFailed"), "error");
+            if (!silent && !isStale()) showToast(tr("gameRefreshFailed"), "error");
         } finally {
+            refreshingRecentRef.current = false;
             setRefreshingRecent(false);
         }
-    }, [steamId, forceRefreshGame, refreshingRecent, tr, games]);
+    }, [steamId, forceRefreshGame, tr]);
 
     /**
      * Verifica se o jogo foi jogado nas últimas 2 semanas (playtime_2weeks > 0).
      */
     const isRecentGame = useCallback((g) => (g.playtime_2weeks || 0) > 0, []);
 
-    // Ref para disparar o refresh de recentes ao abrir a lista sem re-renderizar
-    // o useEffect (a identidade de refreshRecentGames muda com refreshingRecent/games).
+    // Ref para disparar o refresh de recentes ao abrir a lista sem colocar
+    // refreshRecentGames nas dependências do useEffect de carga.
     const refreshRecentRef = useRef(null);
     refreshRecentRef.current = refreshRecentGames;
 
@@ -233,7 +258,13 @@ export default function GameList({ navigation, route }) {
             if (!appid || !steamId) return;
             lastOpenedRef.current = null;
             const row = await getGame(steamId, appid);
-            if (row) setGames(prev => prev.map(g => g.appid === appid ? row : g));
+            if (!row) return;
+            // Se uma carga está rodando, atualiza também a cópia dela; senão o
+            // próximo lote da carga traria de volta a versão antiga do jogo.
+            const active = activeLoadRef.current;
+            const idx = active?.gameMap.get(appid);
+            if (idx !== undefined) active.gamesList[idx] = row;
+            setGames(prev => prev.map(g => g.appid === appid ? row : g));
         });
     }, [navigation, steamId]);
 
@@ -387,18 +418,20 @@ export default function GameList({ navigation, route }) {
      * cada jogo com schema, conquistas e progresso (com cache e lotes).
      */
     const loadGames = useCallback(async () => {
-        if (!steamId) return;
+        if (!steamId) return false;
         const gen = ++loadGenRef.current;
-        cancelledRef.current = false;
+
+        // Map appid -> índice na lista: lookups O(1) no lugar do findIndex
+        const gameMap = new Map();
+        const gamesList = [];
+        const work = { gamesList, gameMap };
+        activeLoadRef.current = work;
 
         try {
             // 1️⃣ Load games from DB
             const cachedGames = await getAllGames(steamId);
-            if (loadGenRef.current !== gen) return;
+            if (loadGenRef.current !== gen) return false;
 
-            // Map appid -> índice na lista: lookups O(1) no lugar do findIndex
-            const gameMap = new Map();
-            const gamesList = [];
             for (const g of cachedGames) {
                 if (!gameMap.has(g.appid)) {
                     gameMap.set(g.appid, gamesList.length);
@@ -414,10 +447,10 @@ export default function GameList({ navigation, route }) {
 
             // 2️⃣ Fetch fresh games from Steam
             const fresh = await getOwnedGames(steamId);
-            if (loadGenRef.current !== gen) return;
+            if (loadGenRef.current !== gen) return false;
             if (!fresh?.games) {
                 if (gamesList.length === 0) setLoading(false);
-                return;
+                return false;
             }
 
             const total = fresh.games.length;
@@ -443,7 +476,7 @@ export default function GameList({ navigation, route }) {
             let updatedAny = false;
 
             for (let i = 0; i < freshGames.length; i += CONCURRENCY) {
-                if (loadGenRef.current !== gen) return;
+                if (loadGenRef.current !== gen) return false;
 
                 const chunk = freshGames.slice(i, i + CONCURRENCY);
                 const enrichedChunk = await Promise.all(chunk.map(baseGame => {
@@ -451,7 +484,7 @@ export default function GameList({ navigation, route }) {
                     const cachedEntry = idx !== undefined ? gamesList[idx] : null;
                     return enrichGame(baseGame, cachedEntry);
                 }));
-                if (loadGenRef.current !== gen) return;
+                if (loadGenRef.current !== gen) return false;
 
                 for (const enriched of enrichedChunk) {
                     const idx = gameMap.get(enriched.appid);
@@ -487,12 +520,17 @@ export default function GameList({ navigation, route }) {
             }
 
             // Finish sync: clear progress header even if nothing was updated
-            if (loadGenRef.current !== gen) return;
+            if (loadGenRef.current !== gen) return false;
             setProgress({ current: total, total });
             setLoading(false);
+            return true;
         } catch (err) {
             console.error("[GameList] loadGames failed", err);
             setLoading(false);
+            return false;
+        } finally {
+            // Só libera se ninguém tiver iniciado uma carga nova nesse meio-tempo
+            if (activeLoadRef.current === work) activeLoadRef.current = null;
         }
     }, [steamId, enrichGame]);
 
@@ -511,16 +549,19 @@ export default function GameList({ navigation, route }) {
 
     useEffect(() => {
         if (!steamId) return;
-        loadGames();
         // Sempre que a lista abre, força refresh completo dos jogos recentes
-        // e fixados, independente de ter mudado algo.
-        refreshRecentRef.current?.(true);
+        // e fixados — mas só DEPOIS da carga completa terminar, para as duas
+        // não buscarem e gravarem os mesmos jogos em paralelo. Se a carga foi
+        // substituída (troca de idioma, unmount), o refresh não roda.
+        loadGames().then(completed => {
+            if (completed) refreshRecentRef.current?.(true);
+        });
         return () => {
-            // Cancela a carga em andamento (troca de idioma ou unmount):
-            // a execução antiga detecta a geração nova e para de escrever.
+            // Cancela a carga e o refresh de recentes em andamento (troca de
+            // idioma ou unmount): as execuções antigas detectam a geração nova
+            // e param de escrever.
             // eslint-disable-next-line react-hooks/exhaustive-deps -- incremento intencional do counter
             loadGenRef.current++;
-            cancelledRef.current = true;
         };
     }, [steamId, loadGames, language]);
 
@@ -661,11 +702,14 @@ export default function GameList({ navigation, route }) {
             <View className="absolute bottom-24 right-6 gap-3">
                 <TouchableOpacity
                     onPress={() => refreshRecentGames(false)}
-                    disabled={refreshingRecent}
+                    // desativado também durante a sincronização completa, que já
+                    // atualiza tudo (inclusive os recentes)
+                    disabled={refreshingRecent || progress.current < progress.total}
                     activeOpacity={0.8}
                     accessibilityLabel={tr("refreshRecentGames")}
                     className={`w-12 h-12 rounded-xl items-center justify-center border ${t.elevatedCardBg} ${t.cardBorder}`}
                     style={{
+                        opacity: !refreshingRecent && progress.current < progress.total ? 0.5 : 1,
                         elevation: 6,
                         shadowColor: "#000",
                         shadowOpacity: 0.25,

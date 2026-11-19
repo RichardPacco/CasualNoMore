@@ -88,7 +88,8 @@ export function AuthProvider({ children }) {
             try {
                 const stored = await AsyncStorage.getItem(SAVED_ACCOUNTS_KEY);
                 if (!mounted) return;
-                if (stored) setSavedAccounts(JSON.parse(stored));
+                // só entradas no formato atual ({ platform, id, ... })
+                if (stored) setSavedAccounts(JSON.parse(stored).filter(a => a?.platform && a?.id));
             } catch (e) {
                 console.error("[Auth] erro ao ler contas salvas:", e);
             }
@@ -115,20 +116,29 @@ export function AuthProvider({ children }) {
     /** Atalho da Steam: desconecta a conta. */
     const clearSteamId = useCallback(() => disconnect("steam"), [disconnect]);
 
-    /** Adiciona uma conta à lista salva (sem duplicatas, limitada). */
+    /**
+     * Adiciona uma conta à lista salva da tela de login: `{ platform, id,
+     * name, avatar }`. Sem duplicatas e no máximo MAX_SAVED_ACCOUNTS por
+     * plataforma; a conta adicionada vai para o topo.
+     */
     const addSavedAccount = async (account) => {
-        if (!account?.steamId) return;
+        if (!account?.platform || !account?.id) return;
+        const same = (a) => a.platform === account.platform && a.id === account.id;
+        const others = savedAccounts.filter(a => !same(a));
+        const samePlatform = others.filter(a => a.platform === account.platform)
+            .slice(0, MAX_SAVED_ACCOUNTS - 1);
         const next = [
             account,
-            ...savedAccounts.filter(a => a.steamId !== account.steamId),
-        ].slice(0, MAX_SAVED_ACCOUNTS);
+            ...samePlatform,
+            ...others.filter(a => a.platform !== account.platform),
+        ];
         setSavedAccounts(next);
         await persistSavedAccounts(next);
     };
 
-    /** Remove uma conta salva pelo steamId. */
-    const removeSavedAccount = async (steamId) => {
-        const next = savedAccounts.filter(a => a.steamId !== steamId);
+    /** Remove uma conta salva pela plataforma e id. */
+    const removeSavedAccount = async (platform, id) => {
+        const next = savedAccounts.filter(a => !(a.platform === platform && a.id === id));
         setSavedAccounts(next);
         await persistSavedAccounts(next);
     };

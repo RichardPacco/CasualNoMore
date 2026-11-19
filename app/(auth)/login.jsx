@@ -6,6 +6,9 @@ import LanguageSelector from "@/src/components/LanguageSelector";
 import MaintenanceSheet from "@/src/components/MaintenanceSheet";
 import { AppText, Button, TextField } from "@/src/components/ui";
 import ClearDbModal from "@/src/components/ClearDbModal";
+import PlatformPicker from "@/src/components/PlatformPicker";
+import RaLoginForm from "@/src/components/RaLoginForm";
+import StepCard from "@/src/components/StepCard";
 import RemoveAccountModal from "@/src/components/RemoveAccountModal";
 import AboutModal from "@/src/components/AboutModal";
 import { AuthContext } from "@/src/context/AuthContext";
@@ -14,7 +17,7 @@ import { DEFAULT_LANGUAGE, useLanguage } from "@/src/i18n/LanguageContext";
 import { showToast } from "@/src/utils/toast";
 import { COLORS, FONTS } from "@/src/theme/colors";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useContext, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
@@ -35,14 +38,32 @@ const MAX_ACCOUNT_SLOTS = 3;
 
 
 /**
- * Tela de login (redesign, prancheta 02): dois passos guiados, primeiro a
- * API key e depois o SteamID/vanity, com contas salvas para login rápido.
+ * Tela de login (redesign, prancheta 02). No topo, a escolha da plataforma:
+ * - Steam: dois passos guiados, primeiro a API key e depois o SteamID/vanity,
+ *   com contas salvas para login rápido;
+ * - RetroAchievements: Web API Key e usuário (RaLoginForm).
+ * O parâmetro de rota `platform` ("steam" | "ra") escolhe a aba inicial.
+ * Com `mode=add` (aberto pelo Perfil para conectar mais uma plataforma) a
+ * plataforma fica fixa, há um botão de voltar, sem idioma nem manutenção, e
+ * ao conectar volta para o Perfil.
  * Cache e banco ficam no painel de manutenção (ícone de engrenagem).
  */
 export default function Login() {
     const { setSteamId, clearSteamId, disconnect, savedAccounts, addSavedAccount, removeSavedAccount, clearSavedAccounts } = useContext(AuthContext);
     const router = useRouter();
+    const params = useLocalSearchParams();
     const { t, setLanguage } = useLanguage();
+
+    // Plataforma do formulário (Steam ou RetroAchievements)
+    const [platform, setPlatform] = useState(params.platform === "ra" ? "ra" : "steam");
+    // Conectando mais uma plataforma a partir do Perfil (já há uma conectada)
+    const addMode = params.mode === "add";
+
+    /** Depois de conectar: volta ao Perfil (modo add) ou vai para as tabs. */
+    const finishLogin = () => {
+        if (addMode && router.canGoBack()) router.back();
+        else router.replace("/(tabs)/GameStack");
+    };
 
     const [input, setInput] = useState("");
     const [apiKey, setApiKey] = useState("");
@@ -57,9 +78,12 @@ export default function Login() {
     const [pendingAccountId, setPendingAccountId] = useState(null);
     const otherAccountRef = useRef(null);
 
+    // Contas salvas da Steam (as do RA ficam no RaLoginForm)
+    const steamAccounts = savedAccounts.filter(a => a.platform === "steam");
+
     // Modo contas (prancheta 03) quando há chave salva e pelo menos uma conta;
     // senão o fluxo de dois passos (prancheta 02).
-    const showAccounts = !!apiKey && savedAccounts.length > 0;
+    const showAccounts = !!apiKey && steamAccounts.length > 0;
 
     /** Carrega a API key salva do armazenamento na montagem. */
     useEffect(() => {
@@ -173,7 +197,8 @@ export default function Login() {
     /** Salva uma conta na lista de contas salvas. */
     const saveAccount = async (playerSummary, steamid) => {
         await addSavedAccount({
-            steamId: steamid,
+            platform: "steam",
+            id: steamid,
             name: playerSummary?.personaname || steamid,
             avatar: playerSummary?.avatarfull || null,
         });
@@ -192,15 +217,15 @@ export default function Login() {
         }
 
         setLoading(true);
-        setPendingAccountId(account.steamId);
+        setPendingAccountId(account.id);
         try {
             // validateSteamProfile já mostra o toast de erro/privado
-            const playerSummary = await validateSteamProfile(account.steamId);
+            const playerSummary = await validateSteamProfile(account.id);
             if (!playerSummary) return;
 
-            await saveAccount(playerSummary, account.steamId);
-            await setSteamId(account.steamId);
-            router.replace("/(tabs)/GameStack");
+            await saveAccount(playerSummary, account.id);
+            await setSteamId(account.id);
+            finishLogin();
         } finally {
             setLoading(false);
             setPendingAccountId(null);
@@ -215,10 +240,10 @@ export default function Login() {
     /** Remove a conta salva selecionada (confirmado no modal de remoção). */
     const doRemoveAccount = async () => {
         if (!accountToRemove) return;
-        const id = accountToRemove.steamId;
+        const { platform: accountPlatform, id } = accountToRemove;
         setAccountToRemove(null);
         try {
-            await removeSavedAccount(id);
+            await removeSavedAccount(accountPlatform, id);
         } catch (err) {
             console.error(err);
             Alert.alert(t("loginError"), t("loginDbClearFailed"));
@@ -256,7 +281,7 @@ export default function Login() {
                 console.log("[Login] detectado SteamID64, salvando direto:", numeric);
                 await saveAccount(playerSummary, numeric);
                 await setSteamId(numeric);
-                router.replace("/(tabs)/GameStack");
+                finishLogin();
                 return;
             }
 
@@ -276,7 +301,7 @@ export default function Login() {
             // se for público, segue normalmente
             await saveAccount(playerSummary, res.steamid);
             await setSteamId(res.steamid);
-            router.replace("/(tabs)/GameStack");
+            finishLogin();
 
         } catch (e) {
             console.error("[Login] erro:", e);
@@ -315,7 +340,19 @@ export default function Login() {
                 >
                     {/* Topo: idioma e manutenção (substitui os botões Cache/DB) */}
                     <View style={styles.topBar}>
-                        <LanguageSelector />
+                        {addMode ? (
+                            <Pressable
+                                onPress={() => router.back()}
+                                accessibilityRole="button"
+                                accessibilityLabel={t("back")}
+                                style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.8 : 1 }]}
+                            >
+                                <Ionicons name="chevron-back" size={22} color={COLORS.text} />
+                            </Pressable>
+                        ) : (
+                            <LanguageSelector />
+                        )}
+                        {!addMode && (
                         <Pressable
                             onPress={() => setMaintenanceVisible(true)}
                             accessibilityRole="button"
@@ -324,9 +361,14 @@ export default function Login() {
                         >
                             <Ionicons name="settings-outline" size={20} color={COLORS.textMuted} />
                         </Pressable>
+                        )}
                     </View>
 
-                    {showAccounts ? (
+                    {!addMode && <PlatformPicker value={platform} onChange={setPlatform} disabled={loading} />}
+
+                    {platform === "ra" ? (
+                        <RaLoginForm onConnected={finishLogin} />
+                    ) : showAccounts ? (
                         <>
                             {/* Modo contas (prancheta 03): chave salva e contas para login rápido */}
                             <View style={styles.heading}>
@@ -335,18 +377,18 @@ export default function Login() {
                             </View>
 
                             <View style={styles.accountsGrid}>
-                                {savedAccounts.map((acc, index) => (
+                                {steamAccounts.map((acc, index) => (
                                     <AccountTile
-                                        key={acc.steamId}
+                                        key={acc.id}
                                         account={acc}
                                         highlighted={index === 0}
-                                        busy={pendingAccountId === acc.steamId}
+                                        busy={pendingAccountId === acc.id}
                                         disabled={loading}
                                         onPress={() => handleQuickLogin(acc)}
                                         onLongPress={() => confirmRemoveAccount(acc)}
                                     />
                                 ))}
-                                {savedAccounts.length < MAX_ACCOUNT_SLOTS && (
+                                {steamAccounts.length < MAX_ACCOUNT_SLOTS && (
                                     <Pressable
                                         onPress={() => otherAccountRef.current?.focus()}
                                         accessibilityRole="button"
@@ -468,7 +510,7 @@ export default function Login() {
                     <View style={{ flex: 1 }} />
 
                     {/* Modo contas: status da chave salva no rodapé */}
-                    {showAccounts && (
+                    {platform === "steam" && showAccounts && (
                         <View style={styles.keyCard}>
                             <Ionicons name="key-outline" size={18} color={COLORS.success} />
                             <Text style={styles.keyCardText}>{t("loginApiKeySavedLabel")}</Text>
@@ -572,44 +614,6 @@ function AccountTile({ account, highlighted, busy, disabled, onPress, onLongPres
     );
 }
 
-/**
- * Card de um passo do login. `state`:
- * - "active": passo atual (borda azul, número em azul)
- * - "done": concluído (número vira check verde)
- * - "locked": ainda não liberado (apagado)
- */
-function StepCard({ number, title, state, children }) {
-    const active = state === "active";
-    const done = state === "done";
-    return (
-        <View
-            style={[
-                styles.stepCard,
-                { borderColor: active ? COLORS.accent : COLORS.borderSubtle, opacity: state === "locked" ? 0.6 : 1 },
-            ]}
-        >
-            <View style={styles.stepHeader}>
-                <View
-                    style={[
-                        styles.stepBadge,
-                        { backgroundColor: active ? COLORS.accent : done ? "rgba(74, 222, 128, 0.16)" : COLORS.border },
-                    ]}
-                >
-                    {done ? (
-                        <Ionicons name="checkmark" size={16} color={COLORS.success} />
-                    ) : (
-                        <Text style={[styles.stepNumber, { color: active ? COLORS.onAccent : COLORS.textSoft }]}>
-                            {number}
-                        </Text>
-                    )}
-                </View>
-                <Text style={styles.stepTitle} numberOfLines={1}>{title}</Text>
-            </View>
-            {children}
-        </View>
-    );
-}
-
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: COLORS.bg },
     content: { flexGrow: 1, padding: 20, gap: 14 },
@@ -624,7 +628,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
-    heading: { marginTop: 22, marginBottom: 14, gap: 8 },
+    heading: { marginTop: 8, marginBottom: 14, gap: 8 },
     accountsGrid: { flexDirection: "row", gap: 12 },
     accountTile: {
         flex: 1,
@@ -673,17 +677,6 @@ const styles = StyleSheet.create({
         borderColor: COLORS.borderSubtle,
     },
     keyCardText: { flex: 1, fontFamily: FONTS.bodySemibold, fontSize: 13, color: COLORS.text },
-    stepCard: {
-        padding: 16,
-        borderRadius: 20,
-        backgroundColor: COLORS.surface,
-        borderWidth: 1,
-        gap: 12,
-    },
-    stepHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
-    stepBadge: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-    stepNumber: { fontFamily: FONTS.bodySemibold, fontSize: 14 },
-    stepTitle: { flex: 1, fontFamily: FONTS.bodySemibold, fontSize: 16, color: COLORS.text },
     eyeButton: { width: 44, height: 44, marginRight: -10, alignItems: "center", justifyContent: "center" },
     linkRow: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 8, alignSelf: "flex-start" },
     linkText: { fontFamily: FONTS.bodySemibold, fontSize: 14, color: COLORS.accent },

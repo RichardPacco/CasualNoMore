@@ -420,6 +420,8 @@ export default function useSteamLibrary(steamId) {
             setLoading(false);
             return;
         }
+        // Steam conectada agora (ex.: pelo Perfil): mostra a primeira carga
+        setLoading(true);
         // Sempre que a lista abre, força refresh completo dos jogos recentes
         // e fixados — mas só DEPOIS da carga completa terminar, para as duas
         // não buscarem e gravarem os mesmos jogos em paralelo. Se a carga foi

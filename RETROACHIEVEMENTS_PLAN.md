@@ -302,7 +302,7 @@ Mantém os campos de hoje, que já são usados por `AchievementsTab`, `Achieveme
 
 Cada etapa termina com o app funcionando e vira um commit. A Steam **não pode quebrar** em nenhuma delas.
 
-### Etapa 0 — Base multi-plataforma (refatoração sem mudança visual)
+### ✅ Etapa 0 — Base multi-plataforma (refatoração sem mudança visual)
 
 **Objetivo:** preparar a estrutura. Ao final, o app funciona exatamente igual, só com a Steam.
 
@@ -319,15 +319,15 @@ Cada etapa termina com o app funcionando e vira um commit. A Steam **não pode q
 - Navegação: `navigate("GameScreen", { platform, id })` em `GameList.jsx:336` e `GameCard.jsx:52`. `GameScreen.jsx:33` lê `{ platform, id }`.
 - `togglePin`: chamar via plataforma (`platforms[platform].togglePin(account, id)`).
 
-> **Feito.** As contas salvas do login (`@saved_accounts`) continuam só da Steam e ganham o campo `platform` na etapa 1, junto com o novo login. As contas conectadas agora ficam em `@accounts` (o antigo `@steam_id` não é lido: instalação limpa).
+> **Feito** (commit `d750b76`). As contas salvas do login (`@saved_accounts`) ganharam o campo `platform` na etapa 1. As contas conectadas agora ficam em `@accounts` (o antigo `@steam_id` não é lido: instalação limpa).
 
 **Pronto quando**
-- [ ] Login e logout da Steam funcionam como antes
-- [ ] Biblioteca, os três modos de exibição, filtros, ordenação, turbo e pin iguais a antes
-- [ ] Tela do jogo, conquistas e detalhes iguais
-- [ ] `npx expo lint` sem erros novos
+- [x] Login e logout da Steam funcionam como antes
+- [x] Biblioteca, os três modos de exibição, filtros, ordenação, turbo e pin iguais a antes
+- [x] Tela do jogo, conquistas e detalhes iguais
+- [x] `npx expo lint` sem erros novos
 
-### Etapa 1 — Cliente da API do RA e login
+### ✅ Etapa 1 — Cliente da API do RA e login
 
 **Arquivos**
 
@@ -347,10 +347,17 @@ Cada etapa termina com o app funcionando e vira um commit. A Steam **não pode q
 - Mostrar a mensagem de erro certa para usuário inexistente, key inválida (401) ou falta de rede.
 - Contas recentes: listar as das duas plataformas, cada uma com o seu selo.
 
+> **Feito.** O que mudou em relação ao planejado:
+> - O card de passo virou `src/components/StepCard.jsx`, usado pelo login da Steam e pelo `RaLoginForm`.
+> - As contas salvas são `{ platform, id, name, avatar }`, no máximo 3 por plataforma. O RA não mostra a grade de contas: o último usuário vem preenchido e o passo da key aparece concluído quando ela já está salva.
+> - "Sair" desconecta todas as plataformas e **mantém as keys** (como a Steam já fazia). A key do RA é apagada pelo "Remover chave" no login ou ao limpar o cache.
+> - Só com RA: a biblioteca mostra o aviso `raLibraryComingSoon`, Amigos mostra `friendsSteamOnly` e o Perfil mostra um card simples (`RaAccountCard`).
+> - **Adiantado da etapa 4:** "Conectar Steam/RetroAchievements" e "Desconectar" (por plataforma) no Perfil. O login aceita `mode=add` (plataforma fixa, botão de voltar, volta ao Perfil ao conectar).
+
 **Pronto quando**
-- [ ] Login só com RA funciona: entra nas abas, e as telas ainda sem suporte mostram o estado vazio sem erro
-- [ ] Key errada mostra um erro claro e não salva nada
-- [ ] Logout do RA apaga `ra_api_key` e `accounts.ra`
+- [x] Login só com RA funciona: entra nas abas, e as telas ainda sem suporte mostram o estado vazio sem erro
+- [x] Key errada mostra um erro claro e não salva nada
+- [x] Logout do RA desconecta `accounts.ra` (a key fica salva para o próximo login; ver nota acima)
 
 ### Etapa 2 — Biblioteca do RA
 
@@ -455,8 +462,8 @@ Cada etapa termina com o app funcionando e vira um commit. A Steam **não pode q
 - `src/components/AboutModal.jsx`: crédito "Dados de conquistas retro: RetroAchievements.org".
 
 **Pronto quando**
-- [ ] Com uma conta, dá para conectar a outra sem sair
-- [ ] Remover uma plataforma mantém a outra funcionando
+- [x] Com uma conta, dá para conectar a outra sem sair (feito na etapa 1)
+- [x] Remover uma plataforma mantém a outra funcionando (feito na etapa 1)
 - [ ] O perfil do RA mostra pontos, rank e medalhas
 
 ### Etapa 5 — Amigos do RA e jogos em comum

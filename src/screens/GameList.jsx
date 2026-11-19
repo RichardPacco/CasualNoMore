@@ -2,13 +2,14 @@ import GameCard from "@/src/components/GameCard";
 import { AppText, Button, Chip, ProgressBar, TextField } from "@/src/components/ui";
 import PullToRefresh from "@/src/components/PullToRefresh";
 import FilterSortSheet from "@/src/components/FilterSortSheet";
+import { AuthContext } from "@/src/context/AuthContext";
 import useLibrary from "@/src/hooks/useLibrary";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { COLORS, FONTS } from "@/src/theme/colors";
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import * as WebBrowser from "expo-web-browser";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Keyboard, ScrollView, StyleSheet, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Pressable from "@/src/components/ui/Pressable";
@@ -63,6 +64,8 @@ function filterRule(value) {
  */
 export default function GameList({ navigation }) {
     const { t: tr } = useLanguage();
+    const { accounts } = useContext(AuthContext);
+    const steamConnected = !!accounts.steam;
     const {
         games, loading, progress, syncing, refreshingRecent, turbo, toggleTurbo,
         reload, refreshRecent, refreshGame, togglePin, reloadGame,
@@ -502,8 +505,10 @@ export default function GameList({ navigation }) {
                                 </View>
                                 <AppText variant="subtitle" style={{ textAlign: "center" }}>{tr("noGamesTitle")}</AppText>
                                 <AppText variant="muted" style={{ textAlign: "center", fontSize: 14, lineHeight: 21 }}>
-                                    {tr("noGamesMessage")}
+                                    {steamConnected ? tr("noGamesMessage") : tr("raLibraryComingSoon")}
                                 </AppText>
+                                {/* tentar de novo e ajuda de privacidade: só valem para a Steam */}
+                                {steamConnected && (<>
                                 <Button
                                     label={tr("profileRetry")}
                                     onPress={onRefresh}
@@ -520,6 +525,7 @@ export default function GameList({ navigation }) {
                                         {tr("publicProfileHelp")}
                                     </AppText>
                                 </Pressable>
+                                </>)}
                             </View>
                         ) : null
                     }

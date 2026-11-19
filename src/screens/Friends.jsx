@@ -289,6 +289,24 @@ export default function Friends({ navigation }) {
         [openFriend]
     );
 
+    // Sem conta Steam (ex.: só RetroAchievements): os amigos do RA entram na
+    // etapa 5 do RETROACHIEVEMENTS_PLAN.md
+    if (!steamId) {
+        return (
+            <View style={styles.screen}>
+                <View style={styles.header}>
+                    <AppText variant="title">{tr("tabFriends")}</AppText>
+                </View>
+                <View style={styles.empty}>
+                    <View style={styles.emptyIcon}>
+                        <Ionicons name="people-outline" size={28} color={COLORS.accent} />
+                    </View>
+                    <AppText variant="body" style={{ textAlign: "center" }}>{tr("friendsSteamOnly")}</AppText>
+                </View>
+            </View>
+        );
+    }
+
     return (
         <View style={styles.screen}>
             <View style={styles.header}>

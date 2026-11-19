@@ -2,6 +2,7 @@ import { getPlayerSummary } from "@/src/api/steam";
 import AboutModal from "@/src/components/AboutModal";
 import LanguageSelector from "@/src/components/LanguageSelector";
 import ProfileCard from "@/src/components/ProfileCard";
+import RaAccountCard from "@/src/components/RaAccountCard";
 import PullToRefresh from "@/src/components/PullToRefresh";
 import { AppText, Button, ProgressRing } from "@/src/components/ui";
 import { AuthContext } from "@/src/context/AuthContext";
@@ -39,16 +40,20 @@ function computeCompletionStats(cachedGames) {
 
 /**
  * Perfil (redesign, prancheta 11): card do perfil Steam, jogos completos e
- * conclusão média, e a lista de ajustes (idioma, sobre o app, sair).
- * Puxar para baixo atualiza.
+ * conclusão média, card da conta do RetroAchievements (quando conectada) e a
+ * lista de ajustes (idioma, sobre o app, sair). Puxar para baixo atualiza.
+ * Nos ajustes: conectar a plataforma que falta (abre o login no modo
+ * "adicionar"), desconectar uma delas (com as duas conectadas) e "Sair", que
+ * desconecta todas. As keys continuam salvas para o próximo login.
  */
 export default function Profile() {
     const router = useRouter();
-    const { steamId, clearSteamId } = useContext(AuthContext);
+    const { steamId, accounts, disconnect, hasAnyAccount } = useContext(AuthContext);
     const { t: tr } = useLanguage();
 
     const [profile, setProfile] = useState(null);
-    const [loading, setLoading] = useState(true);
+    // só a parte da Steam carrega da API; sem Steam não há o que esperar
+    const [loading, setLoading] = useState(!!steamId);
     const [refreshingProfile, setRefreshingProfile] = useState(false);
     const [completionStats, setCompletionStats] = useState({ perfected: 0, avgCompletion: 0 });
     const [aboutVisible, setAboutVisible] = useState(false);
@@ -104,14 +109,29 @@ export default function Profile() {
         loadProfile();
     }, [loadProfile]);
 
-    // Sem steamId (saiu): volta para o login
+    // Sem nenhuma plataforma conectada (saiu): volta para o login
     useEffect(() => {
-        if (!steamId) {
+        if (!hasAnyAccount) {
             router.replace("/(auth)/login");
         }
-    }, [steamId, router]);
+    }, [hasAnyAccount, router]);
 
-    if (loading) {
+    /** Abre o login para conectar mais uma plataforma. */
+    const connectPlatform = useCallback((platform) => {
+        router.push({ pathname: "/(auth)/login", params: { platform, mode: "add" } });
+    }, [router]);
+
+    // Plataformas para os ajustes: [id, nome]
+    const platformRows = [["steam", tr("platformSteam")], ["ra", tr("platformRa")]];
+    const bothConnected = !!accounts.steam && !!accounts.ra;
+
+    /** Sai de todas as plataformas (o redirecionamento acima leva ao login). */
+    const logout = useCallback(async () => {
+        await disconnect("steam");
+        await disconnect("ra");
+    }, [disconnect]);
+
+    if (steamId && loading) {
         return (
             <View style={styles.center}>
                 <ActivityIndicator size="large" color={COLORS.accent} />
@@ -121,7 +141,7 @@ export default function Profile() {
 
     // Erro ao carregar o perfil (ex.: sem conexão ou chave inválida):
     // tentar de novo, ou sair para o login (o card com o "Sair" não aparece).
-    if (!profile) {
+    if (steamId && !profile) {
         return (
             <View style={styles.screen}>
                 <View style={styles.headerPad}>
@@ -137,7 +157,7 @@ export default function Profile() {
                     </AppText>
                     <Button label={tr("profileRetry")} onPress={loadProfile} style={{ marginTop: 8, alignSelf: "stretch" }} />
                     <Pressable
-                        onPress={clearSteamId}
+                        onPress={logout}
                         accessibilityRole="button"
                         style={({ pressed }) => [styles.logoutInline, { opacity: pressed ? 0.8 : 1 }]}
                     >
@@ -155,9 +175,10 @@ export default function Profile() {
                 <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
                     <AppText variant="title">{tr("tabProfile")}</AppText>
 
-                    <ProfileCard data={profile} />
+                    {steamId && profile && <ProfileCard data={profile} />}
 
-                    {/* Jogos completos e conclusão média */}
+                    {/* Jogos completos e conclusão média (Steam) */}
+                    {steamId && profile && (
                     <View style={styles.stats}>
                         <View style={styles.statTile}>
                             <View style={styles.trophyIcon}>
@@ -172,6 +193,9 @@ export default function Profile() {
                             <AppText variant="muted">{tr("profileAvgCompletion")}</AppText>
                         </View>
                     </View>
+                    )}
+
+                    {accounts.ra && <RaAccountCard account={accounts.ra} />}
 
                     {/* Ajustes: idioma, sobre o app, sair */}
                     <View style={styles.settings}>
@@ -179,6 +203,34 @@ export default function Profile() {
                             <Text style={styles.settingLabel}>{tr("languageLabel")}</Text>
                             <LanguageSelector inset />
                         </View>
+                        {/* Conectar a plataforma que falta */}
+                        {platformRows.filter(([id]) => !accounts[id]).map(([id, name]) => (
+                            <Pressable
+                                key={`connect-${id}`}
+                                onPress={() => connectPlatform(id)}
+                                accessibilityRole="button"
+                                style={({ pressed }) => [styles.settingRow, styles.settingDivider, { justifyContent: "flex-start", gap: 10, opacity: pressed ? 0.8 : 1 }]}
+                            >
+                                <Ionicons name="add-circle-outline" size={18} color={COLORS.accent} />
+                                <Text style={[styles.settingLabel, { color: COLORS.accent }]}>
+                                    {tr("connectPlatform", { platform: name })}
+                                </Text>
+                            </Pressable>
+                        ))}
+                        {/* Desconectar só uma (com as duas conectadas) */}
+                        {bothConnected && platformRows.map(([id, name]) => (
+                            <Pressable
+                                key={`disconnect-${id}`}
+                                onPress={() => disconnect(id)}
+                                accessibilityRole="button"
+                                style={({ pressed }) => [styles.settingRow, styles.settingDivider, { justifyContent: "flex-start", gap: 10, opacity: pressed ? 0.8 : 1 }]}
+                            >
+                                <Ionicons name="remove-circle-outline" size={18} color={COLORS.textMuted} />
+                                <Text style={[styles.settingLabel, { color: COLORS.textSoft }]}>
+                                    {tr("disconnectPlatform", { platform: name })}
+                                </Text>
+                            </Pressable>
+                        ))}
                         <Pressable
                             onPress={() => setAboutVisible(true)}
                             accessibilityRole="button"
@@ -188,7 +240,7 @@ export default function Profile() {
                             <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
                         </Pressable>
                         <Pressable
-                            onPress={clearSteamId}
+                            onPress={logout}
                             accessibilityRole="button"
                             style={({ pressed }) => [styles.settingRow, styles.settingDivider, { justifyContent: "flex-start", gap: 10, opacity: pressed ? 0.8 : 1 }]}
                         >

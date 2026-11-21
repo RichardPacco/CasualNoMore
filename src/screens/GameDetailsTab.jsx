@@ -1,48 +1,36 @@
+import { Ionicons } from "@expo/vector-icons";
 import { getGameStoreDetails } from "@/src/api/steam";
+import { AppText, Button } from "@/src/components/ui";
 import { AuthContext } from "@/src/context/AuthContext";
 import { getGame, parseJson, updateGameDetails } from "@/src/database/db";
-import { useImageCdnFallback } from "@/src/hooks/useImageCdnFallback";
 import { getLanguageStore } from "@/src/i18n/langStore";
 import { useLanguage } from "@/src/i18n/LanguageContext";
-import { COLORS } from "@/src/theme/colors";
-import { useTheme } from "@/src/theme/styles";
+import { COLORS, FONTS } from "@/src/theme/colors";
 import { useContext, useEffect, useState } from 'react';
-import { Image, Linking, ScrollView, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
-import RenderHTML from 'react-native-render-html';
-import { headerUri } from "@/src/utils/cdn";
+import { Linking, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import RenderHTML, { defaultSystemFonts } from 'react-native-render-html';
 
-const placeholderImage = require("../../assets/images/placeholder_gamelist.jpg");
+// Fontes do app liberadas para o HTML da descrição da loja
+const HTML_FONTS = [...defaultSystemFonts, FONTS.body, FONTS.bodySemibold];
+const HTML_IGNORED_TAGS = ["video", "iframe", "source", "picture", "object", "embed", "noscript", "style", "script", "track"];
 
+/** Abre um link externo, registrando falhas no console. */
+function openUrl(url) {
+    Linking.openURL(url).catch(err => console.error("Failed to open URL:", url, err));
+}
 
 /**
- * Aba com os detalhes do jogo vindos da loja Steam
- * (descrição, gênero, lançamento, MetaCritic e link para a loja).
+ * Aba Detalhes do jogo (redesign, prancheta 06): gênero, lançamento e
+ * Metacritic em blocos, descrição da loja com "Ler mais", e botões para a
+ * loja, os guias e as discussões da comunidade Steam.
  */
 export default function GameDetailsTab({ game }) {
     const { steamId } = useContext(AuthContext);
     const { t: tr, language } = useLanguage();
     const cachedDetails = parseJson(game?.details);
     const [gameDetail, setGameDetail] = useState(cachedDetails);
-    const { width } = useWindowDimensions();
-
-    const t = useTheme();
-
     const [showFull, setShowFull] = useState(false);
-
-    // Header: URL da loja salva (GetItems) ou a que o appdetails traz, ambas com
-    // hash (funcionam para jogos novos); depois os CDNs antigos; senão placeholder.
-    const headerCandidates = [
-        ...new Set([
-            game?.headerUrl,
-            gameDetail?.header_image,
-            headerUri(game?.appid, false),
-            headerUri(game?.appid, true),
-        ].filter(Boolean)),
-    ];
-    const { stage, onError } = useImageCdnFallback(
-        `${game?.appid}|${headerCandidates.join("|")}`,
-        headerCandidates.length
-    );
+    const { width } = useWindowDimensions();
 
     useEffect(() => {
         if (!game) return;
@@ -97,127 +85,114 @@ export default function GameDetailsTab({ game }) {
         };
     }, [game, steamId, language]);
 
-
-    /** Abre no navegador a página do jogo na Steam Store. */
-    const openSteamPage = () => {
-        const steamUrl = `https://store.steampowered.com/app/${game.appid}`;
-        Linking.openURL(steamUrl).catch(err => console.error("Failed to open URL:", err));
-    };
+    const appid = game.appid;
+    const genre = gameDetail?.genres?.slice(0, 2).map(g => g.description).join(", ");
+    const releaseDate = gameDetail?.release_date?.date;
+    const metacritic = gameDetail?.metacritic?.score;
+    const description = showFull ? gameDetail?.detailed_description : gameDetail?.short_description;
 
     return (
-        <ScrollView className={`flex-1 ${t.pageBg}`} contentContainerStyle={{ paddingBottom: 70 }}>
-            <View className={`flex-1 py-4 ${t.pageBg}`}>
-                <TouchableOpacity onPress={openSteamPage}>
-
-                    <Image
-                        source={stage >= headerCandidates.length
-                            ? placeholderImage
-                            : { uri: headerCandidates[stage] }}
-                        onError={onError}
-                        style={{
-                            width: "100%",
-                            aspectRatio: 460 / 215,
-                            borderRadius: 12,
-                            marginBottom: 16,
-                            shadowColor: "#000",
-                            shadowOffset: { width: 0, height: 2 },
-                            shadowOpacity: 0.5,
-                            shadowRadius: 4,
-                            elevation: 5,
-                        }}
-                        resizeMode="cover"
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+            {/* Botões no topo: loja, guias, discussões e HowLongToBeat */}
+            <View style={styles.actions}>
+                <Button
+                    label={tr("viewInSteamStore")}
+                    onPress={() => openUrl(`https://store.steampowered.com/app/${appid}`)}
+                    icon={<Ionicons name="open-outline" size={18} color={COLORS.onAccent} />}
+                    accessibilityRole="link"
+                />
+                <View style={styles.actionsRow}>
+                    <Button
+                        label={tr("guidesShort")}
+                        variant="secondary"
+                        onPress={() => openUrl(`https://steamcommunity.com/app/${appid}/guides/`)}
+                        icon={<Ionicons name="book-outline" size={18} color={COLORS.text} />}
+                        accessibilityRole="link"
+                        accessibilityLabel={tr("communityGuides")}
+                        style={{ flex: 1 }}
                     />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    onPress={openSteamPage}
-                    className="rounded-lg py-3 mb-3 flex-row items-center justify-center gap-2"
-                    style={{ backgroundColor: COLORS.accent }}
-                >
-                    <Text style={{ color: '#0B1220', fontSize: 15, fontWeight: 'bold' }}>
-                        {tr("viewInStore")}
-                    </Text>
-                </TouchableOpacity>
-
-                <>
-                    {(gameDetail?.short_description || gameDetail?.detailed_description) && (
-                        <View className={`${t.cardBg} p-3 rounded-lg mb-3`}>
-                            <RenderHTML
-                                contentWidth={width}
-                                source={{
-                                    html: showFull
-                                        ? gameDetail.detailed_description
-                                        : gameDetail.short_description
-                                }}
-                                baseStyle={{ color: t.textInline, fontSize: 16 }}
-                                ignoredDomTags={["video", "iframe", "source", "picture", "object", "embed", "noscript", "style", "script", "track"]}
-                            />
-
-                            {/* Read More / Read Less button */}
-                            {gameDetail.detailed_description && (
-                                <TouchableOpacity
-                                    onPress={() => setShowFull(!showFull)}
-                                    className="mt-2"
-                                >
-                                    <Text style={{ color: '#60A5FA', fontSize: 14, fontWeight: 'bold' }}>
-                                        {showFull ? tr("readLess") : tr("readMore")}
-                                    </Text>
-                                </TouchableOpacity>
-                            )}
-                        </View>
-                    )}
-                </>
-
-                {gameDetail?.genres && (
-                    <View className={`${t.cardBg} p-3 rounded-lg mb-3`}>
-                        {/* Title */}
-                        <Text style={{ color: t.textInline, fontSize: 10, fontWeight: 'bold', marginBottom: 4 }}>
-                            {tr("genre")}
-                        </Text>
-
-                        {/* Genre list */}
-                        <Text style={{ color: t.textInline, fontSize: 16 }}>
-                            {gameDetail.genres.map((genre) => genre.description).join(", ")}
-                        </Text>
-                    </View>
-                )}
-                <View className="flex-row gap-3 mb-3">
-                    {gameDetail?.release_date && (
-                        <View className={`${t.cardBg} p-3 rounded-lg flex-1`}>
-                            {/* Title */}
-                            <Text style={{ color: t.textInline, fontSize: 10, fontWeight: 'bold', marginBottom: 4 }}>
-                                {tr("release")}
-                            </Text>
-
-                            {/* Release Date */}
-                            <Text style={{ color: t.textInline, fontSize: 16 }}>
-                                {gameDetail.release_date.date}
-                            </Text>
-                        </View>
-                    )}
-
-                    <View className={`${t.cardBg} p-3 rounded-lg flex-1`}>
-                        {/* Title */}
-                        <Text style={{ color: t.textInline, fontSize: 10, fontWeight: 'bold', marginBottom: 4 }}>
-                            MetaCritic
-                        </Text>
-
-                        {gameDetail?.metacritic?.score ? (
-                            <Text style={{ color: t.textInline, fontSize: 16 }}>
-                                {gameDetail.metacritic.score}
-                            </Text>
-                        ) : (
-                            <Text style={{ color: t.textInline, fontSize: 16 }}>
-                                -
-                            </Text>
-                        )}
-                    </View>
-
+                    <Button
+                        label={tr("discussionsShort")}
+                        variant="secondary"
+                        onPress={() => openUrl(`https://steamcommunity.com/app/${appid}/discussions/`)}
+                        icon={<Ionicons name="chatbubbles-outline" size={18} color={COLORS.text} />}
+                        accessibilityRole="link"
+                        accessibilityLabel={tr("steamDiscussions")}
+                        style={{ flex: 1 }}
+                    />
                 </View>
-
-
+                {/* HowLongToBeat não tem API oficial nem liga o appid da Steam ao
+                    id dele: abre a busca do site pelo nome do jogo */}
+                <Button
+                    label={tr("viewOnHltb")}
+                    variant="secondary"
+                    onPress={() => openUrl(`https://howlongtobeat.com/?q=${encodeURIComponent(game.name || "")}`)}
+                    icon={<Ionicons name="time-outline" size={18} color={COLORS.text} />}
+                    accessibilityRole="link"
+                />
             </View>
-        </ScrollView >
-    );
 
+            <View style={styles.stats}>
+                <StatTile label={tr("genre")} value={genre} />
+                <StatTile label={tr("release")} value={releaseDate} />
+                <StatTile label="Metacritic" value={metacritic != null ? String(metacritic) : null} />
+            </View>
+
+            {(gameDetail?.short_description || gameDetail?.detailed_description) && (
+                <View style={styles.card}>
+                    <AppText variant="label">{tr("aboutGame")}</AppText>
+                    <RenderHTML
+                        contentWidth={width - 72}
+                        source={{ html: description || gameDetail.short_description || "" }}
+                        systemFonts={HTML_FONTS}
+                        baseStyle={styles.html}
+                        tagsStyles={{ a: { color: COLORS.accent }, strong: { fontFamily: FONTS.bodySemibold } }}
+                        ignoredDomTags={HTML_IGNORED_TAGS}
+                    />
+                    {gameDetail.detailed_description && (
+                        <Pressable
+                            onPress={() => setShowFull(v => !v)}
+                            accessibilityRole="button"
+                            style={styles.readMore}
+                        >
+                            <Text style={styles.readMoreText}>{showFull ? tr("readLess") : tr("readMore")}</Text>
+                        </Pressable>
+                    )}
+                </View>
+            )}
+        </ScrollView>
+    );
 }
+
+/** Bloco pequeno de informação (rótulo em caixa alta + valor). */
+function StatTile({ label, value }) {
+    return (
+        <View style={styles.tile}>
+            <Text style={styles.tileLabel} numberOfLines={1}>{label}</Text>
+            <Text style={styles.tileValue} numberOfLines={2}>{value || "—"}</Text>
+        </View>
+    );
+}
+
+const styles = StyleSheet.create({
+    scroll: { flex: 1, backgroundColor: COLORS.bg },
+    // espaço no fim para o conteúdo não ficar atrás da tab bar flutuante
+    content: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 110, gap: 12 },
+    stats: { flexDirection: "row", gap: 8 },
+    tile: { flex: 1, padding: 12, borderRadius: 16, backgroundColor: COLORS.surface, gap: 4 },
+    tileLabel: {
+        fontFamily: FONTS.bodySemibold,
+        fontSize: 11,
+        letterSpacing: 1,
+        textTransform: "uppercase",
+        color: COLORS.textMuted,
+    },
+    tileValue: { fontFamily: FONTS.bodySemibold, fontSize: 14, color: COLORS.text },
+    card: { padding: 16, borderRadius: 20, backgroundColor: COLORS.surface, gap: 10 },
+    html: { fontFamily: FONTS.body, fontSize: 15, lineHeight: 23, color: COLORS.textSoft },
+    readMore: { alignSelf: "flex-start", minHeight: 44, justifyContent: "center" },
+    readMoreText: { fontFamily: FONTS.bodySemibold, fontSize: 14, color: COLORS.accent },
+    // botões no topo; um pouco de espaço extra antes dos blocos de informação
+    actions: { gap: 10, marginBottom: 4 },
+    actionsRow: { flexDirection: "row", gap: 10 },
+});

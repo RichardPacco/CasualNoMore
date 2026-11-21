@@ -1,49 +1,48 @@
 import Toast from "react-native-root-toast";
-import { COLORS } from "@/src/theme/colors";
+import { COLORS, FONTS } from "@/src/theme/colors";
 
 let activeToast = null;
 
-/** Exibe um toast, substituindo o anterior; a cor varia pelo tipo (info/success/error/warning). */
+// Cor da borda de cada tipo de aviso (redesign, prancheta 13)
+const BORDER_BY_TYPE = {
+    success: COLORS.success,
+    error: COLORS.danger,
+    warning: COLORS.gold,
+    info: COLORS.border,
+};
+
+/**
+ * Exibe um aviso (toast) no visual do redesign, substituindo o anterior:
+ * fundo escuro elevado, borda na cor do tipo (info/success/error/warning) e
+ * posição logo acima da tab bar flutuante.
+ */
 export function showToast(message, type = "info") {
-
-
     if (activeToast !== null) {
         Toast.hide(activeToast);
         activeToast = null;
     }
 
-    let backgroundColor = "#333";
-
-    switch (type) {
-        case "success":
-            backgroundColor = COLORS.accent;
-            break;
-        case "error":
-            backgroundColor = COLORS.error;
-            break;
-        case "warning":
-            backgroundColor = COLORS.warning;
-            break;
-        default:
-            backgroundColor = "#333";
-    }
-
-    // Show new toast and save reference
     activeToast = Toast.show(message, {
         duration: Toast.durations.LONG,
-        position: Toast.positions.CENTER,
+        position: -110, // acima da tab bar (64 px + 20 px de margem)
         shadow: true,
+        shadowColor: "#000",
         animation: true,
         hideOnPress: true,
-        backgroundColor,
-        textColor: "#fff",
-        opacity: 0.70,
+        backgroundColor: COLORS.surface2,
+        textColor: COLORS.text,
+        opacity: 1,
         containerStyle: {
-            borderRadius: 10,
-            marginHorizontal: 15,
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: BORDER_BY_TYPE[type] ?? COLORS.border,
+            marginHorizontal: 20,
+            paddingHorizontal: 16,
+            paddingVertical: 12,
         },
         textStyle: {
-            fontWeight: "500",
+            fontFamily: FONTS.bodySemibold,
+            fontSize: 14,
         },
         onHidden: () => {
             activeToast = null;

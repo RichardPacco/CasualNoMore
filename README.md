@@ -1,36 +1,65 @@
 # CasualNoMore
 
-A Steam achievement tracker for Android. No game is casual if there are achievements to hunt.
+An achievement tracker for Android, for **Steam** and **RetroAchievements**. No game is casual if there are achievements to hunt.
 
-Browse your library, track your achievement progress, compare with friends and find the ones you haven't unlocked yet.
+Browse your libraries, track your achievement progress, compare with friends and find the ones you haven't unlocked yet. Connect one platform or both.
 
-> This app is a personal project. It is not affiliated with Valve or Steam.
+> This app is a personal project. It is not affiliated with Valve, Steam or RetroAchievements.
+> Retro achievement data: [RetroAchievements.org](https://retroachievements.org).
+
+Current version: **3.1.0**
 
 ## Features
 
-- Login with your Steam profile (SteamID64 or vanity URL)
-- Browse your game library with filters (played, never played, completed, backlog, ...) and sorting
-- Track per-game achievement progress with rarity (legendary < 5%)
-- See recently played games
-- Compare shared games and completion with friends
-- Save up to 3 accounts for quick login
-- Local database (SQLite) so data is cached offline
-- UI in Portuguese and English
+### Both platforms
+- **Single login flow:** Steam first, then RetroAchievements. Connect either one or both, and skip the one you don't use. You can connect or disconnect each platform later from the Profile.
+- Up to 3 saved accounts per platform for quick login.
+- **Library** with one platform at a time (a Steam | RetroAchievements switch appears when both are connected):
+  - three view modes: compact list, cards and a two-column grid
+  - search, quick filter chips plus more filters (backlog, completed, with/without achievements, pinned...) and sorting
+  - pinned games and a "recently played" section
+- **Game screen** with Details and Achievements tabs: rarity colors, unlock dates, search, filters and sorting, and an achievement sheet with guide search (Google, ChatGPT).
+- **Friends** with games in common and your progress next to theirs.
+- **Profile** with your stats and settings.
+- Local SQLite cache: everything opens instantly and works offline after the first sync.
+- Dark theme ("Arcade Night"), UI in Portuguese and English (with flags in the language picker).
 
-## How the app uses the Steam API
+### Steam
+- Library sync with progress counts, a **Turbo** button to sync more games in parallel, and pull to refresh.
+- Store page, community guides and discussions, and a HowLongToBeat search from the Details tab.
 
-The app uses the [Steam Web API](https://partner.steamgames.com/doc/webapi) to fetch your profile, library and achievements.
+### RetroAchievements
+- **Hardcore only:** progress, medals and rarity count only hardcore unlocks. Softcore-only unlocks are shown as "doesn't count".
+- Library synced in a few calls (the whole library comes from one paginated endpoint). Console filter, and options to hide hacks (hidden by default) and subsets.
+- Medals for **mastered** and **beaten** games.
+- Achievements show points, RetroPoints and type tags (**Progression**, **Win condition**, **Missable**). A **Missable** chip combines with the status filter (for example, locked missables). Default sort is the set author's order.
+- **Comments** for each achievement, 10 per page.
+- Details tab with console, release, genre, publisher, developer, player counts, and links to the game page, forum and guide on RetroAchievements.
+- **Friends:** following and followers (with a "Mutual" badge), and each friend's games with both players' hardcore progress.
+- **Profile card:** points, RetroPoints, rank and masteries, with a warning and an "Update key" button if the key stops working.
 
-**No API key is bundled or required to build the app.** The first time you open the app, the login screen asks you for your own Steam Web API key. It is stored only on your device (AsyncStorage) and used to call the Steam API on your behalf. You can remove it at any time from the login screen.
+## API keys
 
-### Getting your Steam Web API key
+The app uses the [Steam Web API](https://partner.steamgames.com/doc/webapi) and the [RetroAchievements Web API](https://api-docs.retroachievements.org/).
+
+**No API key is bundled or required to build the app.** The login asks for your own keys. They are stored only on your device, encrypted, in the secure store (Android Keystore through `expo-secure-store`), and are never written to logs. You can remove a key at any time from the login screen.
+
+### Steam Web API key
 
 1. Go to <https://steamcommunity.com/dev/apikey>
 2. Sign in with your Steam account
-3. Enter a domain (any value works, e.g. `localhost`) and click **Register for a Web API key**
-4. Copy the generated key (32 hexadecimal characters) into the app's login screen
+3. Enter a domain (any value works, for example `localhost`) and click **Register for a Web API key**
+4. Paste the key (32 hexadecimal characters) into the app. It is saved as soon as the format matches.
 
-> Note: a Steam profile must be **public** for the app to read its games and achievements.
+> Your Steam profile and game details must be **public** for the app to read your games and achievements.
+
+### RetroAchievements Web API key
+
+1. Sign in at <https://retroachievements.org> and open **Settings → Keys**
+2. Paste the Web API key (32 letters and numbers) into the app
+3. Enter your RetroAchievements username
+
+> Use your own account's key: the following/followers lists always come from the key's owner. The account is linked by its ULID, so changing your username on the site doesn't break it.
 
 ## Requirements
 
@@ -38,7 +67,7 @@ The app uses the [Steam Web API](https://partner.steamgames.com/doc/webapi) to f
 - npm (comes with Node.js)
 - For **local** Android builds: [Android Studio](https://developer.android.com/studio) with the Android SDK and JDK 17
 - For **EAS (cloud) builds**: an [Expo account](https://expo.dev/) and the `eas-cli` package
-- A Steam account with a Web API key (to use the app)
+- To use the app: a Steam account with a Web API key and/or a RetroAchievements account with a Web API key
 
 ## Getting started (development)
 
@@ -50,13 +79,12 @@ npm install
 npm start          # or: npx expo start
 ```
 
-Then scan the QR code with the **Expo Go** app (Android) or press `a` to open on an Android emulator.
+Expo Go works, but without the app's custom native setting (see [Android network limit](#android-network-limit)), so the Steam sync is slower there. A development build (`npm run android`) has everything.
 
 Other useful commands:
 
 ```bash
 npm run lint              # ESLint
-npm run web               # start for web
 npm run android           # expo run:android (local dev build)
 ```
 
@@ -64,18 +92,18 @@ npm run android           # expo run:android (local dev build)
 
 There are two ways to produce an installable APK.
 
-### Option 1 — EAS cloud build (recommended)
+### Option 1 — EAS cloud build
 
-[EAS Build](https://docs.expo.dev/build/introduction/) builds the app on Expo's servers, no local Android toolchain needed.
+[EAS Build](https://docs.expo.dev/build/introduction/) builds the app on Expo's servers, with no local Android toolchain needed.
 
 ```bash
-# 1. Install EAS CLI (globally or locally)
+# 1. Install EAS CLI
 npm install -g eas-cli
 
 # 2. Log in to your Expo account
 eas login
 
-# 3. Link the project to YOUR Expo account (creates your own EAS project id)
+# 3. Link the project to YOUR Expo account
 eas init
 
 # 4. Build an internal-testing APK (profile "preview")
@@ -83,9 +111,7 @@ npm run build:preview
 # equivalent to: eas build --platform android --profile preview
 ```
 
-> `eas init` is required — the repo intentionally does not ship a project id, so your builds are linked to your own Expo account, not anyone else's.
-
-When the build finishes, you get a download link. The `.apk` is installable directly on Android devices.
+> `app.config.js` contains the author's EAS project id (`extra.eas.projectId`). Run `eas init` so your builds are linked to your own Expo account.
 
 Build profiles are defined in [`eas.json`](./eas.json):
 
@@ -95,102 +121,155 @@ Build profiles are defined in [`eas.json`](./eas.json):
 | `preview` | internal | APK | installable test build |
 | `production` | store | AAB | Google Play release |
 
-> AAB (`production`) cannot be installed directly on devices — upload it to the Play Console.
+> An AAB (`production`) cannot be installed directly on devices. Upload it to the Play Console.
 
-### Option 2 — Local build (requires Android SDK)
+### Option 2 — Local build with Gradle
+
+`eas build --local` only runs on macOS or Linux. On Windows, use Gradle directly:
 
 ```bash
 # 1. Install dependencies
 npm install
 
-# 2. Generate the android/ native project
-npx expo prebuild --platform android
+# 2. Generate the android/ native project (needed after changing app.config.js, plugins or native packages)
+npx expo prebuild --platform android --clean
 
 # 3. Build a release APK
 cd android
-./gradlew assembleRelease
+./gradlew assembleRelease          # Windows: .\gradlew.bat assembleRelease
 ```
 
-On Windows use `.\gradlew.bat assembleRelease` instead.
+The APK is written to `android/app/build/outputs/apk/release/app-release.apk` (signed with the debug key, which is enough to install and test). To install it on a phone connected by USB: `adb install -r android/app/build/outputs/apk/release/app-release.apk`.
 
-The APK is written to `android/app/build/outputs/apk/release/app-release.apk`.
+**Faster local builds.** The first release build compiles native code for 4 CPU architectures and can take 10–20 minutes or more. To speed it up:
+- Build only for your phone's architecture (almost every modern Android phone is `arm64-v8a`):
+  `./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --parallel --build-cache`
+- Skip `prebuild --clean` and `gradlew clean` unless something native changed, so Gradle can reuse its cache.
+- On Windows, add the project folder and `%USERPROFILE%\.gradle` to the Windows Security antivirus exclusions.
 
 > The Android application id (`com.casualnomore.app`) is set in `app.config.js`. Change it there before publishing under your own identity.
+
+### Android network limit
+
+React Native sends every `fetch` on Android through OkHttp, which allows only 5 simultaneous requests per server. Almost every Steam call goes to the same server, so the library sync would queue up. The config plugin [`plugins/withOkHttpConcurrency.js`](./plugins/withOkHttpConcurrency.js) raises this limit (configured in `app.config.js`). It is applied by `expo prebuild` and by EAS builds.
 
 ## Project structure
 
 ```
-app/                 # expo-router screens (login, tabs, ...)
+app/                     # expo-router screens: login, tabs (games, friends, profile)
+plugins/                 # Expo config plugins (OkHttp concurrency limit)
 src/
-  api/               # Steam Web API client
-  components/        # shared UI components
-  config/            # API key store (AsyncStorage)
-  context/           # Auth context (saved accounts, steamId)
-  database/          # SQLite cache layer
-  i18n/              # translations (pt / en) + language context
-  screens/           # screen-level components (friends, achievements, ...)
-  theme/             # central color palette
-  utils/             # helpers (toast, formatters, ...)
-assets/              # images and icons
-app.config.js        # Expo app config (name, version, icons, ...)
-eas.json             # EAS build profiles
+  api/                   # Steam and RetroAchievements Web API clients
+  components/            # shared components (game card, sheets, dialogs...)
+    login/               # login form shared by both platforms + per-platform config
+    ui/                  # design-system primitives (text, button, chip, progress...)
+  config/                # API key store (secure store, one key per platform)
+  context/               # auth (connected accounts, saved accounts) and settings
+  database/              # SQLite cache (db.js: Steam, raDb.js: RetroAchievements)
+  hooks/                 # useLibrary, useAchievements, ...
+  i18n/                  # translations (pt / en) + language context
+  platforms/             # one module per platform (adapter, library sync, game data)
+    steam/
+    ra/
+  screens/               # screen components (library, game, friends, profile...)
+  theme/                 # colors and fonts
+  utils/                 # helpers (dates, playtime, toast, CDN...)
+assets/                  # images and icons
+app.config.js            # Expo app config (name, version, icons, plugins)
+eas.json                 # EAS build profiles
+RETROACHIEVEMENTS_PLAN.md  # design notes and progress of the RetroAchievements integration
 ```
 
 ## Tech stack
 
-- [Expo SDK 53](https://expo.dev/) / React Native 0.79
-- [expo-router](https://docs.expo.dev/router/introduction/) (file-based navigation)
+- [Expo SDK 53](https://expo.dev/) / React Native 0.79 (new architecture)
+- [expo-router](https://docs.expo.dev/router/introduction/) and React Navigation
 - [NativeWind](https://www.nativewind.dev/) (Tailwind CSS for React Native)
-- [react-native-paper](https://reactnativepaper.com/)
+- [FlashList](https://shopify.github.io/flash-list/) for long lists
+- [react-native-svg](https://github.com/software-mansion/react-native-svg) and expo-linear-gradient
+- Inter and Space Grotesk fonts ([@expo-google-fonts](https://github.com/expo/google-fonts))
 - SQLite via [expo-sqlite](https://docs.expo.dev/versions/latest/sdk/sqlite/)
-- AsyncStorage for accounts and API key persistence
+- [expo-secure-store](https://docs.expo.dev/versions/latest/sdk/securestore/) for API keys, AsyncStorage for accounts and settings
 
 ## Troubleshooting
 
-- **"Enter your Steam Web API key"** — no API key is saved. Add yours on the login screen (see above).
-- **Empty game list** — your profile or games list is private. Set it to **public** on Steam, or pull down to refresh.
-- **Friend list empty** — your friend list is set to *Friends Only*. Change it to **Public** in Steam privacy settings.
-- **Build errors on EAS** — make sure you are on the latest `eas-cli` and that your `eas.json` `cli.version` constraint matches.
+- **"Enter your Steam Web API key" / "Enter your RetroAchievements Web API Key"** — no key is saved for that platform. Add yours on the login screen.
+- **Empty Steam game list** — your profile or game details are private. Set them to **public** on Steam, then pull down to refresh.
+- **Empty Steam friend list** — your friend list is set to *Friends Only*. Change it to **Public** in Steam privacy settings.
+- **"Invalid key" on RetroAchievements, or "Your Web API Key no longer works" on the Profile** — the key was changed or revoked on the site. Tap **Update key** and paste the new one from Settings → Keys.
+- **"User not found on RetroAchievements"** — check the username (it is not case-sensitive, but must exist).
+- **"This account is untracked"** — the RetroAchievements account is outside the rankings, so some data may be missing.
+- **Empty RetroAchievements library** — games only show up after you play them in an emulator signed in with your account.
+- **Build errors on EAS** — make sure you are on the latest `eas-cli` and that the `cli.version` constraint in `eas.json` matches.
 
 ## License
 
-Copyright © 2026 Richard Pacco. All rights reserved.
+[MIT](./LICENSE) © 2026 Richard Pacco. You can use, modify and share the code, as long as the copyright notice and the license are kept.
 
 ---
 
 # CasualNoMore (Português)
 
-Um rastreador de conquistas da Steam para Android. Nenhum jogo é casual se tem conquistas para caçar.
+Um rastreador de conquistas para Android, para **Steam** e **RetroAchievements**. Nenhum jogo é casual se tem conquistas para caçar.
 
-Navegue pela sua biblioteca, acompanhe seu progresso de conquistas, compare com amigos e encontre as que ainda não desbloqueou.
+Navegue pelas suas bibliotecas, acompanhe seu progresso de conquistas, compare com amigos e encontre as que ainda não desbloqueou. Conecte uma plataforma ou as duas.
 
-> Este app é um projeto pessoal. Não é afiliado à Valve ou à Steam.
+> Este app é um projeto pessoal. Não é afiliado à Valve, à Steam ou ao RetroAchievements.
+> Dados de conquistas retrô: [RetroAchievements.org](https://retroachievements.org).
+
+Versão atual: **3.1.0**
 
 ## Funcionalidades
 
-- Login com seu perfil Steam (SteamID64 ou vanity URL)
-- Navegue pela sua biblioteca de jogos com filtros (jogados, nunca jogados, completados, backlog, ...) e ordenação
-- Acompanhe o progresso de conquistas por jogo, com raridade (lendárias < 5%)
-- Veja jogos jogados recentemente
-- Compare jogos em comum e conclusão com amigos
-- Salve até 3 contas para login rápido
-- Banco de dados local (SQLite) para dados ficarem em cache offline
-- Interface em português e inglês
+### As duas plataformas
+- **Login em fluxo único:** primeiro a Steam, depois o RetroAchievements. Conecte uma ou as duas e pule a que você não usa. Depois dá para conectar ou desconectar cada plataforma pelo Perfil.
+- Até 3 contas salvas por plataforma para login rápido.
+- **Biblioteca** com uma plataforma por vez (um seletor Steam | RetroAchievements aparece com as duas conectadas):
+  - três modos de exibição: lista compacta, cards e grade de duas colunas
+  - busca, chips de filtro rápido e mais filtros (backlog, completos, com/sem conquistas, fixados...) e ordenação
+  - jogos fixados e a seção "jogados recentemente"
+- **Tela do jogo** com as abas Detalhes e Conquistas: cores de raridade, datas de desbloqueio, busca, filtros e ordenação, e a ficha da conquista com busca de guias (Google, ChatGPT).
+- **Amigos** com jogos em comum e o seu progresso ao lado do deles.
+- **Perfil** com as suas estatísticas e os ajustes.
+- Cache local em SQLite: tudo abre na hora e funciona offline depois da primeira sincronização.
+- Tema escuro ("Arcade Night"), interface em português e inglês (com bandeiras no seletor de idioma).
 
-## Como o app usa a API da Steam
+### Steam
+- Sincronização da biblioteca com a contagem de progresso, botão **Turbo** para sincronizar mais jogos em paralelo e puxar para atualizar.
+- Página da loja, guias e discussões da comunidade e busca no HowLongToBeat pela aba Detalhes.
 
-O app usa a [Steam Web API](https://partner.steamgames.com/doc/webapi) para buscar seu perfil, biblioteca e conquistas.
+### RetroAchievements
+- **Só hardcore:** progresso, medalhas e raridade contam só os desbloqueios em hardcore. Desbloqueios só em softcore aparecem como "não conta".
+- Biblioteca sincronizada em poucas chamadas (a biblioteca inteira vem de um endpoint paginado). Filtro de console e opções para esconder hacks (escondidos por padrão) e subsets.
+- Medalhas de jogo **masterizado** e **zerado**.
+- As conquistas mostram pontos, RetroPoints e etiquetas de tipo (**Progressão**, **Vitória**, **Perdível**). O chip **Perdíveis** combina com o filtro de status (por exemplo, perdíveis bloqueadas). A ordenação padrão é a ordem do autor do set.
+- **Comentários** de cada conquista, 10 por página.
+- Aba Detalhes com console, lançamento, gênero, publicadora, desenvolvedora, número de jogadores e links para a página do jogo, o fórum e o guia no RetroAchievements.
+- **Amigos:** seguindo e seguidores (com o selo "Mútuo") e os jogos de cada amigo com o progresso hardcore dos dois.
+- **Card do Perfil:** pontos, RetroPoints, rank e masterizados, com um aviso e o botão "Atualizar key" se a key parar de funcionar.
 
-**Nenhuma chave de API é embutida nem é necessária para compilar o app.** Na primeira vez que você abrir o app, a tela de login pede a sua própria chave da Steam Web API. Ela fica armazenada somente no seu dispositivo (AsyncStorage) e é usada para chamar a API da Steam em seu nome. Você pode removê-la a qualquer momento pela tela de login.
+## Chaves de API
 
-### Obtendo sua chave da Steam Web API
+O app usa a [Steam Web API](https://partner.steamgames.com/doc/webapi) e a [Web API do RetroAchievements](https://api-docs.retroachievements.org/).
+
+**Nenhuma chave de API é embutida nem é necessária para compilar o app.** O login pede as suas próprias chaves. Elas ficam só no seu aparelho, criptografadas, no armazenamento seguro (Android Keystore, via `expo-secure-store`), e nunca vão para logs. Você pode remover uma chave a qualquer momento pela tela de login.
+
+### Chave da Steam Web API
 
 1. Acesse <https://steamcommunity.com/dev/apikey>
 2. Entre com a sua conta Steam
-3. Informe um domínio (qualquer valor funciona, ex.: `localhost`) e clique em **Registrar chave da Web API**
-4. Copie a chave gerada (32 caracteres hexadecimais) e cole na tela de login do app
+3. Informe um domínio (qualquer valor funciona, por exemplo `localhost`) e clique em **Registrar chave da Web API**
+4. Cole a chave (32 caracteres hexadecimais) no app. Ela é salva assim que o formato bate.
 
-> Observação: o perfil Steam precisa estar **público** para o app conseguir ler jogos e conquistas.
+> O perfil Steam e os detalhes de jogo precisam estar **públicos** para o app ler seus jogos e conquistas.
+
+### Chave da Web API do RetroAchievements
+
+1. Entre em <https://retroachievements.org> e abra **Settings → Keys**
+2. Cole a Web API Key (32 letras e números) no app
+3. Informe o seu nome de usuário do RetroAchievements
+
+> Use a chave da sua própria conta: as listas de seguindo e seguidores sempre vêm do dono da chave. A conta é ligada pelo ULID, então trocar o nome de usuário no site não quebra nada.
 
 ## Requisitos
 
@@ -198,7 +277,7 @@ O app usa a [Steam Web API](https://partner.steamgames.com/doc/webapi) para busc
 - npm (já vem com o Node.js)
 - Para builds **locais** Android: [Android Studio](https://developer.android.com/studio) com Android SDK e JDK 17
 - Para builds **EAS (nuvem)**: uma [conta Expo](https://expo.dev/) e o pacote `eas-cli`
-- Uma conta Steam com chave da Web API (para usar o app)
+- Para usar o app: uma conta Steam com chave da Web API e/ou uma conta RetroAchievements com Web API Key
 
 ## Começando (desenvolvimento)
 
@@ -210,13 +289,12 @@ npm install
 npm start          # ou: npx expo start
 ```
 
-Depois escaneie o QR code com o app **Expo Go** (Android) ou pressione `a` para abrir num emulador Android.
+O Expo Go funciona, mas sem a configuração nativa própria do app (veja [Limite de rede do Android](#limite-de-rede-do-android)), então a sincronização da Steam fica mais lenta nele. Um build de desenvolvimento (`npm run android`) tem tudo.
 
 Outros comandos úteis:
 
 ```bash
 npm run lint              # ESLint
-npm run web               # iniciar para web
 npm run android           # expo run:android (build de dev local)
 ```
 
@@ -224,18 +302,18 @@ npm run android           # expo run:android (build de dev local)
 
 Existem duas formas de gerar um APK instalável.
 
-### Opção 1 — Build EAS na nuvem (recomendada)
+### Opção 1 — Build EAS na nuvem
 
 O [EAS Build](https://docs.expo.dev/build/introduction/) compila o app nos servidores da Expo, sem precisar de ferramentas Android locais.
 
 ```bash
-# 1. Instale o EAS CLI (globalmente ou localmente)
+# 1. Instale o EAS CLI
 npm install -g eas-cli
 
 # 2. Entre na sua conta Expo
 eas login
 
-# 3. Vincule o projeto à SUA conta Expo (cria o seu próprio project id)
+# 3. Vincule o projeto à SUA conta Expo
 eas init
 
 # 4. Gere um APK de teste interno (perfil "preview")
@@ -243,9 +321,7 @@ npm run build:preview
 # equivalente a: eas build --platform android --profile preview
 ```
 
-> O `eas init` é obrigatório — o repositório não inclui um project id de propósito, para que seus builds fiquem vinculados à sua própria conta Expo, e não à de outra pessoa.
-
-Quando o build terminar, você recebe um link de download. O `.apk` pode ser instalado diretamente em aparelhos Android.
+> O `app.config.js` traz o project id do EAS do autor (`extra.eas.projectId`). Rode `eas init` para seus builds ficarem vinculados à sua própria conta Expo.
 
 Os perfis de build estão definidos no [`eas.json`](./eas.json):
 
@@ -255,63 +331,87 @@ Os perfis de build estão definidos no [`eas.json`](./eas.json):
 | `preview` | interna | APK | build de teste instalável |
 | `production` | loja | AAB | release na Google Play |
 
-> O AAB (`production`) não pode ser instalado diretamente — envie-o para o Play Console.
+> O AAB (`production`) não pode ser instalado diretamente. Envie-o para o Play Console.
 
-### Opção 2 — Build local (requer Android SDK)
+### Opção 2 — Build local com Gradle
+
+O `eas build --local` só roda em macOS ou Linux. No Windows, use o Gradle direto:
 
 ```bash
 # 1. Instale as dependências
 npm install
 
-# 2. Gere o projeto nativo android/
-npx expo prebuild --platform android
+# 2. Gere o projeto nativo android/ (necessário depois de mudar o app.config.js, plugins ou pacotes nativos)
+npx expo prebuild --platform android --clean
 
 # 3. Gere o APK de release
 cd android
-./gradlew assembleRelease
+./gradlew assembleRelease          # Windows: .\gradlew.bat assembleRelease
 ```
 
-No Windows use `.\gradlew.bat assembleRelease` no lugar.
+O APK sai em `android/app/build/outputs/apk/release/app-release.apk` (assinado com a chave de debug, o que basta para instalar e testar). Para instalar num celular conectado por USB: `adb install -r android/app/build/outputs/apk/release/app-release.apk`.
 
-O APK será gravado em `android/app/build/outputs/apk/release/app-release.apk`.
+**Builds locais mais rápidos.** O primeiro build de release compila código nativo para 4 arquiteturas de CPU e pode levar 10 a 20 minutos ou mais. Para acelerar:
+- Compile só para a arquitetura do seu celular (quase todo Android moderno é `arm64-v8a`):
+  `./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --parallel --build-cache`
+- Não rode `prebuild --clean` nem `gradlew clean` se nada nativo mudou, para o Gradle aproveitar o cache.
+- No Windows, adicione a pasta do projeto e a `%USERPROFILE%\.gradle` às exclusões do antivírus (Segurança do Windows).
 
 > O application id do Android (`com.casualnomore.app`) está definido no `app.config.js`. Altere-o lá antes de publicar com a sua identidade.
+
+### Limite de rede do Android
+
+O React Native faz todo `fetch` no Android pelo OkHttp, que só permite 5 requisições simultâneas por servidor. Quase todas as chamadas da Steam vão para o mesmo servidor, então a sincronização da biblioteca ficaria na fila. O config plugin [`plugins/withOkHttpConcurrency.js`](./plugins/withOkHttpConcurrency.js) aumenta esse limite (configurado no `app.config.js`). Ele é aplicado pelo `expo prebuild` e pelos builds do EAS.
 
 ## Estrutura do projeto
 
 ```
-app/                 # telas do expo-router (login, tabs, ...)
+app/                     # telas do expo-router: login, abas (jogos, amigos, perfil)
+plugins/                 # config plugins do Expo (limite de requisições do OkHttp)
 src/
-  api/               # client da Steam Web API
-  components/        # componentes de UI compartilhados
-  config/            # armazenamento da chave de API (AsyncStorage)
-  context/           # contexto de Auth (contas salvas, steamId)
-  database/          # camada de cache com SQLite
-  i18n/              # traduções (pt / en) + contexto de idioma
-  screens/           # componentes de tela (amigos, conquistas, ...)
-  theme/             # paleta de cores central
-  utils/             # utilitários (toast, formatação, ...)
-assets/              # imagens e ícones
-app.config.js        # config do app Expo (nome, versão, ícones, ...)
-eas.json             # perfis de build EAS
+  api/                   # clients das Web APIs da Steam e do RetroAchievements
+  components/            # componentes compartilhados (card de jogo, painéis, diálogos...)
+    login/               # formulário de login comum às duas plataformas + config de cada uma
+    ui/                  # primitivos do design system (texto, botão, chip, progresso...)
+  config/                # armazenamento das chaves de API (seguro, uma por plataforma)
+  context/               # auth (contas conectadas e salvas) e preferências
+  database/              # cache em SQLite (db.js: Steam, raDb.js: RetroAchievements)
+  hooks/                 # useLibrary, useAchievements, ...
+  i18n/                  # traduções (pt / en) + contexto de idioma
+  platforms/             # um módulo por plataforma (adaptador, sincronização, dados do jogo)
+    steam/
+    ra/
+  screens/               # telas (biblioteca, jogo, amigos, perfil...)
+  theme/                 # cores e fontes
+  utils/                 # utilitários (datas, tempo de jogo, toast, CDN...)
+assets/                  # imagens e ícones
+app.config.js            # config do app Expo (nome, versão, ícones, plugins)
+eas.json                 # perfis de build EAS
+RETROACHIEVEMENTS_PLAN.md  # notas de projeto e progresso da integração com o RetroAchievements
 ```
 
 ## Stack de tecnologias
 
-- [Expo SDK 53](https://expo.dev/) / React Native 0.79
-- [expo-router](https://docs.expo.dev/router/introduction/) (navegação baseada em arquivos)
+- [Expo SDK 53](https://expo.dev/) / React Native 0.79 (nova arquitetura)
+- [expo-router](https://docs.expo.dev/router/introduction/) e React Navigation
 - [NativeWind](https://www.nativewind.dev/) (Tailwind CSS para React Native)
-- [react-native-paper](https://reactnativepaper.com/)
+- [FlashList](https://shopify.github.io/flash-list/) para listas longas
+- [react-native-svg](https://github.com/software-mansion/react-native-svg) e expo-linear-gradient
+- Fontes Inter e Space Grotesk ([@expo-google-fonts](https://github.com/expo/google-fonts))
 - SQLite via [expo-sqlite](https://docs.expo.dev/versions/latest/sdk/sqlite/)
-- AsyncStorage para persistência de contas e chave de API
+- [expo-secure-store](https://docs.expo.dev/versions/latest/sdk/securestore/) para as chaves de API, AsyncStorage para contas e preferências
 
 ## Solução de problemas
 
-- **"Informe sua chave de API Steam"** — nenhuma chave salva. Adicione a sua na tela de login (veja acima).
-- **Lista de jogos vazia** — seu perfil ou lista de jogos está privado(a). Deixe como **público** na Steam, ou puxe para baixo para atualizar.
-- **Lista de amigos vazia** — sua lista de amigos está em *Somente amigos*. Mude para **Público** nas configurações de privacidade da Steam.
-- **Erros de build no EAS** — certifique-se de estar na versão mais recente do `eas-cli` e de que a restrição de `cli.version` no seu `eas.json` é compatível.
+- **"Informe sua chave de API Steam" / "Informe sua Web API Key do RetroAchievements"** — não há chave salva para essa plataforma. Adicione a sua na tela de login.
+- **Lista de jogos da Steam vazia** — seu perfil ou os detalhes de jogo estão privados. Deixe como **público** na Steam e puxe para baixo para atualizar.
+- **Lista de amigos da Steam vazia** — sua lista de amigos está em *Somente amigos*. Mude para **Público** nas configurações de privacidade da Steam.
+- **"Chave inválida" no RetroAchievements, ou "Sua Web API Key não funciona mais" no Perfil** — a chave foi trocada ou revogada no site. Toque em **Atualizar key** e cole a nova, de Settings → Keys.
+- **"Usuário não encontrado no RetroAchievements"** — confira o nome de usuário (maiúsculas e minúsculas não importam, mas ele precisa existir).
+- **"Esta conta está fora do ranking"** — a conta do RetroAchievements está fora do ranking, então alguns dados podem não aparecer.
+- **Biblioteca do RetroAchievements vazia** — os jogos só aparecem depois de jogados num emulador com a sua conta.
+- **Erros de build no EAS** — confira se está na versão mais recente do `eas-cli` e se a restrição de `cli.version` no `eas.json` é compatível.
 
 ## Licença
 
-Copyright © 2026 Richard Pacco. Todos os direitos reservados.
+[MIT](./LICENSE) © 2026 Richard Pacco. Você pode usar, modificar e compartilhar o código, desde que mantenha o aviso de copyright e a licença.

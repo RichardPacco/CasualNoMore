@@ -3,21 +3,22 @@ export default ({ config }) => {
     ...config,
     name: "CasualNoMore",
     slug: "CasualNoMore",
-    version: "1.4.0",
+    version: "3.1.0",
     orientation: "portrait",
     icon: "./assets/images/app_icon.png",
     scheme: "casualnomore",
-    userInterfaceStyle: "automatic",
+    userInterfaceStyle: "dark",
+    backgroundColor: "#0A0E15",
     newArchEnabled: true,
     ios: {
       supportsTablet: true,
     },
     android: {
       package: "com.casualnomore.app",
-      versionCode: 1,
+      versionCode: 4,
       adaptiveIcon: {
         foregroundImage: "./assets/images/app_icon.png",
-        backgroundColor: "#1E1E1E",
+        backgroundColor: "#0A0E15",
       },
       edgeToEdgeEnabled: false,
     },
@@ -30,13 +31,15 @@ export default ({ config }) => {
       "expo-router",
       "expo-web-browser",
       "expo-secure-store",
+      // Android: até 20 requisições simultâneas por servidor (OkHttp limita a 5)
+      ["./plugins/withOkHttpConcurrency", { maxRequestsPerHost: 20 }],
       [
         "expo-splash-screen",
         {
           image: "./assets/images/app_icon.png",
           imageWidth: 160,
           resizeMode: "contain",
-          backgroundColor: "#030712",
+          backgroundColor: "#0A0E15",
         },
       ],
     ],

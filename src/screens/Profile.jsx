@@ -1,16 +1,20 @@
 import { getPlayerSummary } from "@/src/api/steam";
+import AboutModal from "@/src/components/AboutModal";
 import LanguageSelector from "@/src/components/LanguageSelector";
 import ProfileCard from "@/src/components/ProfileCard";
+import RaAccountCard from "@/src/components/RaAccountCard";
 import PullToRefresh from "@/src/components/PullToRefresh";
+import { AppText, Button, ProgressRing } from "@/src/components/ui";
 import { AuthContext } from "@/src/context/AuthContext";
 import { getAllGames } from "@/src/database/db";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { getGameCounts } from "@/src/utils/achievements";
-import { COLORS } from "@/src/theme/colors";
-import { useTheme } from "@/src/theme/styles";
+import { COLORS, FONTS } from "@/src/theme/colors";
 import { useRouter } from "expo-router";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { useSettings } from "@/src/context/SettingsContext";
+import Pressable from "@/src/components/ui/Pressable";
 import { Ionicons } from "@expo/vector-icons";
 
 /**
@@ -36,20 +40,31 @@ function computeCompletionStats(cachedGames) {
 }
 
 /**
- * Tela de perfil do usuário com resumo de progresso de conquistas,
- * seletor de idioma e atualização por pull-to-refresh.
+ * Perfil (redesign, prancheta 11): card do perfil Steam, jogos completos e
+ * conclusão média, card da conta do RetroAchievements (quando conectada) e a
+ * lista de ajustes (idioma, sobre o app, sair). Puxar para baixo atualiza.
+ * Nos ajustes: conectar a plataforma que falta (abre o login no modo
+ * "adicionar"), desconectar uma delas (com as duas conectadas) e "Sair", que
+ * desconecta todas. As keys continuam salvas para o próximo login.
  */
 export default function Profile() {
     const router = useRouter();
-    const { steamId, clearSteamId } = useContext(AuthContext);
+    const { steamId, accounts, disconnect } = useContext(AuthContext);
+    // alguma conta conectada (não depende da API key em memória)
+    const hasAccount = !!accounts.steam || !!accounts.ra;
     const { t: tr } = useLanguage();
-    const t = useTheme();
-    const isDark = t.isDark;
 
     const [profile, setProfile] = useState(null);
-    const [loading, setLoading] = useState(true);
+    // só a parte da Steam carrega da API; sem Steam não há o que esperar
+    const [loading, setLoading] = useState(!!steamId);
     const [refreshingProfile, setRefreshingProfile] = useState(false);
     const [completionStats, setCompletionStats] = useState({ perfected: 0, avgCompletion: 0 });
+    const [aboutVisible, setAboutVisible] = useState(false);
+    const { settings, updateSettings } = useSettings();
+    // muda a cada puxar para atualizar: o card do RA busca de novo
+    const [raRefreshKey, setRaRefreshKey] = useState(0);
+    // resolve a espera do puxar para atualizar quando o card do RA termina
+    const raDoneRef = useRef(null);
     const cancelledRef = useRef(false);
 
     useEffect(() => {
@@ -81,123 +96,243 @@ export default function Profile() {
     }, [steamId]);
 
     /** Atualiza o perfil e as estatísticas ao puxar para atualizar (pull-to-refresh). */
+    // O PullToRefresh só volta ao normal quando `refreshing` passa de true
+    // para false: sempre liga e espera a Steam e o card do RA terminarem.
     const refreshProfile = useCallback(async () => {
-        if (!steamId) return;
         setRefreshingProfile(true);
+
+        // RA: o card avisa (onLoaded) quando terminou de buscar; no máximo 20 s
+        const raDone = accounts.ra
+            ? new Promise(resolve => {
+                raDoneRef.current = resolve;
+                setTimeout(resolve, 20000);
+            })
+            : Promise.resolve();
+        setRaRefreshKey(k => k + 1);
+
+        const steamDone = (async () => {
+            if (!steamId) return;
+            try {
+                const [Profile, cachedGames] = await Promise.all([
+                    getPlayerSummary(steamId),
+                    getAllGames(steamId),
+                ]);
+                if (Profile) setProfile(Profile);
+                setCompletionStats(computeCompletionStats(cachedGames));
+            } catch (err) {
+                console.error("[Profile] Failed to refresh profile:", err);
+            }
+        })();
+
         try {
-            const [Profile, cachedGames] = await Promise.all([
-                getPlayerSummary(steamId),
-                getAllGames(steamId),
-            ]);
-            if (Profile) setProfile(Profile);
-            setCompletionStats(computeCompletionStats(cachedGames));
-        } catch (err) {
-            console.error("[Profile] Failed to refresh profile:", err);
+            await Promise.all([steamDone, raDone]);
         } finally {
+            raDoneRef.current = null;
             setRefreshingProfile(false);
         }
-    }, [steamId]);
+    }, [steamId, accounts.ra]);
 
     useEffect(() => {
         loadProfile();
     }, [loadProfile]);
 
+    // Sem nenhuma plataforma conectada (saiu): volta para o login
     useEffect(() => {
-        if (!steamId) {
+        if (!hasAccount) {
             router.replace("/(auth)/login");
         }
-    }, [steamId, router]);
+    }, [hasAccount, router]);
 
-    if (loading) {
+    /** Abre o login para conectar mais uma plataforma. */
+    const connectPlatform = useCallback((platform) => {
+        router.push({ pathname: "/(auth)/login", params: { platform, mode: "add" } });
+    }, [router]);
+
+    // Plataformas para os ajustes: [id, nome]
+    const platformRows = [["steam", tr("platformSteam")], ["ra", tr("platformRa")]];
+    const bothConnected = !!accounts.steam && !!accounts.ra;
+
+    /** Sai de todas as plataformas (o redirecionamento acima leva ao login). */
+    const logout = useCallback(async () => {
+        await disconnect("steam");
+        await disconnect("ra");
+    }, [disconnect]);
+
+    if (steamId && loading) {
         return (
-            <View className={`flex-1 items-center justify-center ${t.pageBg}`}>
-                <ActivityIndicator size="large" color={isDark ? COLORS.accent : "#000"} />
+            <View style={styles.center}>
+                <ActivityIndicator size="large" color={COLORS.accent} />
             </View>
         );
     }
 
-    const placeholderBg = t.cardBg;
-    const placeholderText = t.textSecondary;
-    const buttonBg = isDark ? "bg-blue-600" : "bg-blue-500";
-    const buttonText = "text-white";
-    const textSecondary = t.textSecondary;
-
-    return (
-        <View className={`flex-1 ${t.pageBg}`}>
-            <PullToRefresh refreshing={refreshingProfile} onRefresh={refreshProfile}>
-            <ScrollView className={`flex-1 p-4 ${t.pageBg}`} contentContainerStyle={{ paddingBottom: 70 }}>
-                {profile ? (
-                    <>
-                        <ProfileCard data={profile} />
-
-                    {/* Completion stats */}
-                    <View className="flex-row gap-3 mb-4">
-                        <View className={`flex-1 ${t.cardBg} rounded-xl p-4 items-center`}>
-                            <View className="w-10 h-10 rounded-full bg-warning/15 items-center justify-center mb-2">
-                                <Ionicons name="trophy" size={18} color={COLORS.warning} />
-                            </View>
-                            <Text className={`${t.textHeader} text-2xl font-bold`}>
-                                {completionStats.perfected}
-                            </Text>
-                            <Text className={`${textSecondary} text-xs text-center mt-1`}>
-                                {tr("profilePerfectedGames")}
-                            </Text>
-                        </View>
-
-                        <View className={`flex-1 ${t.cardBg} rounded-xl p-4 items-center`}>
-                            <View className="w-10 h-10 rounded-full bg-accent/15 items-center justify-center mb-2">
-                                <Ionicons name="stats-chart-outline" size={18} color={COLORS.accent} />
-                            </View>
-                            <Text className={`${t.textHeader} text-2xl font-bold`}>
-                                {completionStats.avgCompletion.toFixed(1)}%
-                            </Text>
-                            <Text className={`${textSecondary} text-xs text-center mt-1`}>
-                                {tr("profileAvgCompletion")}
-                            </Text>
-                        </View>
+    // Erro ao carregar o perfil (ex.: sem conexão ou chave inválida):
+    // tentar de novo, ou sair para o login (o card com o "Sair" não aparece).
+    if (steamId && !profile) {
+        return (
+            <View style={styles.screen}>
+                <View style={styles.headerPad}>
+                    <AppText variant="title">{tr("tabProfile")}</AppText>
+                </View>
+                <View style={styles.errorBox}>
+                    <View style={styles.errorIcon}>
+                        <Ionicons name="alert-circle-outline" size={32} color={COLORS.danger} />
                     </View>
-
-                    {/* Language selector */}
-                    <View className={`${t.cardBg} p-3 rounded-xl flex-row items-center justify-between`}>
-                        <Text className={`${t.textHeader} text-sm font-bold`}>
-                            {tr("languageLabel")}
-                        </Text>
-                        <LanguageSelector />
-                    </View>
-                </>
-            ) : (
-                <View
-                    className={`${placeholderBg} rounded-xl overflow-hidden p-6 items-center`}
-                >
-                    <Text className={`text-lg font-semibold mb-2 ${placeholderText}`}>
-                        {tr("profileUnavailable")}
-                    </Text>
-                    <Text className={`mb-4 ${placeholderText}`}>
+                    <AppText variant="subtitle" style={{ textAlign: "center" }}>{tr("profileUnavailable")}</AppText>
+                    <AppText variant="muted" style={{ textAlign: "center", fontSize: 14, lineHeight: 21 }}>
                         {tr("profileLoadError")}
-                    </Text>
+                    </AppText>
+                    <Button label={tr("profileRetry")} onPress={loadProfile} style={{ marginTop: 8, alignSelf: "stretch" }} />
                     <Pressable
-                        className={`${buttonBg} px-6 py-2 rounded-lg`}
-                        onPress={loadProfile}
-                    >
-                        <Text className={`text-center font-bold ${buttonText}`}>
-                            {tr("profileRetry")}
-                        </Text>
-                    </Pressable>
-
-                    {/* Sair também aqui: o botão de logout normal fica no ProfileCard,
-                        que não aparece quando o perfil falha (ex.: API key inválida).
-                        Limpar o steamId dispara o redirecionamento para o login. */}
-                    <Pressable
-                        className="mt-3 px-6 py-2 rounded-lg flex-row items-center gap-2"
-                        onPress={clearSteamId}
+                        onPress={logout}
+                        accessibilityRole="button"
+                        style={({ pressed }) => [styles.logoutInline, { opacity: pressed ? 0.8 : 1 }]}
                     >
                         <Ionicons name="log-out-outline" size={18} color={COLORS.danger} />
-                        <Text className="font-semibold text-danger">{tr("logout")}</Text>
+                        <Text style={styles.logoutText}>{tr("logout")}</Text>
                     </Pressable>
                 </View>
-            )}
-            </ScrollView>
+            </View>
+        );
+    }
+
+    return (
+        <View style={styles.screen}>
+            <PullToRefresh refreshing={refreshingProfile} onRefresh={refreshProfile}>
+                <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+                    <AppText variant="title">{tr("tabProfile")}</AppText>
+
+                    {steamId && profile && <ProfileCard data={profile} />}
+
+                    {/* Jogos completos e conclusão média (Steam) */}
+                    {steamId && profile && (
+                    <View style={styles.stats}>
+                        <View style={styles.statTile}>
+                            <View style={styles.trophyIcon}>
+                                <Ionicons name="trophy" size={18} color={COLORS.gold} />
+                            </View>
+                            <Text style={styles.statValue}>{completionStats.perfected}</Text>
+                            <AppText variant="muted">{tr("profilePerfectedGames")}</AppText>
+                        </View>
+                        <View style={styles.statTile}>
+                            <ProgressRing value={completionStats.avgCompletion} size={36} stroke={5} showLabel={false} />
+                            <Text style={styles.statValue}>{completionStats.avgCompletion.toFixed(1)}%</Text>
+                            <AppText variant="muted">{tr("profileAvgCompletion")}</AppText>
+                        </View>
+                    </View>
+                    )}
+
+                    {accounts.ra && <RaAccountCard account={accounts.ra} refreshKey={raRefreshKey} onLoaded={() => raDoneRef.current?.()} />}
+
+                    {/* Ajustes: idioma, sobre o app, sair */}
+                    <View style={styles.settings}>
+                        <View style={styles.settingRow}>
+                            <Text style={styles.settingLabel}>{tr("languageLabel")}</Text>
+                            <LanguageSelector inset />
+                        </View>
+                        {/* RA: esconder hacks/subsets da biblioteca (os mesmos do painel de filtros) */}
+                        {accounts.ra && [["hideHacks", tr("hideHacks")], ["hideSubsets", tr("hideSubsets")]].map(([key, label]) => (
+                            <View key={key} style={[styles.settingRow, styles.settingDivider]}>
+                                <Text style={styles.settingLabel}>{label}</Text>
+                                <Switch
+                                    value={!!settings[key]}
+                                    onValueChange={v => updateSettings({ [key]: v })}
+                                    accessibilityLabel={label}
+                                    trackColor={{ false: COLORS.border, true: COLORS.accent }}
+                                    thumbColor={COLORS.text}
+                                />
+                            </View>
+                        ))}
+                        {/* Conectar a plataforma que falta */}
+                        {platformRows.filter(([id]) => !accounts[id]).map(([id, name]) => (
+                            <Pressable
+                                key={`connect-${id}`}
+                                onPress={() => connectPlatform(id)}
+                                accessibilityRole="button"
+                                style={({ pressed }) => [styles.settingRow, styles.settingDivider, { justifyContent: "flex-start", gap: 10, opacity: pressed ? 0.8 : 1 }]}
+                            >
+                                <Ionicons name="add-circle-outline" size={18} color={COLORS.accent} />
+                                <Text style={[styles.settingLabel, { color: COLORS.accent }]}>
+                                    {tr("connectPlatform", { platform: name })}
+                                </Text>
+                            </Pressable>
+                        ))}
+                        {/* Desconectar só uma (com as duas conectadas) */}
+                        {bothConnected && platformRows.map(([id, name]) => (
+                            <Pressable
+                                key={`disconnect-${id}`}
+                                onPress={() => disconnect(id)}
+                                accessibilityRole="button"
+                                style={({ pressed }) => [styles.settingRow, styles.settingDivider, { justifyContent: "flex-start", gap: 10, opacity: pressed ? 0.8 : 1 }]}
+                            >
+                                <Ionicons name="remove-circle-outline" size={18} color={COLORS.textMuted} />
+                                <Text style={[styles.settingLabel, { color: COLORS.textSoft }]}>
+                                    {tr("disconnectPlatform", { platform: name })}
+                                </Text>
+                            </Pressable>
+                        ))}
+                        <Pressable
+                            onPress={() => setAboutVisible(true)}
+                            accessibilityRole="button"
+                            style={({ pressed }) => [styles.settingRow, styles.settingDivider, { opacity: pressed ? 0.8 : 1 }]}
+                        >
+                            <Text style={styles.settingLabel}>{tr("aboutApp")}</Text>
+                            <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+                        </Pressable>
+                        <Pressable
+                            onPress={logout}
+                            accessibilityRole="button"
+                            style={({ pressed }) => [styles.settingRow, styles.settingDivider, { justifyContent: "flex-start", gap: 10, opacity: pressed ? 0.8 : 1 }]}
+                        >
+                            <Ionicons name="log-out-outline" size={18} color={COLORS.danger} />
+                            <Text style={[styles.settingLabel, { color: COLORS.danger }]}>{tr("logout")}</Text>
+                        </Pressable>
+                    </View>
+                </ScrollView>
             </PullToRefresh>
+
+            <AboutModal visible={aboutVisible} onClose={() => setAboutVisible(false)} />
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    screen: { flex: 1, backgroundColor: COLORS.bg },
+    center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: COLORS.bg },
+    // espaço no fim para o conteúdo não ficar atrás da tab bar flutuante
+    content: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 110, gap: 14 },
+    stats: { flexDirection: "row", gap: 10 },
+    statTile: { flex: 1, padding: 16, borderRadius: 20, backgroundColor: COLORS.surface, gap: 8 },
+    trophyIcon: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: "rgba(255, 179, 0, 0.14)",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    statValue: { fontFamily: FONTS.display, fontSize: 28, lineHeight: 32, color: COLORS.text },
+    settings: { borderRadius: 20, backgroundColor: COLORS.surface, overflow: "hidden" },
+    settingRow: {
+        minHeight: 56,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+    },
+    settingDivider: { borderTopWidth: 1, borderTopColor: COLORS.borderSubtle },
+    settingLabel: { fontFamily: FONTS.bodySemibold, fontSize: 15, color: COLORS.text },
+    headerPad: { paddingHorizontal: 20, paddingTop: 20 },
+    errorBox: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32, gap: 12, paddingBottom: 80 },
+    errorIcon: {
+        width: 72,
+        height: 72,
+        borderRadius: 36,
+        backgroundColor: "rgba(248, 113, 113, 0.12)",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    logoutInline: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16 },
+    logoutText: { fontFamily: FONTS.bodySemibold, fontSize: 14, color: COLORS.danger },
+});

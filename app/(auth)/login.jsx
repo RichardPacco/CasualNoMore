@@ -1,94 +1,107 @@
 import { Ionicons } from "@expo/vector-icons";
-import * as WebBrowser from "expo-web-browser";
-import { getPlayerSummary, resolveVanityURL } from "@/src/api/steam";
-import { loadApiKey, saveApiKeyStore } from "@/src/config/apiKeyStore";
-import LanguageSelector from "@/src/components/LanguageSelector";
-import ClearDbModal from "@/src/components/ClearDbModal";
-import RemoveAccountModal from "@/src/components/RemoveAccountModal";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useContext, useState } from "react";
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, View } from "react-native";
 import AboutModal from "@/src/components/AboutModal";
+import ClearDbModal from "@/src/components/ClearDbModal";
+import LanguageSelector from "@/src/components/LanguageSelector";
+import PlatformLoginForm from "@/src/components/login/PlatformLoginForm";
+import MaintenanceSheet from "@/src/components/MaintenanceSheet";
+import { AppText } from "@/src/components/ui";
+import Pressable from "@/src/components/ui/Pressable";
+import { saveApiKey } from "@/src/config/apiKeyStore";
 import { AuthContext } from "@/src/context/AuthContext";
 import { clearDB } from "@/src/database/db";
 import { DEFAULT_LANGUAGE, useLanguage } from "@/src/i18n/LanguageContext";
-import { showToast } from "@/src/utils/toast";
 import { COLORS } from "@/src/theme/colors";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter } from "expo-router";
-import { useContext, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Image, ImageBackground, SafeAreaView, StatusBar, Text, TouchableOpacity, View } from "react-native";
-import { TextInput } from "react-native-paper";
+import { showToast } from "@/src/utils/toast";
 
-const loginBackground = require("../../assets/images/login_background.png");
-
+// Ordem das plataformas no fluxo de login
+const PIPELINE = [
+    { id: "steam", label: "platformSteam" },
+    { id: "ra", label: "platformRa" },
+];
 
 /**
- * Tela de login: entrada de SteamID/vanity e API key, com contas salvas para login rápido.
+ * Tela de login (redesign, pranchetas 02 e 03): um fluxo único que passa por
+ * cada plataforma (Steam, depois RetroAchievements). Em cada etapa dá para
+ * conectar ou pular; ao terminar a última, entra no app (é preciso conectar
+ * pelo menos uma). O formulário é o mesmo para as duas (PlatformLoginForm):
+ * passo da key, passo da conta e o modo de contas salvas para login rápido.
+ *
+ * Parâmetros de rota:
+ * - `platform` ("steam" | "ra"): começa por essa etapa;
+ * - `mode=add` (aberto pelo Perfil para conectar mais uma plataforma):
+ *   plataforma fixa, botão de voltar, sem idioma nem manutenção, e ao conectar
+ *   volta para o Perfil;
+ * - `resetKey=1`: pede uma key nova mesmo havendo uma salva (key revogada).
  */
 export default function Login() {
-    const { setSteamId, clearSteamId, savedAccounts, addSavedAccount, removeSavedAccount, clearSavedAccounts } = useContext(AuthContext);
+    const { clearSteamId, disconnect, clearSavedAccounts } = useContext(AuthContext);
     const router = useRouter();
+    const params = useLocalSearchParams();
     const { t, setLanguage } = useLanguage();
 
-    const [input, setInput] = useState("");
-    const [apiKey, setApiKey] = useState("");
-    const [keyInput, setKeyInput] = useState("");
-    const [showApiKey, setShowApiKey] = useState(false);
+    // Conectando mais uma plataforma a partir do Perfil (já há uma conectada)
+    const addMode = params.mode === "add";
+    // Etapa atual do fluxo e o resultado de cada plataforma ("connected" | "skipped")
+    const [step, setStep] = useState(params.platform === "ra" ? 1 : 0);
+    const [results, setResults] = useState({});
+    const platform = PIPELINE[step].id;
+    const isLastStep = step === PIPELINE.length - 1;
     const [loading, setLoading] = useState(false);
+    // muda ao limpar o cache: o formulário remonta sem a key e as contas antigas
+    const [formKey, setFormKey] = useState(0);
+
     const [confirmVisible, setConfirmVisible] = useState(false);
-    const [accountToRemove, setAccountToRemove] = useState(null);
     const [aboutVisible, setAboutVisible] = useState(false);
+    const [maintenanceVisible, setMaintenanceVisible] = useState(false);
 
-    /** Carrega a API key salva do armazenamento na montagem. */
-    useEffect(() => {
-        (async () => {
-            const stored = await loadApiKey();
-            if (stored) {
-                setApiKey(stored);
-                setKeyInput(stored);
-            }
-        })();
-    }, []);
-
-    /** Abre a página da Steam para obter uma API key (disparado pelo link "Obter API Key"). */
-    const openApiKeyPage = () => {
-        WebBrowser.openBrowserAsync("https://steamcommunity.com/dev/apikey");
+    /** Fim do fluxo: volta ao Perfil (modo add) ou vai para as tabs. */
+    const finishLogin = () => {
+        if (addMode && router.canGoBack()) router.back();
+        else router.replace("/(tabs)/GameStack");
     };
 
-    /** Salva a API key quando o texto digitado corresponde a uma chave válida (32 hex). */
-    const handleApiKeyChange = async (text) => {
-        setKeyInput(text);
-        const trimmed = text.trim();
-        if (/^[0-9A-Fa-f]{32}$/.test(trimmed)) {
-            await saveApiKeyStore(trimmed);
-            setApiKey(trimmed);
-            showToast(t("loginApiKeySaved"), "success");
+    /** Marca o resultado da etapa e segue para a próxima (ou termina). */
+    const advance = (result) => {
+        const next = { ...results, [platform]: result };
+        setResults(next);
+        if (addMode) {
+            finishLogin();
+            return;
         }
+        if (!isLastStep) {
+            setStep(step + 1);
+            return;
+        }
+        // Última etapa: precisa de pelo menos uma plataforma conectada
+        if (Object.values(next).includes("connected")) finishLogin();
+        else showToast(t("loginNeedOne"), "warning");
     };
 
-    /** Remove a API key salva e limpa os campos. */
-    const removeSavedApiKey = async () => {
-        await saveApiKeyStore("");
-        setApiKey("");
-        setKeyInput("");
-        showToast(t("loginApiKeyRemoved"), "info");
+    /** Conectou a plataforma da etapa atual. */
+    const onConnected = () => {
+        showToast(t("loginPlatformConnected", { platform: t(PIPELINE[step].label) }), "success");
+        advance("connected");
     };
 
     /**
-     * Limpa o cache (AsyncStorage), disparado pelo botão de limpar cache.
-     * Também zera as cópias em memória (API key, contas salvas, steamId), senão a
-     * tela continuaria mostrando dados que já não existem no armazenamento.
-     * O idioma também volta ao padrão, como numa instalação nova.
-     * A API key fica no SecureStore, que o AsyncStorage.clear() não alcança,
-     * então é apagada à parte (memória + armazenamento seguro).
+     * Limpa o cache (AsyncStorage), como numa instalação nova: contas salvas,
+     * contas conectadas e idioma. As API keys ficam no SecureStore, que o
+     * AsyncStorage.clear() não alcança, então são apagadas à parte.
      */
     const handleClearCache = async () => {
         try {
             await AsyncStorage.clear();
-            await saveApiKeyStore("");
-            setApiKey("");
-            setKeyInput("");
+            await saveApiKey("steam", "");
+            await saveApiKey("ra", "");
             await clearSavedAccounts();
             await clearSteamId();
+            await disconnect("ra");
             await setLanguage(DEFAULT_LANGUAGE);
+            setFormKey(k => k + 1);
             showToast(t("loginCacheCleared"));
         } catch (e) {
             Alert.alert(t("loginError"), t("loginClearCacheFailed"));
@@ -101,382 +114,177 @@ export default function Login() {
         setConfirmVisible(false);
         try {
             await clearDB();
-            showToast(t("loginDbCleared"), t("loginDbClearedDesc"));
+            showToast(`${t("loginDbCleared")} ${t("loginDbClearedDesc")}`, "success");
         } catch (err) {
             console.error(err);
             Alert.alert(t("loginError"), t("loginDbClearFailed"));
         }
     };
 
-
-    /**
-     * Valida o perfil Steam: busca o resumo do jogador e exige perfil público.
-     * Retorna o playerSummary se válido, senão null.
-     */
-    async function validateSteamProfile(steamid) {
-        try {
-            const playerSummary = await getPlayerSummary(steamid);
-
-            if (!playerSummary) {
-                showToast(
-                    t("loginInvalidProfile"),
-                    "error"
-                );
-                return null;
-            }
-
-            // Steam public profile state is 3
-            if (Number(playerSummary.communityvisibilitystate) !== 3) {
-                showToast(t("loginPrivateProfile"), "warning");
-                return null;
-            }
-
-            return playerSummary;
-
-        } catch (e) {
-            console.error("[Profile] erro:", e);
-            showToast(
-                t("loginFetchFailed"),
-                "error"
-            );
-            return null;
-        }
-    }
-
-
-    /** Salva uma conta na lista de contas salvas. */
-    const saveAccount = async (playerSummary, steamid) => {
-        await addSavedAccount({
-            steamId: steamid,
-            name: playerSummary?.personaname || steamid,
-            avatar: playerSummary?.avatarfull || null,
-        });
+    /** Abre a confirmação de limpar o banco a partir do painel de manutenção. */
+    const openClearDbFromMaintenance = () => {
+        setMaintenanceVisible(false);
+        // espera o painel fechar antes de abrir o próximo modal (iOS não empilha modais)
+        setTimeout(() => setConfirmVisible(true), 250);
     };
 
-    /**
-     * Login rápido com uma conta salva (toque no avatar): valida o perfil como
-     * no login normal (o perfil pode ter ficado privado desde que foi salvo),
-     * atualiza nome/avatar salvos e vai para as tabs.
-     */
-    const handleQuickLogin = async (account) => {
-        if (loading) return;
-        if (!apiKey) {
-            showToast(t("loginApiKeyMissing"), "warning");
-            return;
-        }
-
-        setLoading(true);
-        try {
-            // validateSteamProfile já mostra o toast de erro/privado
-            const playerSummary = await validateSteamProfile(account.steamId);
-            if (!playerSummary) return;
-
-            await saveAccount(playerSummary, account.steamId);
-            await setSteamId(account.steamId);
-            router.replace("/(tabs)/GameStack");
-        } finally {
-            setLoading(false);
-        }
+    /** Limpa o cache a partir do painel de manutenção. */
+    const clearCacheFromMaintenance = async () => {
+        setMaintenanceVisible(false);
+        await handleClearCache();
     };
-
-    /** Marca a conta para remoção (disparado pelo toque longo no avatar). */
-    const confirmRemoveAccount = (account) => {
-        setAccountToRemove(account);
-    };
-
-    /** Remove a conta salva selecionada (confirmado no modal de remoção). */
-    const doRemoveAccount = async () => {
-        if (!accountToRemove) return;
-        const id = accountToRemove.steamId;
-        setAccountToRemove(null);
-        try {
-            await removeSavedAccount(id);
-        } catch (err) {
-            console.error(err);
-            Alert.alert(t("loginError"), t("loginDbClearFailed"));
-        }
-    };
-
-
-    /**
-     * Envia o SteamID64 ou vanity digitado: valida o perfil, salva a conta e navega para as tabs.
-     * Disparado pelo botão de envio ou submit do teclado.
-     */
-    const handleSubmit = async () => {
-        if (!apiKey) {
-            showToast(t("loginApiKeyMissing"), "warning");
-            return;
-        }
-
-        if (!input.trim()) {
-            showToast(t("loginEmptyInput"), "warning");
-            return;
-        }
-
-        setLoading(true);
-
-        console.log("[Login] submit:", input);
-
-        const numeric = input.replace(/\s+/g, "");
-        const isSteam64 = /^\d{16,20}$/.test(numeric);
-
-        try {
-            if (isSteam64) {
-                const playerSummary = await validateSteamProfile(numeric);
-                if (!playerSummary) return;
-
-                console.log("[Login] detectado SteamID64, salvando direto:", numeric);
-                await saveAccount(playerSummary, numeric);
-                await setSteamId(numeric);
-                router.replace("/(tabs)/GameStack");
-                return;
-            }
-
-            // tenta resolver vanity -> steamid
-            console.log("[Login] tentando resolver vanity:", input);
-            const res = await resolveVanityURL(input);
-            console.log("[Login] resolveVanityURL:", res);
-
-            if (res?.success !== 1 || !res?.steamid) {
-                showToast(t("loginVanityFailed"), "error");
-                return;
-            }
-
-            const playerSummary = await validateSteamProfile(res.steamid);
-            if (!playerSummary) return;
-
-            // se for público, segue normalmente
-            await saveAccount(playerSummary, res.steamid);
-            await setSteamId(res.steamid);
-            router.replace("/(tabs)/GameStack");
-
-        } catch (e) {
-            console.error("[Login] erro:", e);
-            showToast(t("loginConnectionError", { err: e }), "warning");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-
 
     return (
-        <SafeAreaView className="flex-1">
-            <StatusBar barStyle="light-content" backgroundColor="transparent" />
+        <View style={styles.screen}>
+            <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
 
-            <ImageBackground source={loginBackground} className="flex-1" resizeMode="cover">
-                {/* Overlay escura para garantir legibilidade */}
-                <View className="flex-1 bg-black/60 p-5">
-                    {/* Top corners: ações minimais */}
-                    <View className="flex-row justify-between">
-                        <TouchableOpacity
-                            onPress={handleClearCache}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                            className="flex-row items-center gap-1"
-                        >
-                            <Ionicons name="trash-outline" size={20} color={COLORS.danger} />
-                            <Text className="text-danger text-xs font-medium">{t("loginCacheLabel")}</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            onPress={() => setConfirmVisible(true)}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                            className="flex-row items-center gap-1"
-                        >
-                            <Ionicons name="trash-outline" size={20} color={COLORS.danger} />
-                            <Text className="text-danger text-xs font-medium">{t("loginDbLabel")}</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Language selector */}
-                    <View className="mt-4 items-center flex-row justify-center gap-3">
-                        <Text className="text-gray-300 text-sm font-semibold">{t("languageLabel")}</Text>
-                        <LanguageSelector overlay />
-                    </View>
-
-                    {/* Bottom section */}
-                    <View className="flex-1 justify-end">
-                        {/* Saved accounts */}
-                        <View className="mb-4">
-                            <Text className="text-gray-400 text-xs font-semibold mb-2 text-center">
-                                {t("loginAccountsLabel")}
-                            </Text>
-                            <View className="flex-row justify-center gap-5">
-                                {[0, 1, 2].map((i) => {
-                                    const acc = savedAccounts[i];
-                                    if (!acc) {
-                                        return (
-                                            <View key={i} className="items-center">
-                                                <View className="w-14 h-14 rounded-full border-2 border-dashed border-gray-600 items-center justify-center">
-                                                    <Ionicons name="add" size={22} color="#6b7280" />
-                                                </View>
-                                                <Text className="text-gray-600 text-xs mt-1">-</Text>
-                                            </View>
-                                        );
-                                    }
-                                    return (
-                                        <TouchableOpacity
-                                            key={acc.steamId}
-                                            onPress={() => handleQuickLogin(acc)}
-                                            onLongPress={() => confirmRemoveAccount(acc)}
-                                            className="items-center"
-                                        >
-                                            <Image
-                                                source={{ uri: acc.avatar }}
-                                                className="w-14 h-14 rounded-full border-2 border-accent"
-                                            />
-                                            <Text className="text-white text-xs mt-1 max-w-[70px] text-center" numberOfLines={1}>
-                                                {acc.name}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    );
-                                })}
-                            </View>
-                        </View>
-
-                        {/* Tip box */}
-                        <View className="bg-[#1e1e1e]/90 p-2.5 rounded-md mb-4 border-l-4 border-accent">
-                            <Text className="text-[#aaa] text-xs">
-                                {t("loginPublicTip")}
-                            </Text>
-                        </View>
-
-                        {/* API Key */}
-                        <View className="mb-3">
-                            {apiKey ? (
-                                <View className="bg-[#1e1e1e]/90 p-3 rounded-md border border-accent/40 flex-row items-center justify-between">
-                                    <View className="flex-row items-center gap-2 flex-1">
-                                        <Ionicons name="key" size={18} color={COLORS.accent} />
-                                        <Text className="text-white text-xs font-semibold" numberOfLines={1}>
-                                            {t("loginApiKeySavedLabel")}
-                                        </Text>
-                                    </View>
-                                    <TouchableOpacity
-                                        onPress={removeSavedApiKey}
-                                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                        className="flex-row items-center gap-1"
-                                    >
-                                        <Ionicons name="trash-outline" size={16} color={COLORS.danger} />
-                                        <Text className="text-danger text-xs font-medium">{t("loginRemoveApiKey")}</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            ) : (
-                                <>
-                                    <View className="flex-row justify-between items-center mb-1">
-                                        <Text className="text-gray-400 text-xs font-semibold">
-                                            {t("loginApiKeyLabel")}
-                                        </Text>
-                                        <TouchableOpacity
-                                            onPress={openApiKeyPage}
-                                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                            className="flex-row items-center gap-1"
-                                        >
-                                            <Ionicons name="key-outline" size={14} color={COLORS.accent} />
-                                            <Text className="text-accent text-xs font-medium">{t("loginGetApiKey")}</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                    <TextInput
-                                        label={t("loginApiKeyLabel")}
-                                        value={keyInput}
-                                        onChangeText={handleApiKeyChange}
-                                        mode="outlined"
-                                        secureTextEntry={!showApiKey}
-                                        autoCapitalize="none"
-                                        autoCorrect={false}
-                                        style={{ backgroundColor: "#222" }}
-                                        theme={{
-                                            colors: {
-                                                primary: COLORS.accent,
-                                            },
-                                        }}
-                                        textColor="#fff"
-                                        right={
-                                            <TextInput.Icon
-                                                icon={() => (
-                                                    <Ionicons
-                                                        name={showApiKey ? "eye-off-outline" : "eye-outline"}
-                                                        size={20}
-                                                        color="#9ca3af"
-                                                    />
-                                                )}
-                                                onPress={() => setShowApiKey(v => !v)}
-                                            />
-                                        }
-                                    />
-                                </>
-                            )}
-                        </View>
-
-                        {/* Input + submit arrow */}
-                        {apiKey && (
-                            <View className="mb-3">
-                                <TextInput
-                                    label={t("loginSteamIdLabel")}
-                                    value={input}
-                                    onChangeText={setInput}
-                                    mode="outlined"
-                                    style={{ backgroundColor: "#222" }}
-                                    theme={{
-                                        colors: {
-                                            primary: COLORS.accent,
-                                        },
-                                    }}
-                                    textColor="#fff"
-                                    onSubmitEditing={handleSubmit}
-                                    right={
-                                        <TextInput.Icon
-                                            icon={() =>
-                                                loading ? (
-                                                    <ActivityIndicator size="small" color={COLORS.accent} />
-                                                ) : (
-                                                    <Ionicons name="arrow-forward" size={22} color={COLORS.accent} />
-                                                )
-                                            }
-                                            onPress={handleSubmit}
-                                            disabled={loading}
-                                        />
-                                    }
-                                />
-                            </View>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+                <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+                    {/* Topo: idioma e manutenção, ou voltar no modo add */}
+                    <View style={styles.topBar}>
+                        {addMode ? (
+                            <Pressable
+                                onPress={() => router.back()}
+                                accessibilityRole="button"
+                                accessibilityLabel={t("back")}
+                                style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.8 : 1 }]}
+                            >
+                                <Ionicons name="chevron-back" size={22} color={COLORS.text} />
+                            </Pressable>
+                        ) : (
+                            <LanguageSelector />
                         )}
-
-                        <TouchableOpacity
-                            onPress={() => setAboutVisible(true)}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                            className="flex-row items-center justify-center gap-1"
-                        >
-                            <Ionicons name="information-circle-outline" size={14} color="#9ca3af" />
-                            <Text className="text-gray-400 text-[10px] text-center mb-0.5">
-                                © 2026 Richard Pacco
-                            </Text>
-                        </TouchableOpacity>
+                        {!addMode && (
+                            <Pressable
+                                onPress={() => setMaintenanceVisible(true)}
+                                accessibilityRole="button"
+                                accessibilityLabel={t("maintenanceButton")}
+                                style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.8 : 1 }]}
+                            >
+                                <Ionicons name="settings-outline" size={20} color={COLORS.textMuted} />
+                            </Pressable>
+                        )}
                     </View>
-                </View>
-            </ImageBackground>
+
+                    {!addMode && (
+                        <PipelineHeader
+                            step={step}
+                            results={results}
+                            disabled={loading}
+                            onBack={() => setStep(step - 1)}
+                            onSkip={() => advance("skipped")}
+                        />
+                    )}
+
+                    <PlatformLoginForm
+                        key={`${platform}-${formKey}`}
+                        platform={platform}
+                        onConnected={onConnected}
+                        ignoreSavedKey={params.resetKey === "1"}
+                        onLoadingChange={setLoading}
+                    />
+
+                    <Pressable onPress={() => setAboutVisible(true)} accessibilityRole="button" style={styles.aboutButton}>
+                        <Ionicons name="information-circle-outline" size={16} color={COLORS.textMuted} />
+                        <AppText variant="muted">{t("aboutApp")}</AppText>
+                    </Pressable>
+                </ScrollView>
+            </KeyboardAvoidingView>
+
+            {/* Manutenção: limpar cache ou banco */}
+            <MaintenanceSheet
+                visible={maintenanceVisible}
+                onClose={() => setMaintenanceVisible(false)}
+                onClearCache={clearCacheFromMaintenance}
+                onClearDb={openClearDbFromMaintenance}
+            />
 
             {/* Confirmar limpeza do banco */}
-            <ClearDbModal
-                visible={confirmVisible}
-                onClose={() => setConfirmVisible(false)}
-                onConfirm={confirmClearDB}
-            />
-
-            {/* Confirmar remoção de conta salva */}
-            <RemoveAccountModal
-                visible={!!accountToRemove}
-                account={accountToRemove}
-                onClose={() => setAccountToRemove(null)}
-                onConfirm={doRemoveAccount}
-            />
+            <ClearDbModal visible={confirmVisible} onClose={() => setConfirmVisible(false)} onConfirm={confirmClearDB} />
 
             {/* Sobre o app */}
-            <AboutModal
-                visible={aboutVisible}
-                onClose={() => setAboutVisible(false)}
-            />
-        </SafeAreaView>
+            <AboutModal visible={aboutVisible} onClose={() => setAboutVisible(false)} />
+        </View>
     );
-
-
-
 }
+
+/**
+ * Topo do fluxo de login: as etapas (Steam -> RetroAchievements) com o estado
+ * de cada uma (conectada, atual, pulada ou pendente), "Voltar" (da segunda
+ * etapa em diante) e "Pular <plataforma>".
+ */
+function PipelineHeader({ step, results, disabled, onBack, onSkip }) {
+    const { t } = useLanguage();
+    const current = PIPELINE[step];
+
+    return (
+        <View style={styles.pipeline}>
+            <View
+                style={styles.stepsRow}
+                accessibilityRole="progressbar"
+                accessibilityLabel={t("loginStepOf", { current: step + 1, total: PIPELINE.length })}
+            >
+                {PIPELINE.map((p, index) => {
+                    const result = results[p.id];
+                    const active = index === step;
+                    const icon = result === "connected" ? "checkmark-circle"
+                        : result === "skipped" ? "remove-circle-outline"
+                            : active ? "ellipse" : "ellipse-outline";
+                    const color = result === "connected" ? COLORS.success
+                        : active ? COLORS.accent : COLORS.textMuted;
+                    return (
+                        <View key={p.id} style={styles.stepItem}>
+                            {index > 0 && <View style={styles.stepLine} />}
+                            <Ionicons name={icon} size={16} color={color} />
+                            <AppText
+                                variant="muted"
+                                style={[styles.stepLabel, { color: active ? COLORS.text : color }, result === "skipped" && styles.stepSkipped]}
+                            >
+                                {t(p.label)}
+                            </AppText>
+                        </View>
+                    );
+                })}
+            </View>
+            <View style={styles.pipelineActions}>
+                {step > 0 ? (
+                    <Pressable onPress={onBack} disabled={disabled} accessibilityRole="button" style={styles.pipelineLink}>
+                        <Ionicons name="chevron-back" size={16} color={COLORS.textSoft} />
+                        <AppText variant="muted" style={{ color: COLORS.textSoft }}>{t("back")}</AppText>
+                    </Pressable>
+                ) : <View />}
+                <Pressable onPress={onSkip} disabled={disabled} accessibilityRole="button" style={styles.pipelineLink}>
+                    <AppText variant="muted" style={{ color: COLORS.accent }}>
+                        {t("loginSkipPlatform", { platform: t(current.label) })}
+                    </AppText>
+                    <Ionicons name="chevron-forward" size={16} color={COLORS.accent} />
+                </Pressable>
+            </View>
+        </View>
+    );
+}
+
+const styles = StyleSheet.create({
+    screen: { flex: 1, backgroundColor: COLORS.bg },
+    content: { flexGrow: 1, padding: 20, gap: 14 },
+    topBar: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    iconButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: COLORS.borderSubtle,
+        backgroundColor: COLORS.surface,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    pipeline: { gap: 6 },
+    stepsRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+    stepItem: { flexDirection: "row", alignItems: "center", gap: 6 },
+    stepLine: { width: 20, height: 1, backgroundColor: COLORS.border },
+    stepLabel: { fontSize: 13 },
+    stepSkipped: { textDecorationLine: "line-through" },
+    pipelineActions: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    pipelineLink: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 4 },
+    aboutButton: { alignSelf: "center", minHeight: 44, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12 },
+});

@@ -1,37 +1,21 @@
-import ContextMenu from "@/src/components/ContextMenu";
+import AchievementSheet from "@/src/components/AchievementSheet";
+import AchievementTypeTag from "@/src/components/AchievementTypeTag";
 import RadioSheet from "@/src/components/RadioSheet";
-import SearchBar from "@/src/components/SearchBar";
+import { AppText, Button, Chip, ProgressBar, TextField, rarityColor } from "@/src/components/ui";
 import useAchievements from "@/src/hooks/useAchievements";
 import { useLanguage } from "@/src/i18n/LanguageContext";
-import { COLORS } from "@/src/theme/colors";
-import { useTheme } from "@/src/theme/styles";
+import { COLORS, FONTS } from "@/src/theme/colors";
 import { achievementIconUri } from "@/src/utils/cdn";
-import { formatDateTime } from "@/src/utils/formatDate";
+import { formatDate } from "@/src/utils/formatDate";
+import { formatPercent } from "@/src/utils/formatPercent";
 import { showToast } from "@/src/utils/toast";
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
-import { LinearGradient } from "expo-linear-gradient";
-import * as WebBrowser from "expo-web-browser";
 import { memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Dimensions, Image, Keyboard, Text, TouchableOpacity, useColorScheme, View } from "react-native";
+import { ActivityIndicator, Image, Keyboard, ScrollView, StyleSheet, Text, View } from "react-native";
+import Pressable from "@/src/components/ui/Pressable";
 import { AuthContext } from "@/src/context/AuthContext";
 import { updateGameAchievements } from "@/src/database/db";
-
-const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
-
-const { width: WINDOW_W, height: WINDOW_H } = Dimensions.get("window");
-
-const RAINBOW = ["#ff0000", "#ff8c00", "#ffe600", "#33cc33", "#3399ff", "#9933ff", "#ff0000"];
-
-/** Retorna a cor da borda conforme a raridade global (percentual de desbloqueio). */
-function rarityColor(percent) {
-    if (percent > 50) return COLORS.rarityCommon;      // comum
-    if (percent > 25) return COLORS.rarityUncommon;    // incomum
-    if (percent > 10) return COLORS.rarityRare;        // rara
-    if (percent > 5) return COLORS.rarityEpic;         // épica
-    if (percent > 1) return COLORS.rarityLegendary     // lendária
-    return COLORS.rarityPearlescent;                     // perolescente
-}
 
 /** Gera a URI de fallback (CDN alternativa) do ícone da conquista. */
 function iconFallbackUri(uri, appid) {
@@ -41,160 +25,115 @@ function iconFallbackUri(uri, appid) {
 }
 
 /**
- * Card individual de uma conquista com ícone, percentual de raridade
- * e animações de toque (pressionar/soltar/longo).
+ * Linha de uma conquista (redesign, prancheta 07): ícone com borda na cor da
+ * raridade (apagado e com cadeado se bloqueada), nome, descrição, data de
+ * desbloqueio e etiqueta com o % global. Toque ou toque longo abre o painel
+ * da conquista com os atalhos de guia.
+ * Conquistas do RetroAchievements (têm `points`) mostram também os pontos e
+ * o tipo (Progressão, Vitória, Perdível).
  */
-function AchievementCardComponent({ item, game, onOpenMenu }) {
-    const t = useTheme();
-    const { t: tr } = useLanguage();
-    const scaleAnim = useRef(new Animated.Value(1)).current;
+function AchievementRowComponent({ item, game, onOpen }) {
+    const { t: tr, language } = useLanguage();
     const [iconFailed, setIconFailed] = useState(false);
-    const iconUri = iconFailed ? iconFallbackUri(item.icon, game?.appid) : item.icon;
+    const isRa = item.points !== undefined;
+    // CDN alternativa só existe para os ícones da Steam
+    const iconUri = iconFailed && !isRa ? iconFallbackUri(item.icon, game?.appid) : item.icon;
 
-    const isPearlescent = item.globalPercent <= 1;
     const rarity = rarityColor(item.globalPercent);
-
-    const unlockLabel = useMemo(() => {
-        if (!item.achieved || !item.unlocktime) return null;
-        return tr("unlockedAt", { date: formatDateTime(item.unlocktime) });
-    }, [item.achieved, item.unlocktime, tr]);
-
-    /** Anima o card ao pressionar (escala para 0.96). */
-    const handlePressIn = () => {
-        Animated.spring(scaleAnim, {
-            toValue: 0.96,
-            speed: 40,
-            bounciness: 0,
-            useNativeDriver: true,
-        }).start();
-    };
-
-    /** Restaura a escala do card ao soltar o toque. */
-    const handlePressOut = () => {
-        Animated.spring(scaleAnim, {
-            toValue: 1,
-            speed: 40,
-            bounciness: 0,
-            useNativeDriver: true,
-        }).start();
-    };
-
-    /** Anima o card e abre o menu de contexto na posição do toque longo. */
-    const handleLongPress = (e) => {
-        Animated.sequence([
-            Animated.timing(scaleAnim, { toValue: 0.92, duration: 120, useNativeDriver: true }),
-            Animated.timing(scaleAnim, { toValue: 1, duration: 120, useNativeDriver: true }),
-        ]).start();
-        onOpenMenu?.(item, e.nativeEvent.pageX, e.nativeEvent.pageY);
-    };
+    const percentText = formatPercent(item.globalPercent, language);
+    const status = item.achieved
+        ? (item.unlocktime ? tr("unlockedAt", { date: formatDate(item.unlocktime) }) : tr("achFilterUnlocked"))
+        : item.softcoreUnlocktime ? tr("unlockedSoftcore") : tr("achLocked");
 
     return (
-        <AnimatedTouchableOpacity
-            onPressIn={handlePressIn}
-            onPressOut={handlePressOut}
-            onLongPress={handleLongPress}
-            style={{ transform: [{ scale: scaleAnim }] }}
-            className={`flex-row items-center ${t.cardBg} p-4 rounded mb-3 justify-between`}
+        <Pressable
+            onPress={() => onOpen?.(item)}
+            onLongPress={() => onOpen?.(item)}
+            delayLongPress={350}
+            accessibilityRole="button"
+            accessibilityLabel={`${item.name}, ${status}, ${tr("achRarityA11y", { percent: percentText })}`}
+            style={({ pressed }) => [styles.row, { opacity: pressed ? 0.85 : 1 }]}
         >
-            {/* Left: icon + percent */}
-            <View className="flex-col items-center mr-4">
-                {isPearlescent ? (
-                    <LinearGradient
-                        colors={RAINBOW}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={{
-                            padding: 2,
-                            borderRadius: 10,
-                        }}
-                    >
-                        <Image
-                            source={{ uri: iconUri }}
-                            className="w-12 h-12 rounded"
-                            resizeMode="contain"
-                            onError={() => setIconFailed(true)}
-                        />
-                    </LinearGradient>
-                ) : (
-                    <View
-                        style={{
-                            padding: 2,
-                            borderRadius: 10,
-                            backgroundColor: rarity + "2E",
-                            borderWidth: 1.5,
-                            borderColor: rarity,
-                        }}
-                    >
-                        <Image
-                            source={{ uri: iconUri }}
-                            className="w-12 h-12 rounded"
-                            resizeMode="contain"
-                            onError={() => setIconFailed(true)}
-                        />
+            <View style={[styles.iconFrame, { borderColor: rarity }]}>
+                <Image
+                    source={{ uri: iconUri }}
+                    style={[styles.icon, !item.achieved && { opacity: 0.45 }]}
+                    resizeMode="cover"
+                    onError={() => setIconFailed(true)}
+                />
+                {!item.achieved && (
+                    <View style={styles.lockBadge}>
+                        <Ionicons name="lock-closed" size={11} color={COLORS.textSoft} />
                     </View>
                 )}
-                <Text className="text-sm" style={{ color: rarity }}>
-                    {item.globalPercent}%
-                </Text>
             </View>
 
-            {/* Middle: name + description */}
-            <View className="flex-1">
-                <Text className={`${t.textPrimary} font-bold text-base`}>{item.name}</Text>
-                <Text className={`${t.textSecondary} text-sm`} numberOfLines={2}>
-                    {item.description || tr("hiddenDescription")}
+            <View style={styles.rowBody}>
+                <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
+                <Text style={styles.desc} numberOfLines={2}>{item.description || tr("hiddenDescription")}</Text>
+                <Text style={[styles.status, { color: item.achieved ? COLORS.accent : COLORS.textMuted }]}>
+                    {status}
                 </Text>
-                {unlockLabel && (
-                    <Text className={`${t.textSecondary} text-xs mt-1`} style={{ color: COLORS.accent }}>
-                        {unlockLabel}
-                    </Text>
+                {isRa && (item.type || item.points > 0) && (
+                    <View style={styles.raMeta}>
+                        {item.points > 0 && (
+                            <Text style={styles.points}>{tr("points", { n: item.points })}</Text>
+                        )}
+                        <AchievementTypeTag type={item.type} />
+                    </View>
                 )}
             </View>
 
-            {/* Right: lock */}
-            <Ionicons
-                name={item.achieved ? "lock-open-outline" : "lock-closed-outline"}
-                size={32}
-                color={item.achieved ? COLORS.accent : COLORS.danger}
-            />
-        </AnimatedTouchableOpacity>
+            <Text style={[styles.pill, { color: rarity, backgroundColor: `${rarity}1F` }]}>{percentText}</Text>
+        </Pressable>
     );
 }
 
-const AchievementCard = memo(AchievementCardComponent);
+const AchievementRow = memo(AchievementRowComponent);
+
+/** Conquista perdível (RetroAchievements). */
+const isMissable = (a) => a.type === "missable";
 
 /**
- * Aba com a lista de conquistas do jogo, com busca, filtro, ordenação
- * e menu de guias (Google/ChatGPT).
+ * Aba Conquistas (redesign, prancheta 07): progresso, busca, ordenação,
+ * atualizar, chips de filtro e a lista; tocar numa conquista abre o painel
+ * dela com os atalhos de guia (Google, ChatGPT).
+ *
+ * Steam: busca as conquistas aqui (useAchievements). RetroAchievements: a
+ * GameScreen já buscou (useRaGame) e manda em `data`; aí aparecem os pontos,
+ * o filtro "Perdíveis" e a ordem do autor do set.
  */
-export default function AchievementsTab({ game }) {
+export default function AchievementsTab({ game, data = null }) {
     const { steamId } = useContext(AuthContext);
-    const { mergedCheevos, loading, refresh } = useAchievements(game);
-
-    const t = useTheme();
+    const isRa = !!data;
+    // sem `data` (Steam) busca aqui; com `data` o hook da Steam não faz nada
+    const steamData = useAchievements(isRa ? null : game);
+    const { mergedCheevos, loading, refresh, unlocked, total, percent } = data ?? steamData;
     const { t: tr } = useLanguage();
 
     // ---------- state ----------
     const [filter, setFilter] = useState("all");
-    const [sort, setSort] = useState("rarity");
-    const [filterVisible, setFilterVisible] = useState(false);
+    // RA: mostrar só as perdíveis; combina com o filtro de status (ex.: perdíveis bloqueadas)
+    const [onlyMissable, setOnlyMissable] = useState(false);
+    // RA: ordem do autor do set (DisplayOrder); Steam: raridade
+    const [sort, setSort] = useState(isRa ? "default" : "rarity");
     const [sortVisible, setSortVisible] = useState(false);
     const [showTopButton, setShowTopButton] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [debouncedQuery, setDebouncedQuery] = useState("");
-    const [guideMenu, setGuideMenu] = useState(null);
+    // conquista aberta no painel de detalhes/guia (null = fechado)
+    const [selected, setSelected] = useState(null);
     const [refreshing, setRefreshing] = useState(false);
     const listRef = useRef(null);
-    const containerRef = useRef(null);
-
-    const colorScheme = useColorScheme();
-    const isDark = colorScheme === "dark";
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
         try {
             const merged = await refresh();
-            if (merged && steamId) {
+            if (isRa) {
+                // useRaGame já grava no banco
+                if (!merged) showToast(tr("gameRefreshFailed"), "error");
+            } else if (merged && steamId) {
                 // Atualiza só as conquistas: a cópia do jogo recebida pela rota pode
                 // estar desatualizada (ex.: pinned mudou) e não deve sobrescrever o resto.
                 await updateGameAchievements(steamId, game.appid, merged);
@@ -205,44 +144,56 @@ export default function AchievementsTab({ game }) {
         } finally {
             setRefreshing(false);
         }
-    }, [refresh, steamId, game?.appid, tr]);
+    }, [refresh, isRa, steamId, game?.appid, tr]);
 
+    // RA: chip "Perdíveis" só se o set tiver conquistas perdíveis
+    const hasMissable = isRa && mergedCheevos.some(a => a.type === "missable");
+    const missableOn = hasMissable && onlyMissable;
+
+    // Filtro de status (um por vez); "Perdíveis" é um liga/desliga à parte
     const filterOptions = useMemo(() => [
-        { label: tr("filterAll"), value: "all" },
+        { label: tr("achFilterAll"), value: "all" },
         { label: tr("achFilterUnlocked"), value: "unlocked" },
         { label: tr("achFilterLocked"), value: "locked" },
     ], [tr]);
 
-    const sortOptions = useMemo(() => [
+    const sortOptions = useMemo(() => isRa ? [
+        { label: tr("achSortDefault"), value: "default" },
+        { label: tr("achSortRarity"), value: "rarity" },
+        { label: tr("achSortPoints"), value: "points" },
+        { label: tr("achSortUnlock"), value: "unlock" },
+        { label: tr("sortName"), value: "name" },
+    ] : [
         { label: tr("achSortRarity"), value: "rarity" },
         { label: tr("achSortUnlock"), value: "unlock" },
         { label: tr("sortName"), value: "name" },
         { label: tr("achSortReverse"), value: "reverse" },
-    ], [tr]);
+    ], [tr, isRa]);
 
+    /** Regra do filtro de status. */
+    const statusRule = useCallback((value) => {
+        switch (value) {
+            case "unlocked": return a => a.achieved;
+            case "locked": return a => !a.achieved;
+            default: return () => true;
+        }
+    }, []);
+
+    // Contagens: as de status respeitam o "Perdíveis" ligado, e a de
+    // "Perdíveis" respeita o status escolhido (sempre batem com a lista)
     const filterCounts = useMemo(() => {
-        /** Conta as conquistas de cada opção de filtro (desbloqueadas/bloqueadas). */
-        const countFor = (value) => {
-            switch (value) {
-                case "unlocked": return mergedCheevos.filter(a => a.achieved).length;
-                case "locked": return mergedCheevos.filter(a => !a.achieved).length;
-                default: return mergedCheevos.length;
-            }
-        };
-        return filterOptions.reduce((acc, opt) => {
-            acc[opt.value] = countFor(opt.value);
+        const base = missableOn ? mergedCheevos.filter(isMissable) : mergedCheevos;
+        const counts = filterOptions.reduce((acc, opt) => {
+            acc[opt.value] = base.filter(statusRule(opt.value)).length;
             return acc;
         }, {});
-    }, [mergedCheevos, filterOptions]);
+        counts.missable = mergedCheevos.filter(statusRule(filter)).filter(isMissable).length;
+        return counts;
+    }, [mergedCheevos, filterOptions, statusRule, filter, missableOn]);
 
     const filteredCheevos = useMemo(() => {
-        let result = mergedCheevos;
-
-        switch (filter) {
-            case "unlocked": result = result.filter(a => a.achieved); break;
-            case "locked": result = result.filter(a => !a.achieved); break;
-            default: break;
-        }
+        let result = mergedCheevos.filter(statusRule(filter));
+        if (missableOn) result = result.filter(isMissable);
 
         if (debouncedQuery && debouncedQuery.trim().length > 0) {
             const q = debouncedQuery.trim().toLowerCase();
@@ -264,248 +215,305 @@ export default function AchievementsTab({ game }) {
                 break;
             case "reverse":
                 result = [...result].reverse();
+                break;
+            case "points":
+                // menos pontos primeiro (as mais fáceis no topo)
+                result = [...result].sort((a, b) => (a.points || 0) - (b.points || 0));
+                break;
+            // "default": a ordem em que a lista já vem (RA: a do autor do set)
             default: break;
         }
 
         return result;
-    }, [mergedCheevos, filter, sort, debouncedQuery]);
+    }, [mergedCheevos, statusRule, filter, missableOn, sort, debouncedQuery]);
 
     // debounce search query
     useEffect(() => {
-        const t = setTimeout(() => setDebouncedQuery(searchQuery), 300);
-        return () => clearTimeout(t);
+        const timer = setTimeout(() => setDebouncedQuery(searchQuery), 300);
+        return () => clearTimeout(timer);
     }, [searchQuery]);
 
-    /** Abre o menu de guias, convertendo as coordenadas da janela para o container. */
-    const openGuideMenu = useCallback((item, pageX, pageY) => {
-        // Converte coordenadas da janela (pageX/pageY) para o sistema do
-        // container (leva em conta safe area / status bar).
-        containerRef.current?.measureInWindow((cx, cy, cw, ch) => {
-            setGuideMenu({ item, x: pageX - cx, y: pageY - cy, width: cw, height: ch });
-        });
-    }, []);
-
-    /** Renderiza um card de conquista na lista (FlashList). */
-    const renderCard = useCallback(
-        ({ item }) => <AchievementCard item={item} game={game} onOpenMenu={openGuideMenu} />,
-        [game, openGuideMenu]
+    /** Renderiza uma linha de conquista na lista (FlashList). */
+    const renderRow = useCallback(
+        ({ item }) => <AchievementRow item={item} game={game} onOpen={setSelected} />,
+        [game]
     );
-
-    /** Monta a query de busca pelo guia da conquista (nome do jogo + conquista). */
-    const guideQuery = useCallback((item) => {
-        return encodeURIComponent(`${game.name} ${item.name} Guide`);
-    }, [game]);
-
-    /** Abre o navegador pesquisando o guia da conquista no Google. */
-    const searchGoogle = useCallback((item) => {
-        WebBrowser.openBrowserAsync(`https://www.google.com/search?q=${guideQuery(item)}`)
-            .catch(err => console.error("Failed to open browser:", err));
-    }, [guideQuery]);
-
-    /** Abre o navegador pesquisando o guia da conquista no ChatGPT. */
-    const searchChatGPT = useCallback((item) => {
-        WebBrowser.openBrowserAsync(`https://chatgpt.com/?q=${guideQuery(item)}`)
-            .catch(err => console.error("Failed to open browser:", err));
-    }, [guideQuery]);
-
-    const guideMenuOptions = useMemo(() => {
-        if (!guideMenu) return [];
-        return [
-            { label: tr("searchGoogle"), icon: "logo-google", onPress: () => searchGoogle(guideMenu.item) },
-            { label: tr("searchChatGPT"), icon: "sparkles", onPress: () => searchChatGPT(guideMenu.item) },
-        ];
-    }, [guideMenu, tr, searchGoogle, searchChatGPT]);
 
     if (loading) {
         return (
-            <View className="flex-1 justify-center items-center">
+            <View style={styles.center}>
                 <ActivityIndicator size="large" color={COLORS.accent} />
             </View>
         );
     }
 
-    return (
-        <View ref={containerRef} className={`flex-1 ${t.pageBg} py-4`}>
-            {mergedCheevos.length === 0 ? (
-                <View className="flex-1 justify-center items-center">
-                    <Text className={`${t.textSecondary} text-center text-lg`}>
-                        {tr("noAchievements")}
-                    </Text>
+    if (mergedCheevos.length === 0) {
+        // RA: a busca falhou e não há cache -> erro com "tentar de novo"
+        const failed = isRa && data.error;
+        return (
+            <View style={styles.center}>
+                <View style={styles.emptyIcon}>
+                    <Ionicons name={failed ? "cloud-offline-outline" : "trophy-outline"} size={28} color={COLORS.accent} />
                 </View>
-            ) : (
-                <>
-                    {/* search input */}
-                    <SearchBar
+                <AppText variant="body" style={{ textAlign: "center" }}>
+                    {failed ? tr("raConnectionError") : tr("noAchievements")}
+                </AppText>
+                {failed && <Button label={tr("profileRetry")} onPress={onRefresh} loading={refreshing} />}
+            </View>
+        );
+    }
+
+    const sortLabel = sortOptions.find(o => o.value === sort)?.label ?? "";
+
+    return (
+        <View style={styles.screen}>
+            <View style={styles.header}>
+                {/* Progresso */}
+                <View style={styles.progress}>
+                    <View style={styles.progressTop}>
+                        <View style={styles.progressCount}>
+                            <Text style={styles.progressBig}>{unlocked}</Text>
+                            <AppText variant="muted" style={{ fontSize: 14 }}>{tr("achProgressOf", { total })}</AppText>
+                        </View>
+                        <View style={{ alignItems: "flex-end" }}>
+                            <Text style={styles.progressPct}>{Math.round(percent)}%</Text>
+                            {isRa && data.points > 0 && (
+                                <AppText variant="muted" style={{ fontSize: 12 }}>
+                                    {tr("pointsOf", { earned: data.pointsEarned, total: data.points })}
+                                </AppText>
+                            )}
+                        </View>
+                    </View>
+                    <ProgressBar value={percent} height={6} />
+                </View>
+
+                {/* Busca, ordenação e atualizar */}
+                <View style={styles.searchRow}>
+                    <TextField
                         value={searchQuery}
                         onChangeText={setSearchQuery}
-                        onClear={() => {
-                            setSearchQuery("");
-                            setDebouncedQuery("");
-                        }}
                         placeholder={tr("achSearchPlaceholder")}
-                        inputProps={{
-                            returnKeyType: "search",
-                            onSubmitEditing: () => Keyboard.dismiss(),
-                        }}
-                    />
-
-                    <FlashList
-                        ref={listRef}
-                        data={filteredCheevos}
-                        keyExtractor={(item) => item.apiname}
-                        renderItem={renderCard}
-                        maintainVisibleContentPosition={{ disabled: true }}
-                        contentContainerStyle={{ paddingHorizontal: 0, paddingBottom: 70 }}
-                        onScroll={(e) => {
-                            setShowTopButton(e.nativeEvent.contentOffset.y > 400);
-                        }}
-                        ListEmptyComponent={
-                            <View className="py-10 items-center">
-                                <Text className={`${t.textSecondary} text-center text-lg`}>
-                                    {tr("noAchievementsMatch")}
-                                </Text>
-                            </View>
-                        }
-                    />
-
-                    {/* floating buttons: refresh + filter + sort + scroll to top */}
-                    <View className="absolute bottom-24 right-6 gap-3">
-                        <TouchableOpacity
-                            onPress={onRefresh}
-                            disabled={refreshing}
-                            activeOpacity={0.8}
-                            className={`w-12 h-12 rounded-xl items-center justify-center border ${t.elevatedCardBg} ${t.cardBorder}`}
-                            style={{
-                                elevation: 6,
-                                shadowColor: "#000",
-                                shadowOpacity: 0.25,
-                                shadowRadius: 6,
-                                shadowOffset: { width: 0, height: 3 },
-                            }}
-                        >
-                            {refreshing ? (
-                                <ActivityIndicator size="small" color={COLORS.accent} />
-                            ) : (
-                                <Ionicons name="refresh" size={22} color={COLORS.accent} />
-                            )}
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            onPress={() => setFilterVisible(true)}
-                            activeOpacity={0.8}
-                            className={`w-12 h-12 rounded-xl items-center justify-center border ${t.elevatedCardBg} ${t.cardBorder}`}
-                            style={{
-                                elevation: 6,
-                                shadowColor: "#000",
-                                shadowOpacity: 0.25,
-                                shadowRadius: 6,
-                                shadowOffset: { width: 0, height: 3 },
-                            }}
-                        >
-                            <Ionicons
-                                name={filter === "all" ? "funnel-outline" : "funnel"}
-                                size={22}
-                                color={COLORS.accent}
-                            />
-                            {filter !== "all" && (
-                                <View
-                                    style={{
-                                        position: "absolute",
-                                        top: 8,
-                                        right: 8,
-                                        width: 8,
-                                        height: 8,
-                                        borderRadius: 4,
-                                        backgroundColor: COLORS.warning,
-                                        borderWidth: 1,
-                                        borderColor: isDark ? "#111827" : "#ffffff",
-                                    }}
-                                />
-                            )}
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            onPress={() => setSortVisible(true)}
-                            activeOpacity={0.8}
-                            className={`w-12 h-12 rounded-xl items-center justify-center border ${t.elevatedCardBg} ${t.cardBorder}`}
-                            style={{
-                                elevation: 6,
-                                shadowColor: "#000",
-                                shadowOpacity: 0.25,
-                                shadowRadius: 6,
-                                shadowOffset: { width: 0, height: 3 },
-                            }}
-                        >
-                            <Ionicons
-                                name={sort === "rarity" ? "swap-vertical-outline" : "swap-vertical"}
-                                size={22}
-                                color={COLORS.accent}
-                            />
-                            {sort !== "rarity" && (
-                                <View
-                                    style={{
-                                        position: "absolute",
-                                        top: 8,
-                                        right: 8,
-                                        width: 8,
-                                        height: 8,
-                                        borderRadius: 4,
-                                        backgroundColor: COLORS.warning,
-                                        borderWidth: 1,
-                                        borderColor: isDark ? "#111827" : "#ffffff",
-                                    }}
-                                />
-                            )}
-                        </TouchableOpacity>
-
-                        {showTopButton && (
-                            <TouchableOpacity
-                                onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })}
-                                activeOpacity={0.8}
-                                className={`w-12 h-12 rounded-xl items-center justify-center border ${t.elevatedCardBg} ${t.cardBorder}`}
-                                style={{
-                                    elevation: 6,
-                                    shadowColor: "#000",
-                                    shadowOpacity: 0.25,
-                                    shadowRadius: 6,
-                                    shadowOffset: { width: 0, height: 3 },
-                                }}
+                        accessibilityLabel={tr("achSearchPlaceholder")}
+                        returnKeyType="search"
+                        onSubmitEditing={() => Keyboard.dismiss()}
+                        containerStyle={{ flex: 1 }}
+                        left={<Ionicons name="search" size={18} color={COLORS.textMuted} />}
+                        right={searchQuery ? (
+                            <Pressable
+                                onPress={() => { setSearchQuery(""); setDebouncedQuery(""); }}
+                                accessibilityRole="button"
+                                accessibilityLabel={tr("clearSearch")}
+                                style={styles.clearButton}
                             >
-                                <Ionicons name="chevron-up-outline" size={24} color={COLORS.accent} />
-                            </TouchableOpacity>
+                                <Ionicons name="close-circle" size={18} color={COLORS.textMuted} />
+                            </Pressable>
+                        ) : null}
+                    />
+                    <Pressable
+                        onPress={() => setSortVisible(true)}
+                        accessibilityRole="button"
+                        accessibilityLabel={tr("sortButton", { sort: sortLabel })}
+                        style={({ pressed }) => [styles.sortButton, { opacity: pressed ? 0.8 : 1 }]}
+                    >
+                        <Ionicons name="swap-vertical" size={16} color={COLORS.textSoft} />
+                        <Text style={styles.sortLabel} numberOfLines={1}>{sortLabel}</Text>
+                    </Pressable>
+                    <Pressable
+                        onPress={onRefresh}
+                        disabled={refreshing}
+                        accessibilityRole="button"
+                        accessibilityLabel={tr("refreshAchievements")}
+                        accessibilityState={{ busy: refreshing, disabled: refreshing }}
+                        style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.8 : 1 }]}
+                    >
+                        {refreshing ? (
+                            <ActivityIndicator size="small" color={COLORS.accent} />
+                        ) : (
+                            <Ionicons name="refresh" size={20} color={COLORS.accent} />
                         )}
+                    </Pressable>
+                </View>
+
+                {/* Filtro: chips em linha com rolagem lateral, como na biblioteca */}
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.chips}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    {filterOptions.map((opt, index) => (
+                        <View key={opt.value} style={styles.chipGroup}>
+                            <Chip
+                                label={opt.label}
+                                count={filterCounts[opt.value]}
+                                selected={filter === opt.value}
+                                onPress={() => setFilter(opt.value)}
+                            />
+                            {/* "Perdíveis" logo depois de "Todas", para aparecer sem rolar */}
+                            {index === 0 && hasMissable && (
+                                <Chip
+                                    label={tr("filterMissable")}
+                                    count={filterCounts.missable}
+                                    selected={missableOn}
+                                    onPress={() => setOnlyMissable(v => !v)}
+                                    accessibilityRole="switch"
+                                    accessibilityState={{ checked: missableOn }}
+                                    style={!missableOn && styles.missableChip}
+                                />
+                            )}
+                        </View>
+                    ))}
+                </ScrollView>
+            </View>
+
+            <FlashList
+                ref={listRef}
+                data={filteredCheevos}
+                keyExtractor={(item) => item.apiname}
+                renderItem={renderRow}
+                maintainVisibleContentPosition={{ disabled: true }}
+                contentContainerStyle={styles.listContent}
+                keyboardShouldPersistTaps="handled"
+                onScroll={(e) => {
+                    setShowTopButton(e.nativeEvent.contentOffset.y > 400);
+                }}
+                ListEmptyComponent={
+                    <View style={{ paddingVertical: 40, alignItems: "center" }}>
+                        <AppText variant="muted" style={{ fontSize: 15 }}>{tr("noAchievementsMatch")}</AppText>
                     </View>
+                }
+            />
 
-                    <RadioSheet
-                        visible={filterVisible}
-                        onClose={() => setFilterVisible(false)}
-                        title={tr("filterTitle")}
-                        options={filterOptions}
-                        selected={filter}
-                        onSelect={setFilter}
-                        counts={filterCounts}
-                    />
-
-                    <RadioSheet
-                        visible={sortVisible}
-                        onClose={() => setSortVisible(false)}
-                        title={tr("sortTitle")}
-                        options={sortOptions}
-                        selected={sort}
-                        onSelect={(value) => { setSort(value) }}
-                    />
-                </>
+            {showTopButton && (
+                <Pressable
+                    onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })}
+                    accessibilityRole="button"
+                    accessibilityLabel={tr("scrollToTop")}
+                    style={({ pressed }) => [styles.topButton, { opacity: pressed ? 0.8 : 1 }]}
+                >
+                    <Ionicons name="chevron-up" size={22} color={COLORS.accent} />
+                </Pressable>
             )}
 
-            <ContextMenu
-                visible={!!guideMenu}
-                x={guideMenu?.x ?? 0}
-                y={guideMenu?.y ?? 0}
-                bounds={{ width: guideMenu?.width ?? WINDOW_W, height: guideMenu?.height ?? WINDOW_H }}
-                title={guideMenu?.item?.name}
-                options={guideMenuOptions}
-                onClose={() => setGuideMenu(null)}
+            <RadioSheet
+                visible={sortVisible}
+                onClose={() => setSortVisible(false)}
+                title={tr("sortTitle")}
+                options={sortOptions}
+                selected={sort}
+                onSelect={setSort}
+            />
+
+            <AchievementSheet
+                achievement={selected}
+                game={game}
+                onClose={() => setSelected(null)}
             />
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    screen: { flex: 1, backgroundColor: COLORS.bg },
+    center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, padding: 32, backgroundColor: COLORS.bg },
+    emptyIcon: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        backgroundColor: COLORS.accentSoft,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    header: { paddingHorizontal: 20, paddingTop: 14, gap: 12 },
+    progress: { gap: 8 },
+    progressTop: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
+    progressCount: { flexDirection: "row", alignItems: "baseline", gap: 6 },
+    progressBig: { fontFamily: FONTS.display, fontSize: 34, lineHeight: 38, color: COLORS.text },
+    progressPct: { fontFamily: FONTS.displaySemibold, fontSize: 18, color: COLORS.accent },
+    searchRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
+    clearButton: { width: 36, height: 44, marginRight: -10, alignItems: "center", justifyContent: "center" },
+    sortButton: {
+        height: 48,
+        maxWidth: 120,
+        paddingHorizontal: 12,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: COLORS.borderSubtle,
+        backgroundColor: COLORS.surface,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+    },
+    sortLabel: { fontFamily: FONTS.bodySemibold, fontSize: 13, color: COLORS.textSoft, flexShrink: 1 },
+    iconButton: {
+        width: 48,
+        height: 48,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: COLORS.borderSubtle,
+        backgroundColor: COLORS.surface,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    // mesmo espaçamento dos chips da biblioteca
+    chips: { gap: 8, paddingVertical: 5, paddingRight: 20 },
+    chipGroup: { flexDirection: "row", gap: 8 },
+    // "Perdíveis" desligado: borda vermelha, a cor da etiqueta de perdível
+    missableChip: { borderColor: COLORS.danger },
+    // espaço no fim para a lista não ficar atrás da tab bar flutuante
+    listContent: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 110 },
+    row: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        padding: 12,
+        marginBottom: 8,
+        borderRadius: 16,
+        backgroundColor: COLORS.surface,
+    },
+    iconFrame: { width: 48, height: 48, borderRadius: 12, borderWidth: 2, overflow: "hidden", backgroundColor: COLORS.surface2 },
+    icon: { width: "100%", height: "100%" },
+    lockBadge: {
+        position: "absolute",
+        right: 2,
+        bottom: 2,
+        width: 18,
+        height: 18,
+        borderRadius: 9,
+        backgroundColor: "rgba(10, 14, 21, 0.85)",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    rowBody: { flex: 1, minWidth: 0, gap: 3 },
+    name: { fontFamily: FONTS.bodySemibold, fontSize: 15, color: COLORS.text },
+    desc: { fontFamily: FONTS.body, fontSize: 12, lineHeight: 17, color: COLORS.textMuted },
+    status: { fontFamily: FONTS.bodyMedium, fontSize: 11 },
+    raMeta: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 1 },
+    points: { fontFamily: FONTS.bodySemibold, fontSize: 11, color: COLORS.gold },
+    pill: {
+        fontFamily: FONTS.bodySemibold,
+        fontSize: 12,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+        overflow: "hidden",
+    },
+    topButton: {
+        position: "absolute",
+        right: 20,
+        bottom: 100,
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: COLORS.surface2,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        alignItems: "center",
+        justifyContent: "center",
+        elevation: 6,
+        shadowColor: "#000",
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+    },
+});

@@ -204,7 +204,7 @@ RETROACHIEVEMENTS_PLAN.md  # design notes and progress of the RetroAchievements 
 
 ## License
 
-Copyright © 2026 Richard Pacco. All rights reserved.
+[MIT](./LICENSE) © 2026 Richard Pacco. You can use, modify and share the code, as long as the copyright notice and the license are kept.
 
 ---
 
@@ -414,4 +414,4 @@ RETROACHIEVEMENTS_PLAN.md  # notas de projeto e progresso da integração com o 
 
 ## Licença
 
-Copyright © 2026 Richard Pacco. Todos os direitos reservados.
+[MIT](./LICENSE) © 2026 Richard Pacco. Você pode usar, modificar e compartilhar o código, desde que mantenha o aviso de copyright e a licença.

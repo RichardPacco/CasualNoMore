@@ -49,7 +49,9 @@ function computeCompletionStats(cachedGames) {
  */
 export default function Profile() {
     const router = useRouter();
-    const { steamId, accounts, disconnect, hasAnyAccount } = useContext(AuthContext);
+    const { steamId, accounts, disconnect } = useContext(AuthContext);
+    // alguma conta conectada (não depende da API key em memória)
+    const hasAccount = !!accounts.steam || !!accounts.ra;
     const { t: tr } = useLanguage();
 
     const [profile, setProfile] = useState(null);
@@ -136,10 +138,10 @@ export default function Profile() {
 
     // Sem nenhuma plataforma conectada (saiu): volta para o login
     useEffect(() => {
-        if (!hasAnyAccount) {
+        if (!hasAccount) {
             router.replace("/(auth)/login");
         }
-    }, [hasAnyAccount, router]);
+    }, [hasAccount, router]);
 
     /** Abre o login para conectar mais uma plataforma. */
     const connectPlatform = useCallback((platform) => {

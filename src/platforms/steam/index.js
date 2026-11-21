@@ -1,4 +1,3 @@
-import { getApiKey } from "@/src/config/apiKeyStore";
 import { getGame, togglePin } from "@/src/database/db";
 import { headerUri } from "@/src/utils/cdn";
 import { totalPlaytimeText } from "@/src/utils/playtime";
@@ -8,9 +7,6 @@ import { toLibraryGame } from "./adapter";
 const steam = {
     id: "steam",
     label: "Steam",
-
-    /** Conectada = conta salva e key em memória. */
-    isConnected: (accounts) => !!accounts?.steam?.steamId && !!getApiKey("steam"),
 
     toLibraryGame,
 

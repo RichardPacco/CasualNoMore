@@ -41,7 +41,9 @@ export default function GameScreen({ route, navigation }) {
     const { accounts } = useContext(AuthContext);
     const isSteam = platformId === "steam";
     const platform = getPlatform(platformId);
-    const connected = !!platform?.isConnected(accounts);
+    // Ler o jogo do banco só precisa da conta da plataforma, não da API key
+    // (sem a key em memória a tela mostrava "não encontrado" para tudo)
+    const connected = !!platform && !!accounts?.[platformId];
     const { t: tr } = useLanguage();
 
     const [game, setGame] = useState(null);

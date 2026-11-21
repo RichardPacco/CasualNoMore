@@ -77,7 +77,9 @@ export default function useSteamLibrary(steamId) {
         let schema = stale ? null : (cachedSchema ?? null);
         let schemaStatus = stale ? "pending" : (cached?.schemaStatus || "pending");
         let achievements = stale ? null : (cachedAchievements ?? null);
-        let achievementsStatus = stale ? "pending" : (cached?.achievementsStatus || "pending");
+        // Só "done" conta como pronto: qualquer outro status (ex.: "counted",
+        // deixado por uma versão de testes) é buscado de novo
+        let achievementsStatus = !stale && cached?.achievementsStatus === "done" ? "done" : "pending";
         // Detalhes da loja: em troca de idioma ou long-press (stale/force) são
         // zerados para serem re-adquiridos sob demanda pelo GameDetailsTab.
         let details = stale ? null : (cachedDetails ?? null);

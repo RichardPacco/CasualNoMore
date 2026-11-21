@@ -1,5 +1,4 @@
 import { raMedia } from "@/src/api/retroachievements";
-import { getApiKey } from "@/src/config/apiKeyStore";
 import { getRaGame, toggleRaPin } from "@/src/database/raDb";
 import { toLibraryGame } from "./adapter";
 
@@ -7,9 +6,6 @@ import { toLibraryGame } from "./adapter";
 const ra = {
     id: "ra",
     label: "RetroAchievements",
-
-    /** Conectada = conta salva e key em memória. */
-    isConnected: (accounts) => !!accounts?.ra?.ulid && !!getApiKey("ra"),
 
     toLibraryGame,
 

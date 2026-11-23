@@ -1,6 +1,7 @@
 import * as SQLite from "expo-sqlite";
 
-let dbInstance = null;
+// Abertura do banco (promessa compartilhada, ver openDB)
+let dbPromise = null;
 
 // Tabelas já garantidas nesta sessão, para não recriar a cada acesso
 const createdTables = new Set();
@@ -27,13 +28,23 @@ export function parseJson(value) {
     }
 }
 
-/** Abre (uma única vez) e retorna a instância do banco SQLite. */
-export async function openDB() {
-    if (!dbInstance) {
+/**
+ * Abre (uma única vez) e retorna a instância do banco SQLite.
+ * Guarda a PROMESSA da abertura, não só o resultado: chamadas que chegam ao
+ * mesmo tempo (ex.: bibliotecas da Steam e do RA na inicialização) esperam a
+ * mesma abertura. Antes cada uma abria a sua conexão; a que sobrava era
+ * coletada e, ao fechar, derrubava a outra (NullPointerException em toda
+ * consulta, "jogo não encontrado" em tudo).
+ */
+export function openDB() {
+    if (!dbPromise) {
         console.log("[db] Abrindo banco de dados...");
-        dbInstance = await SQLite.openDatabaseAsync("games.db");
+        dbPromise = SQLite.openDatabaseAsync("games.db").catch(err => {
+            dbPromise = null; // deixa tentar de novo na próxima chamada
+            throw err;
+        });
     }
-    return dbInstance;
+    return dbPromise;
 }
 
 /** Garante que exista a tabela de jogos do steamId e retorna o nome dela. */

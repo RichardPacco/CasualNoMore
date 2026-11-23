@@ -7,7 +7,7 @@ Browse your libraries, track your achievement progress, compare with friends and
 > This app is a personal project. It is not affiliated with Valve, Steam or RetroAchievements.
 > Retro achievement data: [RetroAchievements.org](https://retroachievements.org).
 
-Current version: **3.1.0**
+Current version: **3.2.0**
 
 ## Features
 
@@ -217,7 +217,7 @@ Navegue pelas suas bibliotecas, acompanhe seu progresso de conquistas, compare c
 > Este app é um projeto pessoal. Não é afiliado à Valve, à Steam ou ao RetroAchievements.
 > Dados de conquistas retrô: [RetroAchievements.org](https://retroachievements.org).
 
-Versão atual: **3.1.0**
+Versão atual: **3.2.0**
 
 ## Funcionalidades
 

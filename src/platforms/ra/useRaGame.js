@@ -7,9 +7,9 @@ import { toAchievements, toDetails } from "./adapter";
 /**
  * Dados de um jogo do RetroAchievements para a tela do jogo: conquistas
  * (formato comum), detalhes e a linha atualizada do banco. Com o jogo já
- * salvo, usa só o banco: busca GetGameInfoAndUserProgress apenas na primeira
- * vez que o jogo é aberto ou quando o usuário atualiza (`refresh`), gravando
- * o resultado no banco.
+ * salvo, usa só o banco: busca GetGameInfoAndUserProgress na primeira vez que
+ * o jogo é aberto, quando a contagem da biblioteca mudou desde a última busca
+ * ou quando o usuário atualiza (`refresh`), gravando o resultado no banco.
  *
  * Uma busca serve às duas abas (Conquistas e Detalhes): a GameScreen chama
  * este hook e repassa os dados. `row` null = não é jogo do RA (não faz nada).
@@ -57,12 +57,20 @@ export default function useRaGame(row, account) {
         if (!row) return;
         setCurrent(row);
         setAchievements(row.achievements || []);
-        // Já buscado antes: fica com o banco (atualizar é manual)
-        if (row.achievementsStatus === "done") {
+        // Já buscado antes e a biblioteca não viu mudança: fica com o banco.
+        // A sincronização da biblioteca atualiza a contagem (numAwardedHardcore,
+        // maxPossible) mas não a lista; se a contagem não bate com a lista
+        // salva, alguma coisa mudou (ex.: conquista nova no emulador) e busca.
+        const saved = Array.isArray(row.achievements) ? row.achievements : [];
+        const savedUnlocked = saved.filter(a => a.achieved).length;
+        const changed = (row.numAwardedHardcore ?? savedUnlocked) !== savedUnlocked
+            || (row.maxPossible ?? saved.length) !== saved.length;
+        if (row.achievementsStatus === "done" && !changed) {
             setLoading(false);
             return;
         }
-        setLoading(true);
+        // com a lista antiga na tela, busca por cima sem a tela de carregamento
+        setLoading(saved.length === 0);
         fetchGame();
         return () => {
             // jogo trocou ou a tela fechou: a busca em andamento para de escrever

@@ -236,6 +236,16 @@ export const translations = {
     gameUnpinned: { pt: "Jogo desfixado!", en: "Game unpinned!" },
 
     // --- plataformas / RetroAchievements ---
+    updateCheck: { pt: "Verificar atualização", en: "Check for updates" },
+    updateInstalled: { pt: "Versão instalada: {version}", en: "Installed version: {version}" },
+    updateLatest: { pt: "Você já está na versão mais recente ({version}).", en: "You're on the latest version ({version})." },
+    updateCheckFailed: { pt: "Não foi possível verificar atualizações. Verifique a internet.", en: "Couldn't check for updates. Check your internet connection." },
+    updateAvailable: { pt: "Versão {version} disponível", en: "Version {version} available" },
+    updateHint: { pt: "O Android vai pedir para confirmar a instalação. Na primeira vez, permita que o CasualNoMore instale apps.", en: "Android will ask you to confirm the install. The first time, allow CasualNoMore to install apps." },
+    updateLater: { pt: "Agora não", en: "Not now" },
+    updateInstall: { pt: "Baixar e instalar", en: "Download and install" },
+    updateDownloading: { pt: "Baixando {percent}%", en: "Downloading {percent}%" },
+    updateInstallFailed: { pt: "Não foi possível baixar ou abrir a atualização.", en: "Couldn't download or open the update." },
     loginStepOf: { pt: "Etapa {current} de {total}", en: "Step {current} of {total}" },
     loginSkipPlatform: { pt: "Pular {platform}", en: "Skip {platform}" },
     loginNeedOne: { pt: "Conecte pelo menos uma plataforma para continuar.", en: "Connect at least one platform to continue." },

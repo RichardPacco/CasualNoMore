@@ -3,7 +3,7 @@ export default ({ config }) => {
     ...config,
     name: "CasualNoMore",
     slug: "CasualNoMore",
-    version: "3.2.0",
+    version: "4.1.0",
     orientation: "portrait",
     icon: "./assets/images/app_icon.png",
     scheme: "casualnomore",
@@ -15,7 +15,9 @@ export default ({ config }) => {
     },
     android: {
       package: "com.casualnomore.app",
-      versionCode: 5,
+      versionCode: 7,
+      // atualizar o app pelo botão do Perfil (abre o instalador do Android)
+      permissions: ["android.permission.REQUEST_INSTALL_PACKAGES"],
       adaptiveIcon: {
         foregroundImage: "./assets/images/app_icon.png",
         backgroundColor: "#0A0E15",
@@ -33,6 +35,8 @@ export default ({ config }) => {
       "expo-secure-store",
       // Android: até 20 requisições simultâneas por servidor (OkHttp limita a 5)
       ["./plugins/withOkHttpConcurrency", { maxRequestsPerHost: 20 }],
+      // assinatura de release com keystore própria (CNM_UPLOAD_*), ver o plugin
+      "./plugins/withReleaseSigning",
       [
         "expo-splash-screen",
         {

@@ -44,3 +44,7 @@ app-example
 
 .idea/
 .vscode/
+
+# keystores de assinatura (nunca no repositório)
+*.jks
+*.keystore

@@ -1,5 +1,6 @@
 import { getPlayerSummary } from "@/src/api/steam";
 import AboutModal from "@/src/components/AboutModal";
+import AppUpdateRow from "@/src/components/AppUpdateRow";
 import LanguageSelector from "@/src/components/LanguageSelector";
 import ProfileCard from "@/src/components/ProfileCard";
 import RaAccountCard from "@/src/components/RaAccountCard";
@@ -271,6 +272,11 @@ export default function Profile() {
                                 </Text>
                             </Pressable>
                         ))}
+                        {/* Atualização pelas releases do GitHub (Android) */}
+                        <AppUpdateRow
+                            style={[styles.settingRow, styles.settingDivider, { gap: 10 }]}
+                            labelStyle={styles.settingLabel}
+                        />
                         <Pressable
                             onPress={() => setAboutVisible(true)}
                             accessibilityRole="button"

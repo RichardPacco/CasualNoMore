@@ -530,6 +530,7 @@ Cada etapa termina com o app funcionando e vira um commit. A Steam **não pode q
 
 ### Etapa 7 — Opcional, depois que tudo estiver estável
 
+- ✅ **Correção (v3.2.0):** com Steam e RA conectados, o banco era aberto duas vezes ao mesmo tempo na inicialização; a conexão extra derrubava a outra e toda consulta falhava ("não encontrado no cache" em tudo). O `openDB` agora guarda a promessa da abertura
 - ✅ **Correção (v3.1.0):** a tela do jogo e o Perfil não dependem mais da API key em memória para ler o banco (antes, sem a key, todos os jogos da Steam e do RA davam "não encontrado no cache"); `isConnected` removido das plataformas
 - ✅ **Login em fluxo único** (fora do plano original): o login passa pelas etapas Steam → RetroAchievements, cada uma com "Pular" (e "Voltar" na segunda), indicador de etapas no topo e entrada no app ao terminar a última (é preciso conectar pelo menos uma). O seletor de plataforma saiu do login; "Conectar outra plataforma" (`mode=add`) e "Atualizar key" seguem com uma plataforma só
 - ✅ **Comentários das conquistas do RA** (fora do plano original): botão "Comentários" na ficha da conquista abre `src/screens/RaAchievementComments.jsx` (`API_GetComments`, `t=2`), mais novos primeiro, páginas de 10. Os comentários automáticos do usuário "Server" (edições da conquista) ficam de fora. A API não tem endpoint de changelog

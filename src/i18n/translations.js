@@ -305,6 +305,7 @@ export const translations = {
     hardcorePercentA11y: { pt: "{percent} em hardcore", en: "{percent} in hardcore" },
     points: { pt: "{n} pontos", en: "{n} points" },
     softcorePoints: { pt: "{n} softcore", en: "{n} softcore" },
+    softcoreProgress: { pt: "{n}/{total} em softcore", en: "{n}/{total} in softcore" },
     raPoints: { pt: "Pontos", en: "Points" },
     truePoints: { pt: "RetroPoints", en: "RetroPoints" },
     truePointsValue: { pt: "{n} RetroPoints", en: "{n} RetroPoints" },

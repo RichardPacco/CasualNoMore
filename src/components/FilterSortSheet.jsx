@@ -18,6 +18,8 @@ const HIDDEN_OFFSET = 700; // deslocamento do painel fechado (fora da tela)
  * Props: visible, onClose, filterOptions [{label,value}], counts {value: n},
  * filter, sortOptions [{label,value}], sort, onApply({ filter, sort, console }),
  * defaultFilter, defaultSort.
+ * Sem `sortOptions` ou `filterOptions` (lista vazia), a seção não aparece;
+ * a contagem do botão usa então `counts.all` (ou `computeCounts(...).all`).
  * Opcionais (biblioteca do RA):
  * - consoleOptions [{label,value,count}] + consoleValue: filtro de console,
  *   também no rascunho (null = todos);
@@ -129,6 +131,7 @@ export default function FilterSortSheet({
                 </View>
 
                 <ScrollView style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 18 }} showsVerticalScrollIndicator={false}>
+                    {filterOptions?.length > 0 && (
                     <View style={styles.section}>
                         <AppText variant="label">{t("filterShowLabel")}</AppText>
                         <View style={styles.grid}>
@@ -155,6 +158,7 @@ export default function FilterSortSheet({
                             })}
                         </View>
                     </View>
+                    )}
 
                     {consoleOptions?.length > 0 && (
                         <View style={styles.section}>
@@ -204,6 +208,7 @@ export default function FilterSortSheet({
                         </View>
                     )}
 
+                    {sortOptions?.length > 0 && (
                     <View style={styles.section}>
                         <AppText variant="label">{t("sortTitle")}</AppText>
                         <View accessibilityRole="radiogroup" style={styles.segment}>
@@ -225,6 +230,7 @@ export default function FilterSortSheet({
                             })}
                         </View>
                     </View>
+                    )}
                 </ScrollView>
 
                 <View style={styles.footer}>

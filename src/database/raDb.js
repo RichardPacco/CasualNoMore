@@ -201,6 +201,22 @@ export async function saveRaGameInfo(ulid, gameId, { achievements, details, info
     return getRaGame(ulid, gameId);
 }
 
+/**
+ * Garante uma linha para um jogo da lista "Quero jogar" que ainda não está na
+ * biblioteca (nunca jogado), para a tela do jogo conseguir abri-lo. Não mexe
+ * se o jogo já existir. A próxima sincronização tira a linha de novo se o
+ * jogo continuar sem desbloqueios.
+ */
+export async function ensureRaGameRow(ulid, item) {
+    const table = await ensureRaTable(ulid);
+    const db = await openDB();
+    await db.runAsync(
+        `INSERT OR IGNORE INTO ${table} (gameId, title, consoleId, consoleName, imageIcon, maxPossible)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [item.gameId, item.title ?? null, item.consoleId ?? null, item.consoleName ?? null, item.imageIcon ?? null, item.maxPossible || 0]
+    );
+}
+
 /** Fixa/desfixa um jogo. Retorna o novo valor (0 ou 1). */
 export async function toggleRaPin(ulid, gameId) {
     try {

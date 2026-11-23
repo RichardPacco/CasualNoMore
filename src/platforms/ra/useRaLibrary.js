@@ -1,6 +1,7 @@
-import { getUserCompletionProgress, getUserRecentlyPlayedGames } from "@/src/api/retroachievements";
+import { getUserCompletionProgress, getUserRecentlyPlayedGames, getUserWantToPlayList } from "@/src/api/retroachievements";
 import { deleteRaGamesNotPresent, getAllRaGames, getRaGame, saveRaProgressBatch, saveRaRecentlyPlayed, toggleRaPin } from "@/src/database/raDb";
 import { useLanguage } from "@/src/i18n/LanguageContext";
+import { loadWantToPlay, saveWantToPlay } from "./wantToPlay";
 import { showToast } from "@/src/utils/toast";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -30,6 +31,9 @@ export default function useRaLibrary(account) {
     const [loading, setLoading] = useState(!!ulid);
     const [syncing, setSyncing] = useState(false);
     const [error, setError] = useState(false);
+    // lista "Quero jogar" (itens da API), guardada no aparelho por conta;
+    // a tela "Quero jogar" lê de lá, a biblioteca só mostra a contagem
+    const [wantToPlay, setWantToPlay] = useState([]);
 
     // geração da sincronização: uma nova (ou a troca de conta) faz a antiga
     // parar de escrever na tela
@@ -46,9 +50,13 @@ export default function useRaLibrary(account) {
         setSyncing(true);
 
         try {
-            // 1️⃣ O que já está no banco aparece na hora
-            const cached = await getAllRaGames(ulid);
+            // 1️⃣ O que já está no banco (e a lista "Quero jogar" salva) aparece na hora
+            const [cached, cachedWtp] = await Promise.all([
+                getAllRaGames(ulid),
+                loadWantToPlay(ulid),
+            ]);
             if (stale()) return false;
+            setWantToPlay(cachedWtp);
             if (cached.length > 0) {
                 setRows(cached);
                 setLoading(false);
@@ -69,6 +77,16 @@ export default function useRaLibrary(account) {
                 await saveRaRecentlyPlayed(ulid, recent);
             } catch (err) {
                 console.warn("[RaLibrary] recently played falhou", err?.message);
+            }
+
+            // 3️⃣b Lista "Quero jogar" (uma chamada). Se falhar, fica a salva.
+            try {
+                const { results: wtp } = await getUserWantToPlayList(ulid);
+                if (stale()) return false;
+                setWantToPlay(wtp);
+                saveWantToPlay(ulid, wtp);
+            } catch (err) {
+                console.warn("[RaLibrary] want to play falhou", err?.message);
             }
 
             // 4️⃣ Tira do banco o que não veio mais (a lista veio inteira)
@@ -127,6 +145,7 @@ export default function useRaLibrary(account) {
         if (!ulid) {
             genRef.current++;
             setRows([]);
+            setWantToPlay([]);
             setLoading(false);
             setSyncing(false);
             return;
@@ -142,6 +161,7 @@ export default function useRaLibrary(account) {
 
     return {
         rows,
+        wantToPlay,
         loading,
         syncing,
         error,

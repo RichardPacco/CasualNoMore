@@ -73,7 +73,7 @@ export default function GameList({ navigation }) {
     const {
         platforms, active, setActive,
         games, loading, progress, syncing, refreshingRecent, error, turbo, toggleTurbo,
-        reload, refreshRecent, refreshGame, togglePin, reloadGame,
+        reload, refreshRecent, refreshGame, togglePin, reloadGame, wantToPlayCount,
     } = useLibrary();
     // o que a biblioteca da plataforma ativa oferece (filtros, ordenações, turbo...)
     const libraryOptions = getPlatform(active).library;
@@ -443,6 +443,21 @@ export default function GameList({ navigation }) {
 
                 {platformPicker}
 
+                {/* RA: lista "Quero jogar" numa tela própria */}
+                {active === "ra" && (
+                    <Pressable
+                        onPress={() => navigation.navigate("RaWantToPlay")}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${tr("wantToPlay")}, ${tr("raGamesCount", { count: wantToPlayCount })}`}
+                        style={({ pressed }) => [styles.wtpRow, { opacity: pressed ? 0.8 : 1 }]}
+                    >
+                        <Ionicons name="bookmark-outline" size={18} color={COLORS.gold} />
+                        <AppText variant="itemName" style={{ flex: 1, fontSize: 15 }}>{tr("wantToPlay")}</AppText>
+                        <AppText variant="muted">{tr("raGamesCount", { count: wantToPlayCount })}</AppText>
+                        <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+                    </Pressable>
+                )}
+
                 <View style={styles.searchRow}>
                     <TextField
                         value={searchQuery}
@@ -662,6 +677,17 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.gold,
         borderWidth: 1,
         borderColor: COLORS.surface,
+    },
+    wtpRow: {
+        minHeight: 48,
+        paddingHorizontal: 14,
+        borderRadius: 14,
+        backgroundColor: COLORS.surface,
+        borderWidth: 1,
+        borderColor: COLORS.borderSubtle,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
     },
     searchRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
     clearButton: { width: 36, height: 44, marginRight: -10, alignItems: "center", justifyContent: "center" },

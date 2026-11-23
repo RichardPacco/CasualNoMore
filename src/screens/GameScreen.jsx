@@ -37,7 +37,7 @@ const placeholderImage = require("../../assets/images/placeholder_gamelist.jpg")
  * abas; a capa é a tela de título, com o ícone do jogo ao lado do nome.
  */
 export default function GameScreen({ route, navigation }) {
-    const { platform: platformId = "steam", id } = route.params;
+    const { platform: platformId = "steam", id, notInLibrary = false } = route.params;
     const { accounts } = useContext(AuthContext);
     const isSteam = platformId === "steam";
     const platform = getPlatform(platformId);
@@ -153,6 +153,9 @@ export default function GameScreen({ route, navigation }) {
                             {name}
                         </AppText>
                     )}
+                    {/* sem alfinete para jogo fora da biblioteca (aberto pela lista "Quero
+                        jogar" sem nunca ter sido jogado): a linha dele é temporária */}
+                    {notInLibrary ? <View style={styles.roundButtonSpacer} /> : (
                     <Pressable
                         onPress={togglePin}
                         accessibilityRole="button"
@@ -166,6 +169,7 @@ export default function GameScreen({ route, navigation }) {
                             color={game.pinned ? COLORS.gold : COLORS.text}
                         />
                     </Pressable>
+                    )}
                 </View>
                 {!compact && (
                     <View style={styles.heroTextsRow}>
@@ -241,6 +245,8 @@ const styles = StyleSheet.create({
         textShadowOffset: { width: 0, height: 1 },
         textShadowRadius: 6,
     },
+    // ocupa o lugar do alfinete quando ele não aparece (mantém o título no lugar)
+    roundButtonSpacer: { width: 44, height: 44 },
     roundButton: {
         width: 44,
         height: 44,

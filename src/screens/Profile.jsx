@@ -13,7 +13,8 @@ import { getGameCounts } from "@/src/utils/achievements";
 import { COLORS, FONTS } from "@/src/theme/colors";
 import { useRouter } from "expo-router";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { useSettings } from "@/src/context/SettingsContext";
 import Pressable from "@/src/components/ui/Pressable";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -62,6 +63,7 @@ export default function Profile() {
     const [refreshingProfile, setRefreshingProfile] = useState(false);
     const [completionStats, setCompletionStats] = useState({ games: 0, perfected: 0, avgCompletion: 0 });
     const [aboutVisible, setAboutVisible] = useState(false);
+    const { settings, updateSettings } = useSettings();
     // muda a cada puxar para atualizar: o card do RA busca de novo
     const [raRefreshKey, setRaRefreshKey] = useState(0);
     // resolve a espera do puxar para atualizar quando o RA termina de buscar
@@ -217,6 +219,17 @@ export default function Profile() {
                         <View style={styles.settingRow}>
                             <Text style={styles.settingLabel}>{tr("languageLabel")}</Text>
                             <LanguageSelector inset />
+                        </View>
+                        {/* Manter a tela ligada (expo-keep-awake, vale para o app inteiro) */}
+                        <View style={[styles.settingRow, styles.settingDivider]}>
+                            <Text style={styles.settingLabel}>{tr("keepAwake")}</Text>
+                            <Switch
+                                value={!!settings.keepAwake}
+                                onValueChange={v => updateSettings({ keepAwake: v })}
+                                accessibilityLabel={tr("keepAwake")}
+                                trackColor={{ false: COLORS.border, true: COLORS.accent }}
+                                thumbColor={COLORS.text}
+                            />
                         </View>
                         {/* Conectar a plataforma que falta */}
                         {platformRows.filter(([id]) => !accounts[id]).map(([id, name]) => (

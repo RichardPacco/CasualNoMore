@@ -530,6 +530,7 @@ Cada etapa termina com o app funcionando e vira um commit. A Steam **não pode q
 
 ### Etapa 7 — Opcional, depois que tudo estiver estável
 
+- ✅ **Manter a tela ligada (v5.0.0):** toggle no Perfil (`expo-keep-awake`, preferência `keepAwake`). Em desenvolvimento o próprio Expo mantém a tela ligada sempre; a opção só desliga de verdade no APK de release
 - ✅ **Ordenação em duas camadas (v4.5.0):** conquistas ordenadas por tipo (RA: padrão, raridade, pontos, data, nome; Steam: raridade, data, nome) + direção crescente/decrescente; cada tipo começa na sua direção padrão; na data, bloqueadas sempre no fim
 - ✅ **Softcore nos jogos do amigo (v4.4.0):** embaixo de cada barra (amigo e você), "X/Y em softcore" em cinza quando há desbloqueios só em softcore; explica jogos jogados que aparecem com 0% (o % é só hardcore)
 - ✅ **Raridade igual ao site (v4.3.0):** a % de cada conquista do RA é todos os desbloqueios (casual + hardcore) ÷ jogadores, com a % só hardcore num selo dourado e o detalhe (casual · hardcore · jogadores, barra em duas cores) na ficha. A API repete o total em `NumDistinctPlayersHardcore`, então "Jogadores" mostra só o total. Também: "points" no lugar de "pts", pontos softcore dos amigos em cinza, e avatar/nome na tela do amigo abrindo o perfil no site

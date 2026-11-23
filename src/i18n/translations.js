@@ -309,6 +309,7 @@ export const translations = {
     sortDirectionTitle: { pt: "Ordem", en: "Order" },
     dirAsc: { pt: "Crescente", en: "Ascending" },
     dirDesc: { pt: "Decrescente", en: "Descending" },
+    keepAwake: { pt: "Manter a tela ligada", en: "Keep screen on" },
     raPoints: { pt: "Pontos", en: "Points" },
     truePoints: { pt: "RetroPoints", en: "RetroPoints" },
     truePointsValue: { pt: "{n} RetroPoints", en: "{n} RetroPoints" },

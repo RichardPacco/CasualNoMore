@@ -3,7 +3,7 @@ export default ({ config }) => {
     ...config,
     name: "CasualNoMore",
     slug: "CasualNoMore",
-    version: "4.2.0",
+    version: "4.2.1",
     orientation: "portrait",
     icon: "./assets/images/app_icon.png",
     scheme: "casualnomore",
@@ -15,7 +15,7 @@ export default ({ config }) => {
     },
     android: {
       package: "com.casualnomore.app",
-      versionCode: 8,
+      versionCode: 9,
       // atualizar o app pelo botão do Perfil (abre o instalador do Android)
       permissions: ["android.permission.REQUEST_INSTALL_PACKAGES"],
       adaptiveIcon: {
@@ -37,6 +37,8 @@ export default ({ config }) => {
       ["./plugins/withOkHttpConcurrency", { maxRequestsPerHost: 20 }],
       // assinatura de release com keystore própria (CNM_UPLOAD_*), ver o plugin
       "./plugins/withReleaseSigning",
+      // só celulares ARM 64 bits (build mais rápido, APK menor)
+      ["./plugins/withArchitectures", { architectures: ["arm64-v8a"] }],
       [
         "expo-splash-screen",
         {

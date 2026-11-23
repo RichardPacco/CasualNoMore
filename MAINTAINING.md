@@ -42,9 +42,9 @@ Notas para quem mantém o projeto: preparar uma máquina nova e publicar versõe
    ```powershell
    npx expo prebuild --platform android --clean
    cd android
-   .\gradlew.bat assembleRelease -PreactNativeArchitectures=x86,arm64-v8a
+   .\gradlew.bat assembleRelease
    ```
-   (`x86` = emulador, `arm64-v8a` = celular; sem o parâmetro compila as 4 arquiteturas.)
+   O projeto compila só para `arm64-v8a` (celulares ARM 64 bits; ver [`plugins/withArchitectures.js`](./plugins/withArchitectures.js)). Para o emulador x86, um build pontual: `.\gradlew.bat assembleRelease -PreactNativeArchitectures=x86`.
 
 ## Publicar uma versão
 

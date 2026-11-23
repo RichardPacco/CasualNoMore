@@ -30,7 +30,6 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # build completo (4 arquiteturas) sem cache passa de 30 min
     timeout-minutes: 90
 
     steps:

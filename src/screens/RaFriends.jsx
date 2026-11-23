@@ -18,17 +18,20 @@ import { COLORS, FONTS } from "@/src/theme/colors";
 function mergeRelations(following, followers) {
     const byId = new Map();
     for (const u of following) {
-        byId.set(u.ULID, { ulid: u.ULID, user: u.User, points: Number(u.Points) || 0, following: true, follower: !!u.IsFollowingMe });
+        byId.set(u.ULID, { ulid: u.ULID, user: u.User, points: Number(u.Points) || 0, softcore: Number(u.PointsSoftcore) || 0, following: true, follower: !!u.IsFollowingMe });
     }
     for (const u of followers) {
         const prev = byId.get(u.ULID);
         if (prev) prev.follower = true;
-        else byId.set(u.ULID, { ulid: u.ULID, user: u.User, points: Number(u.Points) || 0, following: !!u.AmIFollowing, follower: true });
+        else byId.set(u.ULID, { ulid: u.ULID, user: u.User, points: Number(u.Points) || 0, softcore: Number(u.PointsSoftcore) || 0, following: !!u.AmIFollowing, follower: true });
     }
     return [...byId.values()].sort((a, b) => b.points - a.points);
 }
 
-/** Linha de um usuário do RA: avatar, nome, pontos hardcore e selo "Mútuo". */
+/**
+ * Linha de um usuário do RA: avatar, nome, pontos hardcore (e os de softcore
+ * ao lado, em cinza, quando houver) e selo "Mútuo".
+ */
 const RaFriendRow = memo(function RaFriendRow({ friend, onPress }) {
     const { t: tr } = useLanguage();
     const mutual = friend.following && friend.follower;
@@ -36,13 +39,23 @@ const RaFriendRow = memo(function RaFriendRow({ friend, onPress }) {
         <Pressable
             onPress={() => onPress(friend)}
             accessibilityRole="button"
-            accessibilityLabel={[friend.user, tr("points", { n: friend.points }), mutual ? tr("mutual") : null].filter(Boolean).join(", ")}
+            accessibilityLabel={[
+                friend.user,
+                tr("points", { n: friend.points }),
+                friend.softcore > 0 ? tr("softcorePoints", { n: friend.softcore }) : null,
+                mutual ? tr("mutual") : null,
+            ].filter(Boolean).join(", ")}
             style={({ pressed }) => [styles.row, { opacity: pressed ? 0.85 : 1 }]}
         >
             <Image source={{ uri: raUserPic(friend.user) }} style={styles.avatar} />
             <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
                 <Text style={styles.name} numberOfLines={1}>{friend.user}</Text>
-                <Text style={styles.points}>{tr("points", { n: friend.points.toLocaleString() })}</Text>
+                <Text style={styles.points} numberOfLines={1}>
+                    {tr("points", { n: friend.points.toLocaleString() })}
+                    {friend.softcore > 0 && (
+                        <Text style={styles.softcore}>{` · ${tr("softcorePoints", { n: friend.softcore.toLocaleString() })}`}</Text>
+                    )}
+                </Text>
             </View>
             {mutual && <Text style={styles.mutual}>{tr("mutual")}</Text>}
             <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
@@ -186,6 +199,7 @@ const styles = StyleSheet.create({
     avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: COLORS.surface2 },
     name: { fontFamily: FONTS.bodySemibold, fontSize: 15, color: COLORS.text },
     points: { fontFamily: FONTS.body, fontSize: 12, color: COLORS.gold },
+    softcore: { color: COLORS.textMuted },
     mutual: {
         fontFamily: FONTS.bodySemibold,
         fontSize: 11,

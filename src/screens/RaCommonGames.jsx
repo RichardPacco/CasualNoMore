@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import { memo, useContext, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
-import { getUserCompletionProgress, raMedia, raUserPic } from "@/src/api/retroachievements";
+import { ActivityIndicator, Image, Linking, StyleSheet, Text, View } from "react-native";
+import { getUserCompletionProgress, raMedia, raUserPic, raUserUrl } from "@/src/api/retroachievements";
 import AwardMedal from "@/src/components/AwardMedal";
 import { AppText, ProgressBar, TextField } from "@/src/components/ui";
 import Pressable from "@/src/components/ui/Pressable";
@@ -140,13 +140,19 @@ export default function RaCommonGames({ route, navigation }) {
                     <Ionicons name="chevron-back" size={22} color={COLORS.text} />
                 </Pressable>
 
-                <View style={styles.friendRow}>
+                {/* avatar e nome abrem o perfil da pessoa no RetroAchievements */}
+                <Pressable
+                    onPress={() => Linking.openURL(raUserUrl(name)).catch(err => console.error("Failed to open URL:", err))}
+                    accessibilityRole="link"
+                    accessibilityLabel={`${name}, ${tr("viewOnRa")}`}
+                    style={({ pressed }) => [styles.friendRow, { opacity: pressed ? 0.8 : 1 }]}
+                >
                     <Image source={{ uri: raUserPic(name) }} style={styles.avatar} />
                     <View style={{ flex: 1, gap: 2 }}>
                         <AppText variant="title" style={{ fontSize: 26 }} numberOfLines={1}>{name}</AppText>
                         {games && <AppText variant="muted">{subtitle}</AppText>}
                     </View>
-                </View>
+                </Pressable>
 
                 <View style={styles.segment} accessibilityRole="tablist" accessibilityLabel={tr("friendGamesFilter")}>
                     {[

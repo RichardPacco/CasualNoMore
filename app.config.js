@@ -3,7 +3,7 @@ export default ({ config }) => {
     ...config,
     name: "CasualNoMore",
     slug: "CasualNoMore",
-    version: "4.2.1",
+    version: "4.3.0",
     orientation: "portrait",
     icon: "./assets/images/app_icon.png",
     scheme: "casualnomore",
@@ -15,7 +15,7 @@ export default ({ config }) => {
     },
     android: {
       package: "com.casualnomore.app",
-      versionCode: 9,
+      versionCode: 10,
       // atualizar o app pelo botão do Perfil (abre o instalador do Android)
       permissions: ["android.permission.REQUEST_INSTALL_PACKAGES"],
       adaptiveIcon: {

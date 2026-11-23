@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import { memo, useContext, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, Linking, StyleSheet, Text, View } from "react-native";
 import Pressable from "@/src/components/ui/Pressable";
 import { getStoreAssets } from "@/src/api/steam";
 import { AppText, ProgressBar, TextField } from "@/src/components/ui";
@@ -132,7 +132,15 @@ export default function CommonGames({ route, navigation }) {
                     <Ionicons name="chevron-back" size={22} color={COLORS.text} />
                 </Pressable>
 
-                <View style={styles.friendRow}>
+                {/* avatar e nome abrem o perfil da pessoa na Steam */}
+                <Pressable
+                    onPress={() => friend?.profile?.profileurl && Linking.openURL(friend.profile.profileurl)
+                        .catch(err => console.error("Failed to open URL:", err))}
+                    disabled={!friend?.profile?.profileurl}
+                    accessibilityRole="link"
+                    accessibilityLabel={`${friendName}, ${tr("viewSteamProfile")}`}
+                    style={({ pressed }) => [styles.friendRow, { opacity: pressed ? 0.8 : 1 }]}
+                >
                     <View>
                         {friend?.profile?.avatarfull ? (
                             <Image source={{ uri: friend.profile.avatarfull }} style={styles.avatar} />
@@ -149,7 +157,7 @@ export default function CommonGames({ route, navigation }) {
                             {tr("friendGamesStatus", { count: gameCount, status: status.text })}
                         </AppText>
                     </View>
-                </View>
+                </Pressable>
 
                 <View style={styles.segment} accessibilityRole="tablist" accessibilityLabel={tr("friendGamesFilter")}>
                     {[

@@ -7,7 +7,7 @@ Browse your libraries, track your achievement progress, compare with friends and
 > This app is a personal project. It is not affiliated with Valve, Steam or RetroAchievements.
 > Retro achievement data: [RetroAchievements.org](https://retroachievements.org).
 
-Current version: **4.2.1**
+Current version: **4.3.0**
 
 **Download:** get the latest APK from the [Releases page](https://github.com/RichardPacco/CasualNoMore/releases). Once installed, the app updates itself from **Profile → Check for updates**.
 
@@ -221,7 +221,7 @@ Navegue pelas suas bibliotecas, acompanhe seu progresso de conquistas, compare c
 > Este app é um projeto pessoal. Não é afiliado à Valve, à Steam ou ao RetroAchievements.
 > Dados de conquistas retrô: [RetroAchievements.org](https://retroachievements.org).
 
-Versão atual: **4.2.1**
+Versão atual: **4.3.0**
 
 **Download:** baixe o APK mais recente na [página de Releases](https://github.com/RichardPacco/CasualNoMore/releases). Depois de instalado, o app se atualiza pelo **Perfil → Verificar atualização**.
 

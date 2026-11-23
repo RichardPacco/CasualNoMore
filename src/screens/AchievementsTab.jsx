@@ -41,6 +41,10 @@ function AchievementRowComponent({ item, game, onOpen }) {
 
     const rarity = rarityColor(item.globalPercent);
     const percentText = formatPercent(item.globalPercent, language);
+    // RA: % só de hardcore (desbloqueios em hardcore ÷ jogadores)
+    const hardcoreText = isRa && item.players > 0
+        ? formatPercent((item.awardedHardcore / item.players) * 100, language)
+        : null;
     const status = item.achieved
         ? (item.unlocktime ? tr("unlockedAt", { date: formatDate(item.unlocktime) }) : tr("achFilterUnlocked"))
         : item.softcoreUnlocktime ? tr("unlockedSoftcore") : tr("achLocked");
@@ -51,7 +55,12 @@ function AchievementRowComponent({ item, game, onOpen }) {
             onLongPress={() => onOpen?.(item)}
             delayLongPress={350}
             accessibilityRole="button"
-            accessibilityLabel={`${item.name}, ${status}, ${tr("achRarityA11y", { percent: percentText })}`}
+            accessibilityLabel={[
+                item.name,
+                status,
+                tr("achRarityA11y", { percent: percentText }),
+                hardcoreText ? tr("hardcorePercentA11y", { percent: hardcoreText }) : null,
+            ].filter(Boolean).join(", ")}
             style={({ pressed }) => [styles.row, { opacity: pressed ? 0.85 : 1 }]}
         >
             <View style={[styles.iconFrame, { borderColor: rarity }]}>
@@ -84,7 +93,13 @@ function AchievementRowComponent({ item, game, onOpen }) {
                 )}
             </View>
 
-            <Text style={[styles.pill, { color: rarity, backgroundColor: `${rarity}1F` }]}>{percentText}</Text>
+            <View style={styles.rarityCol}>
+                <Text style={[styles.pill, { color: rarity, backgroundColor: `${rarity}1F` }]}>{percentText}</Text>
+                {/* RA: só hardcore, em dourado, embaixo da porcentagem total */}
+                {hardcoreText && (
+                    <Text style={[styles.pill, { color: COLORS.gold, backgroundColor: `${COLORS.gold}1F` }]}>{hardcoreText}</Text>
+                )}
+            </View>
         </Pressable>
     );
 }
@@ -490,6 +505,7 @@ const styles = StyleSheet.create({
     status: { fontFamily: FONTS.bodyMedium, fontSize: 11 },
     raMeta: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 1 },
     points: { fontFamily: FONTS.bodySemibold, fontSize: 11, color: COLORS.gold },
+    rarityCol: { alignItems: "flex-end", gap: 4 },
     pill: {
         fontFamily: FONTS.bodySemibold,
         fontSize: 12,

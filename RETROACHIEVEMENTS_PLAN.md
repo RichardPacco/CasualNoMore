@@ -530,6 +530,7 @@ Cada etapa termina com o app funcionando e vira um commit. A Steam **não pode q
 
 ### Etapa 7 — Opcional, depois que tudo estiver estável
 
+- ✅ **Raridade igual ao site (v4.3.0):** a % de cada conquista do RA é todos os desbloqueios (casual + hardcore) ÷ jogadores, com a % só hardcore num selo dourado e o detalhe (casual · hardcore · jogadores, barra em duas cores) na ficha. A API repete o total em `NumDistinctPlayersHardcore`, então "Jogadores" mostra só o total. Também: "points" no lugar de "pts", pontos softcore dos amigos em cinza, e avatar/nome na tela do amigo abrindo o perfil no site
 - ✅ **Ícone do console** na biblioteca do RA (card e grade): os ícones ficam no app (`assets/images/consoles`, 83 consoles), baixados uma vez por `scripts/fetch-console-icons.mjs` (precisa de `RA_API_KEY`); rodar de novo quando o RA adicionar consoles
 - ✅ **Card único no Perfil** (fora do plano original): `ProfileSummaryCard` junta Steam e RA num card só (total de jogos 100%, barra Steam × RA, um bloco por plataforma); tocar no avatar alterna a identidade e o selo (status na Steam ou rank + top % no RA); rich presence no fim. A busca do RA saiu do `RaAccountCard` (removido) para `useRaProfileStats`. Esconder hacks/subsets ficou só no filtro da biblioteca
 - ✅ **Correção (v3.2.0):** com Steam e RA conectados, o banco era aberto duas vezes ao mesmo tempo na inicialização; a conexão extra derrubava a outra e toda consulta falhava ("não encontrado no cache" em tudo). O `openDB` agora guarda a promessa da abertura

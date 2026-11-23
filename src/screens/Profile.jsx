@@ -2,25 +2,25 @@ import { getPlayerSummary } from "@/src/api/steam";
 import AboutModal from "@/src/components/AboutModal";
 import AppUpdateRow from "@/src/components/AppUpdateRow";
 import LanguageSelector from "@/src/components/LanguageSelector";
-import ProfileCard from "@/src/components/ProfileCard";
-import RaAccountCard from "@/src/components/RaAccountCard";
+import ProfileSummaryCard from "@/src/components/ProfileSummaryCard";
 import PullToRefresh from "@/src/components/PullToRefresh";
-import { AppText, Button, ProgressRing } from "@/src/components/ui";
+import { AppText, Button } from "@/src/components/ui";
 import { AuthContext } from "@/src/context/AuthContext";
 import { getAllGames } from "@/src/database/db";
+import useRaProfileStats from "@/src/hooks/useRaProfileStats";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { getGameCounts } from "@/src/utils/achievements";
 import { COLORS, FONTS } from "@/src/theme/colors";
 import { useRouter } from "expo-router";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
-import { useSettings } from "@/src/context/SettingsContext";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 import Pressable from "@/src/components/ui/Pressable";
 import { Ionicons } from "@expo/vector-icons";
 
 /**
- * Calcula as estatísticas de progresso: jogos perfeitos (100% de conquistas)
- * e a média de progresso entre os jogos com conquistas.
+ * Calcula as estatísticas de progresso: total de jogos da biblioteca, jogos
+ * perfeitos (100% de conquistas) e a média de progresso entre os jogos com
+ * conquistas.
  */
 function computeCompletionStats(cachedGames) {
     const played = cachedGames.filter(g => {
@@ -37,13 +37,14 @@ function computeCompletionStats(cachedGames) {
         ? withAchievements.reduce((sum, g) => sum + getGameCounts(g).percent, 0) / withAchievements.length
         : 0;
 
-    return { perfected, avgCompletion };
+    return { games: cachedGames.length, perfected, avgCompletion };
 }
 
 /**
- * Perfil (redesign, prancheta 11): card do perfil Steam, jogos completos e
- * conclusão média, card da conta do RetroAchievements (quando conectada) e a
- * lista de ajustes (idioma, sobre o app, sair). Puxar para baixo atualiza.
+ * Perfil (redesign, prancheta 11): um card só para as plataformas conectadas
+ * (ProfileSummaryCard: identidade, total de jogos 100% e os números de cada
+ * plataforma) e a lista de ajustes (idioma, sobre o app, sair). Puxar para
+ * baixo atualiza.
  * Nos ajustes: conectar a plataforma que falta (abre o login no modo
  * "adicionar"), desconectar uma delas (com as duas conectadas) e "Sair", que
  * desconecta todas. As keys continuam salvas para o próximo login.
@@ -59,13 +60,14 @@ export default function Profile() {
     // só a parte da Steam carrega da API; sem Steam não há o que esperar
     const [loading, setLoading] = useState(!!steamId);
     const [refreshingProfile, setRefreshingProfile] = useState(false);
-    const [completionStats, setCompletionStats] = useState({ perfected: 0, avgCompletion: 0 });
+    const [completionStats, setCompletionStats] = useState({ games: 0, perfected: 0, avgCompletion: 0 });
     const [aboutVisible, setAboutVisible] = useState(false);
-    const { settings, updateSettings } = useSettings();
     // muda a cada puxar para atualizar: o card do RA busca de novo
     const [raRefreshKey, setRaRefreshKey] = useState(0);
-    // resolve a espera do puxar para atualizar quando o card do RA termina
+    // resolve a espera do puxar para atualizar quando o RA termina de buscar
     const raDoneRef = useRef(null);
+    // números do RA (pontos, RetroPoints, rank, masterizados, status)
+    const raProfile = useRaProfileStats(accounts.ra, raRefreshKey, () => raDoneRef.current?.());
     const cancelledRef = useRef(false);
 
     useEffect(() => {
@@ -102,7 +104,7 @@ export default function Profile() {
     const refreshProfile = useCallback(async () => {
         setRefreshingProfile(true);
 
-        // RA: o card avisa (onLoaded) quando terminou de buscar; no máximo 20 s
+        // RA: o hook avisa (onLoaded) quando terminou de buscar; no máximo 20 s
         const raDone = accounts.ra
             ? new Promise(resolve => {
                 raDoneRef.current = resolve;
@@ -203,27 +205,12 @@ export default function Profile() {
                 <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
                     <AppText variant="title">{tr("tabProfile")}</AppText>
 
-                    {steamId && profile && <ProfileCard data={profile} />}
-
-                    {/* Jogos completos e conclusão média (Steam) */}
-                    {steamId && profile && (
-                    <View style={styles.stats}>
-                        <View style={styles.statTile}>
-                            <View style={styles.trophyIcon}>
-                                <Ionicons name="trophy" size={18} color={COLORS.gold} />
-                            </View>
-                            <Text style={styles.statValue}>{completionStats.perfected}</Text>
-                            <AppText variant="muted">{tr("profilePerfectedGames")}</AppText>
-                        </View>
-                        <View style={styles.statTile}>
-                            <ProgressRing value={completionStats.avgCompletion} size={36} stroke={5} showLabel={false} />
-                            <Text style={styles.statValue}>{completionStats.avgCompletion.toFixed(1)}%</Text>
-                            <AppText variant="muted">{tr("profileAvgCompletion")}</AppText>
-                        </View>
-                    </View>
-                    )}
-
-                    {accounts.ra && <RaAccountCard account={accounts.ra} refreshKey={raRefreshKey} onLoaded={() => raDoneRef.current?.()} />}
+                    {/* Um card só para as plataformas conectadas */}
+                    <ProfileSummaryCard
+                        steam={steamId && profile ? { profile, ...completionStats } : null}
+                        ra={accounts.ra ? { account: accounts.ra, stats: raProfile.stats, loading: raProfile.loading } : null}
+                        onUpdateRaKey={() => router.push({ pathname: "/(auth)/login", params: { platform: "ra", mode: "add", resetKey: "1" } })}
+                    />
 
                     {/* Ajustes: idioma, sobre o app, sair */}
                     <View style={styles.settings}>
@@ -231,19 +218,6 @@ export default function Profile() {
                             <Text style={styles.settingLabel}>{tr("languageLabel")}</Text>
                             <LanguageSelector inset />
                         </View>
-                        {/* RA: esconder hacks/subsets da biblioteca (os mesmos do painel de filtros) */}
-                        {accounts.ra && [["hideHacks", tr("hideHacks")], ["hideSubsets", tr("hideSubsets")]].map(([key, label]) => (
-                            <View key={key} style={[styles.settingRow, styles.settingDivider]}>
-                                <Text style={styles.settingLabel}>{label}</Text>
-                                <Switch
-                                    value={!!settings[key]}
-                                    onValueChange={v => updateSettings({ [key]: v })}
-                                    accessibilityLabel={label}
-                                    trackColor={{ false: COLORS.border, true: COLORS.accent }}
-                                    thumbColor={COLORS.text}
-                                />
-                            </View>
-                        ))}
                         {/* Conectar a plataforma que falta */}
                         {platformRows.filter(([id]) => !accounts[id]).map(([id, name]) => (
                             <Pressable
@@ -307,17 +281,6 @@ const styles = StyleSheet.create({
     center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: COLORS.bg },
     // espaço no fim para o conteúdo não ficar atrás da tab bar flutuante
     content: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 110, gap: 14 },
-    stats: { flexDirection: "row", gap: 10 },
-    statTile: { flex: 1, padding: 16, borderRadius: 20, backgroundColor: COLORS.surface, gap: 8 },
-    trophyIcon: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: "rgba(255, 179, 0, 0.14)",
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    statValue: { fontFamily: FONTS.display, fontSize: 28, lineHeight: 32, color: COLORS.text },
     settings: { borderRadius: 20, backgroundColor: COLORS.surface, overflow: "hidden" },
     settingRow: {
         minHeight: 56,

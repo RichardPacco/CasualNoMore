@@ -15,8 +15,14 @@ const HIDDEN_OFFSET = 420; // deslocamento do painel fechado (fora da tela)
  * opção por linha com marcador de rádio e contagem opcional. Escolher uma
  * opção aplica e fecha. O botão voltar do Android fecha o painel.
  * Props: visible, onClose, title, options [{label,value}], selected, onSelect, counts.
+ *
+ * Segunda escolha opcional (ex.: a direção de uma ordenação): `secondary` =
+ * { title, options [{label,value,icon}], selected, onSelect }, mostrada como
+ * um seletor de duas partes embaixo da lista. Com ela, escolher aplica na
+ * hora e o painel fica aberto (fecha no X, fora dele ou no voltar);
+ * `optionsTitle` dá um título para a lista de cima.
  */
-export default function RadioSheet({ visible, onClose, title, options, selected, onSelect, counts }) {
+export default function RadioSheet({ visible, onClose, title, options, selected, onSelect, counts, optionsTitle, secondary }) {
     const { t } = useLanguage();
     const insets = useSafeAreaInsets();
     const anim = useRef(new Animated.Value(HIDDEN_OFFSET)).current;
@@ -79,6 +85,7 @@ export default function RadioSheet({ visible, onClose, title, options, selected,
                     </Pressable>
                 </View>
 
+                {optionsTitle ? <AppText variant="label">{optionsTitle}</AppText> : null}
                 <View accessibilityRole="radiogroup">
                     {options.map((opt) => {
                         const on = selected === opt.value;
@@ -87,7 +94,8 @@ export default function RadioSheet({ visible, onClose, title, options, selected,
                                 key={opt.value}
                                 onPress={() => {
                                     onSelect(opt.value);
-                                    close();
+                                    // com a segunda escolha, o painel fica aberto
+                                    if (!secondary) close();
                                 }}
                                 accessibilityRole="radio"
                                 accessibilityState={{ checked: on }}
@@ -108,6 +116,31 @@ export default function RadioSheet({ visible, onClose, title, options, selected,
                         );
                     })}
                 </View>
+
+                {secondary && (
+                    <View style={{ gap: 10 }}>
+                        <AppText variant="label">{secondary.title}</AppText>
+                        <View style={styles.segment} accessibilityRole="radiogroup" accessibilityLabel={secondary.title}>
+                            {secondary.options.map(opt => {
+                                const on = secondary.selected === opt.value;
+                                return (
+                                    <Pressable
+                                        key={opt.value}
+                                        onPress={() => secondary.onSelect(opt.value)}
+                                        accessibilityRole="radio"
+                                        accessibilityState={{ checked: on }}
+                                        style={[styles.segmentItem, on && styles.segmentItemOn]}
+                                    >
+                                        {opt.icon && <Ionicons name={opt.icon} size={16} color={on ? COLORS.text : COLORS.textSoft} />}
+                                        <Text style={[styles.segmentLabel, { color: on ? COLORS.text : COLORS.textSoft }]} numberOfLines={2}>
+                                            {opt.label}
+                                        </Text>
+                                    </Pressable>
+                                );
+                            })}
+                        </View>
+                    </View>
+                )}
             </Animated.View>
         </>
     );
@@ -146,4 +179,17 @@ const styles = StyleSheet.create({
     radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: COLORS.accent },
     label: { flex: 1, fontFamily: FONTS.body, fontSize: 16, color: COLORS.text },
     count: { fontFamily: FONTS.bodySemibold, fontSize: 13, minWidth: 28, textAlign: "right" },
+    segment: { flexDirection: "row", gap: 4, padding: 4, borderRadius: 14, backgroundColor: COLORS.bg },
+    segmentItem: {
+        flex: 1,
+        minHeight: 48,
+        borderRadius: 10,
+        paddingHorizontal: 8,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+    },
+    segmentItemOn: { backgroundColor: COLORS.border },
+    segmentLabel: { flexShrink: 1, fontFamily: FONTS.bodySemibold, fontSize: 13, textAlign: "center" },
 });

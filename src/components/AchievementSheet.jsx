@@ -98,6 +98,26 @@ export default function AchievementSheet({ achievement, game, onClose }) {
                                 <AchievementTypeTag type={item.type} />
                             </View>
                         )}
+                        {/* RA: de onde vem a raridade, como no site (barra em duas cores) */}
+                        {isRa && item.players > 0 && (
+                            <View style={{ gap: 6 }} accessible accessibilityLabel={tr("raUnlockBreakdown", {
+                                casual: item.awardedCasual.toLocaleString(),
+                                hardcore: item.awardedHardcore.toLocaleString(),
+                                players: item.players.toLocaleString(),
+                            })}>
+                                <View style={styles.rarityBar}>
+                                    <View style={{ width: `${Math.min(100, (item.awardedHardcore / item.players) * 100)}%`, backgroundColor: COLORS.gold }} />
+                                    <View style={{ width: `${Math.min(100, (item.awardedCasual / item.players) * 100)}%`, backgroundColor: COLORS.textMuted }} />
+                                </View>
+                                <Text style={styles.breakdown}>
+                                    {tr("raUnlockBreakdown", {
+                                        casual: item.awardedCasual.toLocaleString(),
+                                        hardcore: item.awardedHardcore.toLocaleString(),
+                                        players: item.players.toLocaleString(),
+                                    })}
+                                </Text>
+                            </View>
+                        )}
                         <Text style={[styles.status, { color: item.achieved ? COLORS.accent : COLORS.textMuted }]}>
                             {status} · {game?.name}
                         </Text>
@@ -175,6 +195,8 @@ const styles = StyleSheet.create({
     desc: { fontFamily: FONTS.body, fontSize: 15, lineHeight: 23, color: COLORS.textSoft },
     status: { fontFamily: FONTS.body, fontSize: 13 },
     raMeta: { flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" },
+    rarityBar: { height: 6, borderRadius: 3, overflow: "hidden", flexDirection: "row", backgroundColor: COLORS.surface2 },
+    breakdown: { fontFamily: FONTS.body, fontSize: 12, color: COLORS.textMuted },
     points: { fontFamily: FONTS.bodySemibold, fontSize: 13, color: COLORS.gold },
     label: {
         fontFamily: FONTS.bodySemibold,

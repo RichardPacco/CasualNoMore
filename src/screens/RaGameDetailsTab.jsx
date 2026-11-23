@@ -31,9 +31,9 @@ function releaseText(details) {
  */
 export default function RaGameDetailsTab({ game, details, loading }) {
     const { t: tr } = useLanguage();
-    const players = details?.players
-        ? tr("playersValue", { hardcore: details.playersHardcore.toLocaleString(), total: details.players.toLocaleString() })
-        : null;
+    // total de jogadores (a API não separa os de hardcore: os campos
+    // NumDistinctPlayersCasual/Hardcore só repetem o total)
+    const players = details?.players ? details.players.toLocaleString() : null;
 
     return (
         <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>

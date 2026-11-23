@@ -64,7 +64,9 @@ export default function useRaGame(row, account) {
         const saved = Array.isArray(row.achievements) ? row.achievements : [];
         const savedUnlocked = saved.filter(a => a.achieved).length;
         const changed = (row.numAwardedHardcore ?? savedUnlocked) !== savedUnlocked
-            || (row.maxPossible ?? saved.length) !== saved.length;
+            || (row.maxPossible ?? saved.length) !== saved.length
+            // lista salva antes do detalhe de raridade (casual/hardcore): busca de novo
+            || (saved.length > 0 && saved[0].players === undefined);
         if (row.achievementsStatus === "done" && !changed) {
             setLoading(false);
             return;

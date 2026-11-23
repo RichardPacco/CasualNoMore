@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import { memo, useContext, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
-import { getUserCompletionProgress, raMedia, raUserPic } from "@/src/api/retroachievements";
+import { ActivityIndicator, Image, Linking, StyleSheet, Text, View } from "react-native";
+import { getUserCompletionProgress, raMedia, raUserPic, raUserUrl } from "@/src/api/retroachievements";
 import AwardMedal from "@/src/components/AwardMedal";
 import { AppText, ProgressBar, TextField } from "@/src/components/ui";
 import Pressable from "@/src/components/ui/Pressable";
@@ -24,16 +24,33 @@ function progressOf(unlocked, total, kind) {
     return { pct, award };
 }
 
-/** Uma barra de progresso com rótulo (você / o amigo) e a medalha, se houver. */
-function ProgressLine({ label, pct, award }) {
+/**
+ * Uma barra de progresso com rótulo (você / o amigo) e a medalha, se houver.
+ * `softcore`: texto em cinza embaixo quando há desbloqueios só em softcore
+ * (o % é só hardcore, então um jogo jogado em softcore aparece como 0%).
+ */
+function ProgressLine({ label, pct, award, softcore }) {
     return (
-        <View style={styles.progressRow}>
-            <Text style={styles.progressLabel} numberOfLines={1}>{label}</Text>
-            <ProgressBar value={pct} style={{ flex: 1 }} />
-            <Text style={styles.progressPct}>{Math.round(pct)}%</Text>
-            <View style={styles.medalSlot}>{award && <AwardMedal award={award} size={16} />}</View>
+        <View style={{ gap: 2 }}>
+            <View style={styles.progressRow}>
+                <Text style={styles.progressLabel} numberOfLines={1}>{label}</Text>
+                <ProgressBar value={pct} style={{ flex: 1 }} />
+                <Text style={styles.progressPct}>{Math.round(pct)}%</Text>
+                <View style={styles.medalSlot}>{award && <AwardMedal award={award} size={16} />}</View>
+            </View>
+            {softcore ? <Text style={styles.softcore}>{softcore}</Text> : null}
         </View>
     );
+}
+
+/**
+ * "15/40 em softcore" quando a pessoa tem mais desbloqueios no total (casual +
+ * hardcore) do que em hardcore; null se não tiver nada só em softcore.
+ */
+function softcoreText(awarded, awardedHardcore, total, tr) {
+    const all = Number(awarded) || 0;
+    if (!(Number(total) > 0) || all <= (Number(awardedHardcore) || 0)) return null;
+    return tr("softcoreProgress", { n: Math.min(all, total), total });
 }
 
 /** Linha de um jogo do amigo: ícone, nome, console e o progresso dos dois. */
@@ -50,8 +67,20 @@ const GameRow = memo(function GameRow({ item, mine, friendName }) {
                 <Text style={styles.console} numberOfLines={1}>{item.ConsoleName}</Text>
                 {Number(item.MaxPossible) > 0 && (
                     <>
-                        <ProgressLine label={friendName} pct={friend.pct} award={friend.award} />
-                        {me && <ProgressLine label={tr("you")} pct={me.pct} award={me.award} />}
+                        <ProgressLine
+                            label={friendName}
+                            pct={friend.pct}
+                            award={friend.award}
+                            softcore={softcoreText(item.NumAwarded, item.NumAwardedHardcore, Number(item.MaxPossible), tr)}
+                        />
+                        {me && (
+                            <ProgressLine
+                                label={tr("you")}
+                                pct={me.pct}
+                                award={me.award}
+                                softcore={softcoreText(mine.numAwarded, mine.numAwardedHardcore, mine.maxPossible, tr)}
+                            />
+                        )}
                     </>
                 )}
             </View>
@@ -140,13 +169,19 @@ export default function RaCommonGames({ route, navigation }) {
                     <Ionicons name="chevron-back" size={22} color={COLORS.text} />
                 </Pressable>
 
-                <View style={styles.friendRow}>
+                {/* avatar e nome abrem o perfil da pessoa no RetroAchievements */}
+                <Pressable
+                    onPress={() => Linking.openURL(raUserUrl(name)).catch(err => console.error("Failed to open URL:", err))}
+                    accessibilityRole="link"
+                    accessibilityLabel={`${name}, ${tr("viewOnRa")}`}
+                    style={({ pressed }) => [styles.friendRow, { opacity: pressed ? 0.8 : 1 }]}
+                >
                     <Image source={{ uri: raUserPic(name) }} style={styles.avatar} />
                     <View style={{ flex: 1, gap: 2 }}>
                         <AppText variant="title" style={{ fontSize: 26 }} numberOfLines={1}>{name}</AppText>
                         {games && <AppText variant="muted">{subtitle}</AppText>}
                     </View>
-                </View>
+                </Pressable>
 
                 <View style={styles.segment} accessibilityRole="tablist" accessibilityLabel={tr("friendGamesFilter")}>
                     {[
@@ -245,6 +280,8 @@ const styles = StyleSheet.create({
     progressRow: { flexDirection: "row", alignItems: "center", gap: 8 },
     progressLabel: { width: 64, fontFamily: FONTS.bodyMedium, fontSize: 11, color: COLORS.textSoft },
     progressPct: { width: 34, textAlign: "right", fontFamily: FONTS.bodySemibold, fontSize: 11, color: COLORS.textSoft },
+    // desbloqueios só em softcore: alinhado com a barra, em cinza
+    softcore: { marginLeft: 72, fontFamily: FONTS.body, fontSize: 11, color: COLORS.textMuted },
     medalSlot: { width: 16, alignItems: "center" },
     empty: { paddingVertical: 48, alignItems: "center" },
 });

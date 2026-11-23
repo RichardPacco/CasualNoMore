@@ -94,12 +94,16 @@ function achievementType(a) {
  * (o mesmo da Steam: name, description, icon, achieved, unlocktime,
  * globalPercent), mais os campos do RA: points, trueRatio, type, order e
  * softcoreUnlocktime. Só hardcore conta (decisão D2): `achieved` = desbloqueada
- * em hardcore; a raridade é entre os jogadores de hardcore.
+ * em hardcore. A raridade é como no site: todos os desbloqueios (casual +
+ * hardcore) ÷ total de jogadores; o detalhe (casual, hardcore, jogadores)
+ * vai junto para a ficha da conquista.
  * Volta na ordem do autor do set (DisplayOrder).
  */
 export function toAchievements(info) {
     const list = Object.values(info?.Achievements ?? {});
-    const playersHardcore = Number(info?.NumDistinctPlayersHardcore) || Number(info?.NumDistinctPlayers) || 0;
+    // Raridade como no site: todos os desbloqueios (casual + hardcore) ÷ total
+    // de jogadores. (NumDistinctPlayersHardcore só repete o total na API atual.)
+    const players = Number(info?.NumDistinctPlayers) || 0;
 
     return list
         .map(a => {
@@ -107,6 +111,8 @@ export function toAchievements(info) {
             const softcoreAt = parseRaDate(a.DateEarned);
             const achieved = !!hardcoreAt;
             const awardedHardcore = Number(a.NumAwardedHardcore) || 0;
+            // NumAwarded = todos os desbloqueios (casual + hardcore)
+            const awardedTotal = Math.max(Number(a.NumAwarded) || 0, awardedHardcore);
             return {
                 apiname: String(a.ID),
                 id: Number(a.ID),
@@ -118,7 +124,11 @@ export function toAchievements(info) {
                 unlocktime: achieved ? Math.floor(hardcoreAt / 1000) : 0,
                 // desbloqueada só em softcore: não conta, mas aparece na ficha
                 softcoreUnlocktime: !achieved && softcoreAt ? Math.floor(softcoreAt / 1000) : 0,
-                globalPercent: playersHardcore > 0 ? Math.min(100, (awardedHardcore / playersHardcore) * 100) : 0,
+                globalPercent: players > 0 ? Math.min(100, (awardedTotal / players) * 100) : 0,
+                // detalhe da raridade na ficha: casual · hardcore · jogadores
+                awardedHardcore,
+                awardedCasual: awardedTotal - awardedHardcore,
+                players,
                 points: Number(a.Points) || 0,
                 trueRatio: Number(a.TrueRatio) || 0,
                 type: achievementType(a),
@@ -141,6 +151,5 @@ export function toDetails(info) {
         guideUrl: info.GuideURL || null,
         forumTopicId: Number(info.ForumTopicID) || null,
         players: Number(info.NumDistinctPlayers) || 0,
-        playersHardcore: Number(info.NumDistinctPlayersHardcore) || 0,
     };
 }

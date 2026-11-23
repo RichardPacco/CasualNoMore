@@ -7,6 +7,7 @@ import { ProgressBar } from "@/src/components/ui";
 import { useImageCdnFallback } from "@/src/hooks/useImageCdnFallback";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { getPlatform } from "@/src/platforms";
+import { consoleIcon as raConsoleIcon } from "@/src/platforms/ra/consoleIcons";
 import { COLORS, FONTS } from "@/src/theme/colors";
 
 const placeholderImage = require("../../assets/images/placeholder_gamelist.jpg");
@@ -43,6 +44,16 @@ function GameCardComponent({ game, navigation, onOpen, onLongPress, onTogglePin,
     const hasAchievements = total > 0;
     const complete = hasAchievements && unlocked === total;
     const subtitle = getPlatform(game.platform)?.subtitle(game, tr) ?? "";
+    // RA: ícone do console ao lado do nome dele
+    const consoleIcon = game.platform === "ra" ? raConsoleIcon(game.console?.id) : null;
+    const subtitleLine = (
+        <View style={styles.metaRow}>
+            {consoleIcon && (
+                <Image source={consoleIcon} style={styles.consoleIcon} resizeMode="contain" accessibilityIgnoresInvertColors />
+            )}
+            <Text style={[styles.meta, { flexShrink: 1 }]} numberOfLines={1}>{subtitle}</Text>
+        </View>
+    );
     const countText = hasAchievements
         ? tr("achievementsCount", { unlocked, total, percent: percent.toFixed(1) })
         : null;
@@ -91,7 +102,7 @@ function GameCardComponent({ game, navigation, onOpen, onLongPress, onTogglePin,
                 </View>
                 <View style={styles.tileBody}>
                     <Text style={styles.tileName} numberOfLines={2}>{game.name}</Text>
-                    <Text style={styles.meta} numberOfLines={1}>{subtitle}</Text>
+                    {subtitleLine}
                     {hasAchievements && (
                         <>
                             <ProgressBar value={percent} height={6} style={{ marginTop: 4 }} />
@@ -147,7 +158,7 @@ function GameCardComponent({ game, navigation, onOpen, onLongPress, onTogglePin,
                     {medal}
                     {pin}
                 </View>
-                <Text style={styles.meta} numberOfLines={1}>{subtitle}</Text>
+                {subtitleLine}
                 {hasAchievements && (
                     <>
                         <ProgressBar value={percent} height={8} style={{ marginTop: 4 }} />
@@ -181,6 +192,9 @@ const styles = StyleSheet.create({
     titleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
     name: { flex: 1, fontFamily: FONTS.bodySemibold, fontSize: 16, color: COLORS.text },
     meta: { fontFamily: FONTS.body, fontSize: 13, color: COLORS.textMuted },
+    // RA: ícone do console + nome do console
+    metaRow: { flexDirection: "row", alignItems: "center", gap: 6, minWidth: 0 },
+    consoleIcon: { width: 18, height: 18 },
     count: { fontFamily: FONTS.body, fontSize: 12, color: COLORS.textMuted },
     // ícone quadrado (RA): mesma altura da cápsula, em quadrado
     squareImage: { width: 56, height: 56, borderRadius: 10, backgroundColor: COLORS.surface2 },

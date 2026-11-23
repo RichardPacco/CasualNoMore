@@ -106,6 +106,47 @@ function AchievementRowComponent({ item, game, onOpen }) {
 
 const AchievementRow = memo(AchievementRowComponent);
 
+/**
+ * Tipos de ordenação: rótulo e direção padrão. "asc" (crescente) segue a
+ * ordem natural do valor: menor primeiro, A → Z, mais antiga primeiro, a
+ * ordem do set; "desc" (decrescente) é o contrário.
+ */
+const SORT_TYPES = {
+    default: { label: "achSortDefault", dir: "asc" },
+    rarity: { label: "achSortRarity", dir: "desc" },
+    points: { label: "achSortPoints", dir: "asc" },
+    unlock: { label: "achSortUnlock", dir: "desc" },
+    name: { label: "sortName", dir: "asc" },
+};
+const RA_SORTS = ["default", "rarity", "points", "unlock", "name"];
+const STEAM_SORTS = ["rarity", "unlock", "name"];
+
+/**
+ * Ordena as conquistas pelo tipo e direção. "default" mantém a ordem em que a
+ * lista vem (RA: a do autor do set) e só inverte em "desc". Na data de
+ * desbloqueio, as bloqueadas ficam sempre no fim, nas duas direções.
+ */
+function sortAchievements(list, type, dir) {
+    const sign = dir === "desc" ? -1 : 1;
+    if (type === "default") return dir === "desc" ? [...list].reverse() : list;
+    const value = {
+        rarity: a => a.globalPercent || 0,
+        points: a => a.points || 0,
+        unlock: a => a.unlocktime || 0,
+    }[type];
+    if (type === "name") {
+        return [...list].sort((a, b) => sign * (a.name || "").localeCompare(b.name || ""));
+    }
+    if (type === "unlock") {
+        return [...list].sort((a, b) => {
+            const va = value(a), vb = value(b);
+            if (!va !== !vb) return va ? -1 : 1; // bloqueadas no fim
+            return sign * (va - vb);
+        });
+    }
+    return [...list].sort((a, b) => sign * (value(a) - value(b)));
+}
+
 /** Conquista perdível (RetroAchievements). */
 const isMissable = (a) => a.type === "missable";
 
@@ -130,8 +171,15 @@ export default function AchievementsTab({ game, data = null }) {
     const [filter, setFilter] = useState("all");
     // RA: mostrar só as perdíveis; combina com o filtro de status (ex.: perdíveis bloqueadas)
     const [onlyMissable, setOnlyMissable] = useState(false);
-    // RA: ordem do autor do set (DisplayOrder); Steam: raridade
-    const [sort, setSort] = useState(isRa ? "default" : "rarity");
+    // Ordenação em duas partes: o tipo e a direção. RA começa na ordem do
+    // autor do set (DisplayOrder); Steam, na raridade (mais comuns primeiro).
+    const [sort, setSortType] = useState(isRa ? "default" : "rarity");
+    const [sortDir, setSortDir] = useState(SORT_TYPES[isRa ? "default" : "rarity"].dir);
+    /** Troca o tipo e volta a direção para a padrão dele. */
+    const setSort = useCallback((type) => {
+        setSortType(type);
+        setSortDir(SORT_TYPES[type]?.dir ?? "asc");
+    }, []);
     const [sortVisible, setSortVisible] = useState(false);
     const [showTopButton, setShowTopButton] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
@@ -172,18 +220,15 @@ export default function AchievementsTab({ game, data = null }) {
         { label: tr("achFilterLocked"), value: "locked" },
     ], [tr]);
 
-    const sortOptions = useMemo(() => isRa ? [
-        { label: tr("achSortDefault"), value: "default" },
-        { label: tr("achSortRarity"), value: "rarity" },
-        { label: tr("achSortPoints"), value: "points" },
-        { label: tr("achSortUnlock"), value: "unlock" },
-        { label: tr("sortName"), value: "name" },
-    ] : [
-        { label: tr("achSortRarity"), value: "rarity" },
-        { label: tr("achSortUnlock"), value: "unlock" },
-        { label: tr("sortName"), value: "name" },
-        { label: tr("achSortReverse"), value: "reverse" },
-    ], [tr, isRa]);
+    const sortOptions = useMemo(
+        () => (isRa ? RA_SORTS : STEAM_SORTS).map(type => ({ label: tr(SORT_TYPES[type].label), value: type })),
+        [tr, isRa]
+    );
+    // Direção: crescente ou decrescente (vale para qualquer tipo)
+    const dirOptions = useMemo(() => [
+        { value: "asc", label: tr("dirAsc"), icon: "arrow-up" },
+        { value: "desc", label: tr("dirDesc"), icon: "arrow-down" },
+    ], [tr]);
 
     /** Regra do filtro de status. */
     const statusRule = useCallback((value) => {
@@ -218,29 +263,8 @@ export default function AchievementsTab({ game, data = null }) {
             );
         }
 
-        switch (sort) {
-            case "rarity":
-                result = [...result].sort((a, b) => b.globalPercent - a.globalPercent);
-                break;
-            case "unlock":
-                result = [...result].sort((a, b) => (b.unlocktime || 0) - (a.unlocktime || 0));
-                break;
-            case "name":
-                result = [...result].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-                break;
-            case "reverse":
-                result = [...result].reverse();
-                break;
-            case "points":
-                // menos pontos primeiro (as mais fáceis no topo)
-                result = [...result].sort((a, b) => (a.points || 0) - (b.points || 0));
-                break;
-            // "default": a ordem em que a lista já vem (RA: a do autor do set)
-            default: break;
-        }
-
-        return result;
-    }, [mergedCheevos, statusRule, filter, missableOn, sort, debouncedQuery]);
+        return sortAchievements(result, sort, sortDir);
+    }, [mergedCheevos, statusRule, filter, missableOn, sort, sortDir, debouncedQuery]);
 
     // debounce search query
     useEffect(() => {
@@ -279,6 +303,7 @@ export default function AchievementsTab({ game, data = null }) {
     }
 
     const sortLabel = sortOptions.find(o => o.value === sort)?.label ?? "";
+    const dirLabel = dirOptions.find(o => o.value === sortDir)?.label ?? "";
 
     return (
         <View style={styles.screen}>
@@ -327,10 +352,10 @@ export default function AchievementsTab({ game, data = null }) {
                     <Pressable
                         onPress={() => setSortVisible(true)}
                         accessibilityRole="button"
-                        accessibilityLabel={tr("sortButton", { sort: sortLabel })}
+                        accessibilityLabel={tr("sortButton", { sort: `${sortLabel}, ${dirLabel}` })}
                         style={({ pressed }) => [styles.sortButton, { opacity: pressed ? 0.8 : 1 }]}
                     >
-                        <Ionicons name="swap-vertical" size={16} color={COLORS.textSoft} />
+                        <Ionicons name={sortDir === "asc" ? "arrow-up" : "arrow-down"} size={16} color={COLORS.textSoft} />
                         <Text style={styles.sortLabel} numberOfLines={1}>{sortLabel}</Text>
                     </Pressable>
                     <Pressable
@@ -414,9 +439,11 @@ export default function AchievementsTab({ game, data = null }) {
                 visible={sortVisible}
                 onClose={() => setSortVisible(false)}
                 title={tr("sortTitle")}
+                optionsTitle={tr("sortByTitle")}
                 options={sortOptions}
                 selected={sort}
                 onSelect={setSort}
+                secondary={{ title: tr("sortDirectionTitle"), options: dirOptions, selected: sortDir, onSelect: setSortDir }}
             />
 
             <AchievementSheet

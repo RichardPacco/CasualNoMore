@@ -7,7 +7,7 @@ Browse your libraries, track your achievement progress, compare with friends and
 > This app is a personal project. It is not affiliated with Valve, Steam or RetroAchievements.
 > Retro achievement data: [RetroAchievements.org](https://retroachievements.org).
 
-Current version: **4.2.0**
+Current version: **4.2.1**
 
 **Download:** get the latest APK from the [Releases page](https://github.com/RichardPacco/CasualNoMore/releases). Once installed, the app updates itself from **Profile → Check for updates**.
 
@@ -144,9 +144,10 @@ cd android
 
 The APK is written to `android/app/build/outputs/apk/release/app-release.apk` (signed with the debug key, which is enough to install and test). To install it on a phone connected by USB: `adb install -r android/app/build/outputs/apk/release/app-release.apk`.
 
-**Faster local builds.** The first release build compiles native code for 4 CPU architectures and can take 10–20 minutes or more. To speed it up:
-- Build only for your phone's architecture (almost every modern Android phone is `arm64-v8a`):
-  `./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --parallel --build-cache`
+**Architecture.** The APK is built only for 64-bit ARM phones (`arm64-v8a`, almost every modern Android phone), set by [`plugins/withArchitectures.js`](./plugins/withArchitectures.js). For an x86 emulator, build once with `-PreactNativeArchitectures=x86`.
+
+**Faster local builds.** The first release build can still take several minutes. To speed it up:
+- Use `--parallel --build-cache` with `assembleRelease`.
 - Skip `prebuild --clean` and `gradlew clean` unless something native changed, so Gradle can reuse its cache.
 - On Windows, add the project folder and `%USERPROFILE%\.gradle` to the Windows Security antivirus exclusions.
 
@@ -220,7 +221,7 @@ Navegue pelas suas bibliotecas, acompanhe seu progresso de conquistas, compare c
 > Este app é um projeto pessoal. Não é afiliado à Valve, à Steam ou ao RetroAchievements.
 > Dados de conquistas retrô: [RetroAchievements.org](https://retroachievements.org).
 
-Versão atual: **4.2.0**
+Versão atual: **4.2.1**
 
 **Download:** baixe o APK mais recente na [página de Releases](https://github.com/RichardPacco/CasualNoMore/releases). Depois de instalado, o app se atualiza pelo **Perfil → Verificar atualização**.
 
@@ -357,9 +358,10 @@ cd android
 
 O APK sai em `android/app/build/outputs/apk/release/app-release.apk` (assinado com a chave de debug, o que basta para instalar e testar). Para instalar num celular conectado por USB: `adb install -r android/app/build/outputs/apk/release/app-release.apk`.
 
-**Builds locais mais rápidos.** O primeiro build de release compila código nativo para 4 arquiteturas de CPU e pode levar 10 a 20 minutos ou mais. Para acelerar:
-- Compile só para a arquitetura do seu celular (quase todo Android moderno é `arm64-v8a`):
-  `./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --parallel --build-cache`
+**Arquitetura.** O APK é gerado só para celulares ARM de 64 bits (`arm64-v8a`, quase todo Android atual), definido pelo [`plugins/withArchitectures.js`](./plugins/withArchitectures.js). Para um emulador x86, faça um build pontual com `-PreactNativeArchitectures=x86`.
+
+**Builds locais mais rápidos.** O primeiro build de release ainda pode levar alguns minutos. Para acelerar:
+- Use `--parallel --build-cache` no `assembleRelease`.
 - Não rode `prebuild --clean` nem `gradlew clean` se nada nativo mudou, para o Gradle aproveitar o cache.
 - No Windows, adicione a pasta do projeto e a `%USERPROFILE%\.gradle` às exclusões do antivírus (Segurança do Windows).
 

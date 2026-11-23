@@ -1,6 +1,5 @@
 import * as SQLite from "expo-sqlite";
 
-// Abertura do banco (promessa compartilhada, ver openDB)
 let dbPromise = null;
 
 // Tabelas já garantidas nesta sessão, para não recriar a cada acesso

@@ -7,7 +7,9 @@ Browse your libraries, track your achievement progress, compare with friends and
 > This app is a personal project. It is not affiliated with Valve, Steam or RetroAchievements.
 > Retro achievement data: [RetroAchievements.org](https://retroachievements.org).
 
-Current version: **3.2.0**
+Current version: **4.0.0**
+
+**Download:** get the latest APK from the [Releases page](https://github.com/RichardPacco/CasualNoMore/releases). Once installed, the app updates itself from **Profile → Check for updates**.
 
 ## Features
 
@@ -21,6 +23,7 @@ Current version: **3.2.0**
 - **Game screen** with Details and Achievements tabs: rarity colors, unlock dates, search, filters and sorting, and an achievement sheet with guide search (Google, ChatGPT).
 - **Friends** with games in common and your progress next to theirs.
 - **Profile** with your stats and settings.
+- **In-app updates** (Android): Profile → Check for updates downloads the latest release and opens the installer.
 - Local SQLite cache: everything opens instantly and works offline after the first sync.
 - Dark theme ("Arcade Night"), UI in Portuguese and English (with flags in the language picker).
 
@@ -217,7 +220,9 @@ Navegue pelas suas bibliotecas, acompanhe seu progresso de conquistas, compare c
 > Este app é um projeto pessoal. Não é afiliado à Valve, à Steam ou ao RetroAchievements.
 > Dados de conquistas retrô: [RetroAchievements.org](https://retroachievements.org).
 
-Versão atual: **3.2.0**
+Versão atual: **4.0.0**
+
+**Download:** baixe o APK mais recente na [página de Releases](https://github.com/RichardPacco/CasualNoMore/releases). Depois de instalado, o app se atualiza pelo **Perfil → Verificar atualização**.
 
 ## Funcionalidades
 
@@ -231,6 +236,7 @@ Versão atual: **3.2.0**
 - **Tela do jogo** com as abas Detalhes e Conquistas: cores de raridade, datas de desbloqueio, busca, filtros e ordenação, e a ficha da conquista com busca de guias (Google, ChatGPT).
 - **Amigos** com jogos em comum e o seu progresso ao lado do deles.
 - **Perfil** com as suas estatísticas e os ajustes.
+- **Atualização pelo app** (Android): Perfil → Verificar atualização baixa a última release e abre o instalador.
 - Cache local em SQLite: tudo abre na hora e funciona offline depois da primeira sincronização.
 - Tema escuro ("Arcade Night"), interface em português e inglês (com bandeiras no seletor de idioma).
 

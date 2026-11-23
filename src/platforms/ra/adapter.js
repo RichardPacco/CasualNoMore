@@ -90,6 +90,22 @@ function achievementType(a) {
 }
 
 /**
+ * Linha do banco para um jogo da lista "Quero jogar" que ainda não está na
+ * biblioteca (nunca jogado), com os campos que a lista traz. Usada por
+ * ensureRaGameRow para a tela do jogo conseguir abri-lo.
+ */
+export function toWantToPlayRow(item) {
+    return {
+        gameId: Number(item.ID),
+        title: item.Title || "",
+        consoleId: Number(item.ConsoleID) || null,
+        consoleName: item.ConsoleName || "",
+        imageIcon: item.ImageIcon || null,
+        maxPossible: Number(item.AchievementsPublished) || 0,
+    };
+}
+
+/**
  * Converte as conquistas de GetGameInfoAndUserProgress para o formato comum
  * (o mesmo da Steam: name, description, icon, achieved, unlocktime,
  * globalPercent), mais os campos do RA: points, trueRatio, type, order e

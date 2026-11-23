@@ -81,5 +81,7 @@ export default function useLibrary() {
         refreshGame,
         togglePin,
         reloadGame,
+        // RA: quantos jogos na lista "Quero jogar" (a tela própria lê a lista)
+        wantToPlayCount: ra.wantToPlay.length,
     };
 }

@@ -530,6 +530,7 @@ Cada etapa termina com o app funcionando e vira um commit. A Steam **não pode q
 
 ### Etapa 7 — Opcional, depois que tudo estiver estável
 
+- ✅ **Tela "Quero jogar" (v5.3.0):** `GetUserWantToPlayList` buscada na sincronização da biblioteca (2 chamadas para ~750 jogos) e guardada no aparelho (`src/platforms/ra/wantToPlay.js`); atalho na biblioteca do RA; tela própria `RaWantToPlay` com busca, ordenação (nome, console, conquistas, pontos + direção), filtros (console, só com conquistas, hacks/subsets), contagem e "Me surpreenda". Sem progresso nem alfinete (lista de jogos ainda não jogados); abrir um nunca jogado cria uma linha temporária no banco. A API da lista não traz RetroPoints, RetroRatio nem data de lançamento
 - ✅ **Manter a tela ligada (v5.0.0):** toggle no Perfil (`expo-keep-awake`, preferência `keepAwake`). Em desenvolvimento o próprio Expo mantém a tela ligada sempre; a opção só desliga de verdade no APK de release
 - ✅ **Ordenação em duas camadas (v4.5.0):** conquistas ordenadas por tipo (RA: padrão, raridade, pontos, data, nome; Steam: raridade, data, nome) + direção crescente/decrescente; cada tipo começa na sua direção padrão; na data, bloqueadas sempre no fim
 - ✅ **Softcore nos jogos do amigo (v4.4.0):** embaixo de cada barra (amigo e você), "X/Y em softcore" em cinza quando há desbloqueios só em softcore; explica jogos jogados que aparecem com 0% (o % é só hardcore)

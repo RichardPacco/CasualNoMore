@@ -171,6 +171,15 @@ export function getUserAwards(u) {
     return raFetch("GetUserAwards", { u });
 }
 
+/**
+ * Lista "Quero jogar" do usuário (todas as páginas). Só vem a sua ou a de
+ * alguém com quem você tem seguimento mútuo. Cada item: ID, Title, ImageIcon,
+ * ConsoleID, ConsoleName, PointsTotal, AchievementsPublished.
+ */
+export function getUserWantToPlayList(u) {
+    return fetchAllPages("GetUserWantToPlayList", { u });
+}
+
 /** Quem o dono da key segue (todas as páginas). */
 export function getUsersIFollow() {
     return fetchAllPages("GetUsersIFollow");
